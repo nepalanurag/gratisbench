@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const title = 'FreeKit Pro - Coming Soon';
+const description =
+  'FreeKit Pro: one simple upgrade for the whole toolkit. One-time payment, no subscription. Coming soon.';
+---
+<BaseLayout title={title} description={description}>
+  <div class="wrap">
+    <div class="page-head">
+      <h1>FreeKit Pro</h1>
+      <p class="lede">One upgrade for the whole toolkit. No subscription.</p>
+    </div>
+
+    <div class="content">
+      <div class="price-card">
+        <div class="price">$19 <small>one-time</small></div>
+        <ul class="perks">
+          <li>Every current and future FreeKit tool, unlocked</li>
+          <li>No ads anywhere on the site</li>
+          <li>Priority for new tool requests</li>
+          <li>Pay once, keep it. No subscription, no renewal.</li>
+        </ul>
+        <div class="soon-note">
+          Pro is not available yet. The free tools above are fully free and stay that way;
+          Pro will only ever add convenience, never take it away. Check back soon.
+        </div>
+      </div>
+
+      <h2>Why a paid tier at all</h2>
+      <p>
+        The free tools cost almost nothing to run, because your browser does the work instead of
+        a server. Pro exists for one reason: some people would rather pay a small amount once
+        than see ads. That is the whole pitch. If you never pay, nothing changes about the free tools.
+      </p>
+    </div>
+  </div>
+</BaseLayout>

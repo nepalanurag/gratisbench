@@ -1,0 +1,115 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { basePath, siteUrl } from '../lib/site';
+
+const title = 'FreeKit - Free Online Tools That Run in Your Browser';
+const description =
+  'Free online tools with no signup and no watermarks: merge PDF, split PDF, images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, compress and convert images, QR code generator. Your files never leave your device.';
+
+const groups = [
+  {
+    name: 'PDF tools',
+    tools: [
+      { href: '/merge-pdf', icon: 'merge', name: 'Merge PDF', desc: 'Combine several PDFs into one, in your order.' },
+      { href: '/split-pdf', icon: 'split', name: 'Split PDF', desc: 'Extract pages by number into new documents.' },
+      { href: '/images-to-pdf', icon: 'image', name: 'Images to PDF', desc: 'Turn JPG, PNG, and WebP images into one PDF.' },
+      { href: '/pdf-compressor', icon: 'compress', name: 'Compress PDF', desc: 'Shrink a PDF by rebuilding pages at lower resolution.' },
+      { href: '/pdf-to-jpg', icon: 'photo', name: 'PDF to JPG', desc: 'Convert PDF pages to JPG or PNG images.' },
+      { href: '/pdf-redactor', icon: 'redact', name: 'Redact PDF', desc: 'Permanently black out sensitive parts of a PDF.' },
+      { href: '/pdf-esignature', icon: 'sign', name: 'Sign PDF', desc: 'Draw or type a signature and place it on any page.' },
+    ],
+  },
+  {
+    name: 'Image tools',
+    tools: [
+      { href: '/image-compressor', icon: 'compress', name: 'Image compressor', desc: 'Shrink photos and screenshots with a quality slider.' },
+      { href: '/image-converter', icon: 'image', name: 'Image converter', desc: 'Convert between PNG, JPEG, WebP, and AVIF.' },
+    ],
+  },
+  {
+    name: 'Generators',
+    tools: [
+      { href: '/qr-generator', icon: 'qr', name: 'QR generator', desc: 'QR codes for links and text, with optional logo.' },
+    ],
+  },
+] as const;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'FreeKit',
+  url: siteUrl(Astro.site) + basePath('/'),
+  description,
+};
+---
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <div class="wrap">
+    <div class="home-head">
+      <p class="eyebrow">FreeKit</p>
+      <h1>Small tools that run in your browser.</h1>
+      <p class="lede">
+        Merge a PDF, split a PDF, turn images into a PDF, shrink one, convert pages to images,
+        redact sensitive parts, sign a document, compress or convert your images, make a QR code.
+        Free, no accounts, no watermarks. Your files never leave your device.
+      </p>
+    </div>
+
+    <!-- Ad slot: homepage (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="home-top" aria-hidden="true"><span>Advertisement</span></div>
+
+    <div class="tool-index">
+      {groups.map((g) => (
+        <section aria-label={g.name}>
+          <h2>{g.name}</h2>
+          {g.tools.map((t) => (
+            <a class="tool-row" href={basePath(t.href)}>
+              <span class="tool-row-icon"><Icon name={t.icon} size={20} /></span>
+              <span>
+                <span class="tool-row-name">{t.name}</span>
+                <p class="tool-row-desc">{t.desc}</p>
+              </span>
+              <span class="arrow"><Icon name="arrow" size={18} /></span>
+            </a>
+          ))}
+        </section>
+      ))}
+    </div>
+
+    <div class="content">
+      <h2>Why these tools are free</h2>
+      <div class="why">
+        <div class="why-item">
+          <h3><Icon name="lock" size={18} /> Private by construction</h3>
+          <p>Every tool runs as code in your browser. There is no server processing your files, because there is nothing to send them to.</p>
+        </div>
+        <div class="why-item">
+          <h3><Icon name="check" size={18} /> No accounts, no quotas</h3>
+          <p>No signup, no daily limits, no watermarks. The tools do the job and get out of the way.</p>
+        </div>
+        <div class="why-item">
+          <h3><Icon name="check" size={18} /> Works offline</h3>
+          <p>Once a page has loaded, the tool keeps working without a connection. Try it in airplane mode.</p>
+        </div>
+      </div>
+
+      <h2>Common questions</h2>
+      <dl>
+        <div class="faq">
+          <dt>What is FreeKit?</dt>
+          <dd>FreeKit is a collection of small, single-purpose web tools: PDF utilities, converters, and generators. Each tool does one job, runs entirely in your browser, and is free without an account.</dd>
+        </div>
+        <div class="faq">
+          <dt>How can the tools be free?</dt>
+          <dd>Because there is almost nothing to pay for. The tools run on your device instead of a server, so there are no per-file processing costs. A simple site with no backend is cheap to run, and that saving is passed on as no prices, no quotas, and no watermarks.</dd>
+        </div>
+        <div class="faq">
+          <dt>Are my files really private?</dt>
+          <dd>Yes. Open your browser's network tab while using any tool and you will see no file uploads. Your documents are read, processed, and downloaded locally. Closing the tab removes all trace.</dd>
+        </div>
+      </dl>
+    <!-- Ad slot: homepage bottom (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="home-bottom" aria-hidden="true"><span>Advertisement</span></div>
+    </div>
+  </div>
+</BaseLayout>

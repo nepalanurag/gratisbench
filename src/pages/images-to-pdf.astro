@@ -1,0 +1,103 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Images to PDF - Free Online JPG to PDF Converter';
+const description =
+  'Turn JPG, PNG, and WebP images into a PDF for free. Choose page size, reorder pages, no signup, no watermark. Your files never leave your browser.';
+const h1 = 'Images to PDF';
+const lede = 'Turn a set of images into one PDF. Pick the page size, arrange the order, download. Free, no account, no watermark.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Images to PDF', href: '/images-to-pdf' }]}
+  toolName="FreeKit Images to PDF"
+  intro={[
+    'Photos of documents, scanned pages from a phone camera, screenshots, receipts: sooner or later a pile of images needs to become one PDF. Maybe a form asks for a single file, or you want to archive a set of scans properly. The usual converters handle it, but they cap how many images you can convert, shrink your files, or hold the download hostage until you make an account.',
+    'This converter takes your images and lays each one onto its own PDF page, in the order you arrange. You choose the page size: match each page to its image exactly, or fit every image onto standard A4 or US Letter pages with clean margins. PNG and JPEG files go in untouched; WebP, GIF and BMP are converted losslessly in your browser first, so almost any image works.',
+    'As with every FreeKit tool, the conversion runs entirely on your device. That matters more than usual here, because the images people convert are often personal: IDs, receipts, handwritten notes. They are never uploaded, never stored, and never seen by anyone but you.',
+  ]}
+  steps={[
+    'Drop your images onto the box above, or click it to browse. They appear as thumbnails in order.',
+    'Reorder the images with the up and down arrows. The first image becomes page one.',
+    'Choose a page size: fit each page to its image, or use A4 or US Letter with margins.',
+    'Click "Create PDF" and download the result.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Input formats', 'PNG, JPEG, WebP, GIF, BMP'],
+    ['Page sizes', 'Fit to image, A4, US Letter'],
+    ['Image limit', 'None enforced. Very large sets are limited only by your device\u2019s memory.'],
+    ['Quality', 'PNG and JPEG are embedded as-is; other formats are converted losslessly to PNG first'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is converting images to PDF really free?',
+      a: 'Yes. No limits on the number of images, no watermarks, no account. The conversion is a local operation, so there is no per-file cost to pass on to you.',
+    },
+    {
+      q: 'Are my images uploaded anywhere?',
+      a: 'No. Everything happens in your browser on your own device. This is deliberate: people convert IDs, receipts, and personal photos, and none of that should travel to a server.',
+    },
+    {
+      q: 'What is the difference between the page sizes?',
+      a: '"Fit to image" makes each PDF page exactly the size of its image, with no scaling and no margins, which is best for photos and scans you want at full size. A4 and US Letter scale each image to fit a standard page with half-inch margins, which is best for documents you plan to print.',
+    },
+    {
+      q: 'Will my images lose quality?',
+      a: 'PNG and JPEG files are embedded exactly as they are, with no recompression. WebP, GIF, and BMP are decoded and stored as PNG, which is lossless. Nothing is downscaled unless you choose A4 or Letter and the image is larger than the page.',
+    },
+    {
+      q: 'How many images can I convert at once?',
+      a: 'There is no built-in cap. The practical limit is your device\u2019s memory: a few dozen phone photos convert in seconds, while hundreds of huge images may take longer. If the browser struggles, convert in smaller batches and merge the PDFs afterwards.',
+    },
+    {
+      q: 'Can I convert HEIC photos from my iPhone?',
+      a: 'Not directly yet. iPhone photos in HEIC format need to be converted to JPEG or PNG first (your phone can do this when sharing or exporting). Standard JPEG and PNG exports work fine here.',
+    },
+    {
+      q: 'The order of my pages is wrong. Can I fix it?',
+      a: 'Yes. Use the up and down arrows on each thumbnail to rearrange the images before converting. The list order is the page order in the final PDF.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Images to PDF tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add images to convert">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop images here</div>
+      <div class="dz-sub">or click to choose files &middot; PNG, JPG, WebP &middot; they stay on your device</div>
+    </div>
+    <input type="file" id="file-input" multiple hidden />
+    <div id="error-box" class="error-box" hidden></div>
+    <ul id="file-list" class="file-list"></ul>
+    <p id="empty-state" class="empty-state">No images yet. Add your images above, then arrange them in page order.</p>
+    <div class="field">
+      <label for="page-size">Page size</label>
+      <select id="page-size">
+        <option value="fit">Fit to image (each page matches its image)</option>
+        <option value="a4">A4 (images scaled to fit, with margins)</option>
+        <option value="letter">US Letter (images scaled to fit, with margins)</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button id="convert-btn" class="btn" disabled>Create PDF</button>
+      <span id="count-label" class="count-label"></span>
+    </div>
+    <div id="result" class="result" hidden>
+      <h3>Done</h3>
+      <p id="result-info"></p>
+      <button id="download-btn" class="btn">Download PDF</button>
+    </div>
+  </section>
+  <script>
+    import { initImagesToPdf } from '../tools/images-to-pdf';
+    initImagesToPdf();
+  </script>
+</ToolPage>

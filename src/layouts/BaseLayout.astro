@@ -1,0 +1,85 @@
+---
+import '../styles/global.css';
+import '@fontsource/space-grotesk/500.css';
+import '@fontsource/space-grotesk/700.css';
+import { siteUrl, basePath } from '../lib/site';
+
+interface Props {
+  title: string;
+  description: string;
+  canonical?: string;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+}
+
+const { title, description, canonical, jsonLd } = Astro.props;
+const site = siteUrl(Astro.site); // from SITE_URL env, placeholder until launch
+const pageUrl = canonical ?? site + Astro.url.pathname;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={pageUrl} />
+    <link rel="icon" type="image/svg+xml" href={basePath('/favicon.svg')} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={pageUrl} />
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+    <!-- Plausible analytics: set data-domain to the real domain when ready, then uncomment.
+    <script defer data-domain="www.freekit.app" src="https://plausible.io/js/script.js"></script>
+    -->
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href={basePath('/')} aria-label="FreeKit home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M5 4h11v6H5z"/><path d="M5 4v16"/><path d="M5 12h8"/></svg>
+          </span>
+          FreeKit
+        </a>
+        <nav class="site-nav" aria-label="Main">
+          <a href={basePath('/pdf-tools')}>PDF tools</a>
+          <a href={basePath('/image-tools')}>Image tools</a>
+          <a href={basePath('/qr-generator')}>QR generator</a>
+          <a href={basePath('/pro')} class="pro-link">Pro</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <a class="brand" href={basePath('/')}>
+          <span class="brand-mark" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M5 4h11v6H5z"/><path d="M5 4v16"/><path d="M5 12h8"/></svg>
+          </span>
+          FreeKit
+        </a>
+        <span>Free tools that run in your browser.</span>
+        <nav aria-label="Footer">
+          <a href={basePath('/pdf-tools')}>PDF tools</a>
+          <a href={basePath('/merge-pdf')}>Merge PDF</a>
+          <a href={basePath('/split-pdf')}>Split PDF</a>
+          <a href={basePath('/images-to-pdf')}>Images to PDF</a>
+          <a href={basePath('/pdf-compressor')}>Compress PDF</a>
+          <a href={basePath('/pdf-to-jpg')}>PDF to JPG</a>
+          <a href={basePath('/pdf-redactor')}>Redact PDF</a>
+          <a href={basePath('/pdf-esignature')}>Sign PDF</a>
+          <a href={basePath('/image-tools')}>Image tools</a>
+          <a href={basePath('/image-compressor')}>Compress images</a>
+          <a href={basePath('/image-converter')}>Convert images</a>
+          <a href={basePath('/qr-generator')}>QR generator</a>
+          <a href={basePath('/pro')}>Pro</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

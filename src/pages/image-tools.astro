@@ -1,0 +1,105 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { basePath, siteUrl } from '../lib/site';
+
+const title = 'Image Tools - Free Online Image Compressor and Converter | FreeKit';
+const description =
+  'Free online image tools: compress images with a quality slider, convert between PNG, JPEG, WebP, and AVIF. No signup, no watermark. Everything runs in your browser.';
+
+const tools = [
+  { href: '/image-compressor', icon: 'compress', name: 'Image compressor', desc: 'Shrink photos and screenshots with a quality slider, batch and ZIP included.' },
+  { href: '/image-converter', icon: 'photo', name: 'Image converter', desc: 'Convert between PNG, JPEG, WebP, and AVIF, with a transparency warning for JPEG.' },
+] as const;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'FreeKit image tools',
+  url: siteUrl(Astro.site) + basePath('/image-tools'),
+  description,
+};
+---
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <div class="wrap">
+    <div class="page-head">
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href={basePath("/")}>FreeKit</a><span><span class="sep">/</span><a href={basePath("/image-tools")}>Image tools</a></span>
+      </nav>
+      <h1>Image tools</h1>
+      <p class="lede">
+        Two utilities for everyday image jobs: shrinking files with a quality slider you control,
+        and converting between the formats your software and websites actually accept.
+        All free, all private, all in your browser.
+      </p>
+      <div>
+        <span class="privacy-line"><Icon name="lock" size={15} /> Your files never leave your device.</span>
+      </div>
+    </div>
+
+    <!-- Ad slot: hub top (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-top" aria-hidden="true"><span>Advertisement</span></div>
+
+    <div class="tool-index">
+      {tools.map((t) => (
+        <a class="tool-row" href={basePath(t.href)}>
+          <span class="tool-row-icon"><Icon name={t.icon} size={20} /></span>
+          <span>
+            <span class="tool-row-name">{t.name}</span>
+            <p class="tool-row-desc">{t.desc}</p>
+          </span>
+          <span class="arrow"><Icon name="arrow" size={18} /></span>
+        </a>
+      ))}
+    </div>
+
+    <div class="content">
+      <h2>What these tools do</h2>
+      <p>
+        Most image work is not editing. It is preparing: a photo that is too big to email, a WebP
+        that your software cannot open, a BMP scan eating disk space for no reason. The compressor
+        handles the first job with a quality slider and per-file before/after sizes, so you can see
+        exactly what each setting costs. The converter handles the rest, redrawing each image in the
+        format you pick.
+      </p>
+      <p>
+        A useful pattern: run heavy photos through <a href={basePath("/image-compressor")}>Image compressor</a>
+        first at quality 80, then use <a href={basePath("/image-converter")}>Image converter</a> only when the
+        format itself is the problem, such as a PNG that needs to become a JPEG for an upload form. Both tools
+        process batches and hand you a single ZIP at the end. Everything stays on your device the whole way through.
+      </p>
+
+      <h2>Honest limitations, stated up front</h2>
+      <p>
+        PNG is lossless, so compressing a PNG as PNG barely changes its size; real savings come from converting
+        to JPEG or WebP, and both tools say so where it matters. JPEG has no transparency, so converting a
+        transparent image to JPEG forces a background color: the tools warn you and offer a white fill instead of
+        silently turning those areas black. AVIF output appears only when your browser can actually encode it.
+        Animated GIFs convert as a single still frame.
+      </p>
+
+      <h2>Common questions</h2>
+      <dl>
+        <div class="faq">
+          <dt>Are these image tools free?</dt>
+          <dd>Yes. Both tools are free with no limits, no watermarks, and no account.</dd>
+        </div>
+        <div class="faq">
+          <dt>Do my images get uploaded?</dt>
+          <dd>No. Both tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded.</dd>
+        </div>
+        <div class="faq">
+          <dt>Will my images lose quality?</dt>
+          <dd>It depends on the settings. JPEG, WebP, and AVIF outputs are lossy and discard some detail; PNG output is lossless. The compressor shows the size saving per file so you can judge the trade-off, and nothing is final until you download.</dd>
+        </div>
+        <div class="faq">
+          <dt>What about transparency?</dt>
+          <dd>PNG, WebP, and AVIF keep the alpha channel. JPEG cannot store transparency, so both tools warn you when an image actually has transparent pixels and offer a white background fill for JPEG output.</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Ad slot: hub bottom (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-bottom" aria-hidden="true"><span>Advertisement</span></div>
+  </div>
+</BaseLayout>

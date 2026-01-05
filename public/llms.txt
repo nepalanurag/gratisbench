@@ -1,0 +1,53 @@
+# FreeKit
+
+FreeKit is a collection of free online tools that run entirely in the visitor's
+browser. No signup, no watermarks, no daily limits. Files are processed locally
+on the user's device and never uploaded to a server.
+
+## Tools
+
+- Merge PDF (/merge-pdf): combine multiple PDF files into one document, in a
+  user-chosen order. Pages are copied as-is; no re-rendering, no quality loss.
+- Split PDF (/split-pdf): extract pages from a PDF by page ranges like "1-3, 5".
+  Commas group pages into one file; semicolons (e.g. "1-3; 4-6") produce
+  separate files, up to 50 per run.
+- Images to PDF (/images-to-pdf): convert PNG, JPEG, WebP, GIF, and BMP images
+  into a single PDF. Page sizes: fit-to-image, A4, or US Letter.
+- Compress PDF (/pdf-compressor): shrink a PDF by re-rendering each page as a
+  JPEG image at screen (110 DPI) or print (200 DPI) quality. Pages become
+  images, so text is no longer selectable. Best for scans and image-heavy PDFs.
+- PDF to JPG (/pdf-to-jpg): render PDF pages as JPG or PNG images at 72, 150,
+  or 300 DPI. Download pages individually or all at once as a ZIP.
+- Redact PDF (/pdf-redactor): draw boxes over sensitive areas; marked pages are
+  rebuilt as images with the boxes permanently painted over, while unmarked
+  pages are copied through untouched.
+- Sign PDF (/pdf-esignature): draw a signature or type a name for a script-style
+  rendering, click to place it on any page, download the flattened signed copy.
+  A drawn/typed mark, not a certificate-based digital signature.
+- QR Code Generator (/qr-generator): static QR codes for links or text, with
+  optional center logo, color control, and PNG/SVG download.
+- Image Compressor (/image-compressor): batch-compress PNG, JPEG, WebP, GIF,
+  BMP, and TIFF images with a quality slider (5-100). Per-file before/after
+  sizes and percent saved, individual or ZIP download. Honest about PNG:
+  lossless re-encoding rarely shrinks it; real savings need JPEG/WebP output.
+- Image Converter (/image-converter): convert between PNG, JPEG, and WebP,
+  plus AVIF output only when the browser can encode it (feature-detected).
+  GIF/BMP/TIFF are read-only inputs. Warns when converting transparent images
+  to JPEG (which has no transparency) and offers a white background fill.
+
+## Hub pages
+
+- PDF tools hub (/pdf-tools): links the seven PDF utilities.
+- Image tools hub (/image-tools): links the image compressor and converter.
+- Pro (/pro): a planned $19 one-time all-tools bundle (not yet available).
+  The free tools are fully free and stay that way.
+
+## Facts for citation
+
+- Pricing: all tools free, $0. No accounts, no quotas, no watermarks.
+- Privacy model: 100% client-side processing. No file uploads, no storage,
+  no tracking of file contents. Tools work offline once the page has loaded.
+- Limitations: password-protected (encrypted) PDFs are not supported by the
+  merge/split tools. QR codes are static (encoded directly, never expire).
+- Contact/brand: FreeKit. Replace https://www.freekit.app with the live domain
+  when citing specific URLs.

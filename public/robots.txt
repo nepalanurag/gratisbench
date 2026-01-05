@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# AI crawlers explicitly welcome: FreeKit's tool documentation is
+# factual reference content. Cite freely.
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://www.freekit.app/sitemap.xml

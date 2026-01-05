@@ -1,0 +1,102 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { basePath, siteUrl } from '../lib/site';
+
+const title = 'PDF Tools - Free Online PDF Utilities | FreeKit';
+const description =
+  'Free online PDF tools: merge PDFs, split PDFs by page range, convert images to PDF, compress PDF, PDF to JPG, redact PDF, and sign PDF. No signup, no watermark. Everything runs in your browser.';
+
+const tools = [
+  { href: '/merge-pdf', icon: 'merge', name: 'Merge PDF', desc: 'Combine multiple PDFs into one document, in whatever order you choose.' },
+  { href: '/split-pdf', icon: 'split', name: 'Split PDF', desc: 'Extract pages by number. One range per file, or several files at once.' },
+  { href: '/images-to-pdf', icon: 'image', name: 'Images to PDF', desc: 'Turn JPG, PNG, and WebP images into a single PDF with page-size control.' },
+  { href: '/pdf-compressor', icon: 'compress', name: 'Compress PDF', desc: 'Shrink a PDF by rebuilding its pages at screen or print resolution.' },
+  { href: '/pdf-to-jpg', icon: 'photo', name: 'PDF to JPG', desc: 'Render PDF pages as JPG or PNG images at 72, 150, or 300 DPI.' },
+  { href: '/pdf-redactor', icon: 'redact', name: 'Redact PDF', desc: 'Black out sensitive areas permanently; unmarked pages stay untouched.' },
+  { href: '/pdf-esignature', icon: 'sign', name: 'Sign PDF', desc: 'Draw or type your signature and place it on any page.' },
+] as const;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'FreeKit PDF tools',
+  url: siteUrl(Astro.site) + basePath('/pdf-tools'),
+  description,
+};
+---
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <div class="wrap">
+    <div class="page-head">
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href={basePath("/")}>FreeKit</a><span><span class="sep">/</span><a href={basePath("/pdf-tools")}>PDF tools</a></span>
+      </nav>
+      <h1>PDF tools</h1>
+      <p class="lede">
+        Seven utilities for everyday PDF jobs: combining files, extracting pages, turning images
+        into documents, shrinking files, converting pages to images, redacting sensitive parts,
+        and signing documents. All free, all private, all in your browser.
+      </p>
+      <div>
+        <span class="privacy-line"><Icon name="lock" size={15} /> Your files never leave your device.</span>
+      </div>
+    </div>
+
+    <!-- Ad slot: hub top (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-top" aria-hidden="true"><span>Advertisement</span></div>
+
+    <div class="tool-index">
+      {tools.map((t) => (
+        <a class="tool-row" href={basePath(t.href)}>
+          <span class="tool-row-icon"><Icon name={t.icon} size={20} /></span>
+          <span>
+            <span class="tool-row-name">{t.name}</span>
+            <p class="tool-row-desc">{t.desc}</p>
+          </span>
+          <span class="arrow"><Icon name="arrow" size={18} /></span>
+        </a>
+      ))}
+    </div>
+
+    <div class="content">
+      <h2>What these tools do</h2>
+      <p>
+        Most PDF work is not editing. It is assembling: pulling pages out of one file, combining several files
+        into one, or turning a set of scanned images into a proper document. The first three tools cover those jobs
+        without the usual friction of upload queues, daily limits, or watermarks.
+      </p>
+      <p>
+        A useful pattern: use <a href={basePath("/split-pdf")}>Split PDF</a> to extract the pages you need from several
+        documents, then <a href={basePath("/merge-pdf")}>Merge PDF</a> to combine the results into one. Scanned pages from
+        a phone camera go through <a href={basePath("/images-to-pdf")}>Images to PDF</a> first. When a file is too big to
+        email, <a href={basePath("/pdf-compressor")}>Compress PDF</a> shrinks it; when you need pages as images,
+        <a href={basePath("/pdf-to-jpg")}>PDF to JPG</a> renders them. <a href={basePath("/pdf-redactor")}>Redact PDF</a>
+        permanently blacks out sensitive parts before sharing, and <a href={basePath("/pdf-esignature")}>Sign PDF</a>
+        places your drawn or typed signature on any page. Everything stays on your device the whole way through.
+      </p>
+
+      <h2>Common questions</h2>
+      <dl>
+        <div class="faq">
+          <dt>Are these PDF tools free?</dt>
+          <dd>Yes. All seven tools are free with no limits, no watermarks, and no account.</dd>
+        </div>
+        <div class="faq">
+          <dt>Do my PDFs get uploaded?</dt>
+          <dd>No. All seven tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded.</dd>
+        </div>
+        <div class="faq">
+          <dt>Will the quality of my PDFs change?</dt>
+          <dd>It depends on the tool. Merge, split, image-to-PDF, redaction of unmarked pages, and signing copy pages as-is, so text stays selectable and quality is unchanged. Compress PDF, PDF to JPG, and redacted pages deliberately turn pages into images, which is stated on each of those pages before you run them.</dd>
+        </div>
+        <div class="faq">
+          <dt>What about password-protected PDFs?</dt>
+          <dd>Encrypted PDFs cannot be opened without the password, so the merge and split tools cannot process them. Remove the password in your PDF reader first.</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Ad slot: hub bottom (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-bottom" aria-hidden="true"><span>Advertisement</span></div>
+  </div>
+</BaseLayout>
