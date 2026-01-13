@@ -1,6 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import Icon from '../components/Icon.astro';
+import SupportNotice from '../components/SupportNotice.astro';
 import { siteUrl, basePath } from '../lib/site';
 
 interface Crumb { label: string; href: string }
@@ -69,9 +70,17 @@ const jsonLd = [
     <div class="ad-slot" data-ad-slot="tool-top" aria-hidden="true"><span>Advertisement</span></div>
 
     <slot name="tool" />
+    <slot />
+    <!--
+      The default slot above renders each tool page's <script> block.
+      Without it, Astro silently drops page scripts (they are compiled
+      but never injected into the HTML), leaving every tool dead.
+    -->
 
     <!-- Ad slot: below the tool / results area (AdSense display unit goes here) -->
     <div class="ad-slot" data-ad-slot="tool-bottom" aria-hidden="true"><span>Advertisement</span></div>
+
+    <SupportNotice />
 
     <div class="content">
       {intro.map((p) => <p>{p}</p>)}

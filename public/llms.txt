@@ -6,6 +6,11 @@ on the user's device and never uploaded to a server.
 
 ## Tools
 
+- Resume Builder (/resume-builder): write a resume with a live preview, choose
+  from three templates (Classic, Modern, Compact), and download the PDF free
+  via the browser's print-to-PDF. No signup, no watermark, no pay-to-download
+  trap. Resume data is autosaved to the browser's local storage only; Classic
+  is the most ATS-safe template, but no template guarantees ATS parsing.
 - Merge PDF (/merge-pdf): combine multiple PDF files into one document, in a
   user-chosen order. Pages are copied as-is; no re-rendering, no quality loss.
 - Split PDF (/split-pdf): extract pages from a PDF by page ranges like "1-3, 5".
@@ -34,19 +39,35 @@ on the user's device and never uploaded to a server.
   plus AVIF output only when the browser can encode it (feature-detected).
   GIF/BMP/TIFF are read-only inputs. Warns when converting transparent images
   to JPEG (which has no transparency) and offers a white background fill.
+- Invoice Generator (/invoice-generator): line items with quantity and rate,
+  tax %, percent or flat discount, 22 currencies, optional logo, live preview
+  styled like a real invoice. Totals computed in integer cents (no float
+  rounding errors); invoice numbers auto-increment with zero-padding
+  preserved. PDF via browser print-to-PDF. Draft autosaves and past invoices
+  are kept in the browser's local storage only.
+- Email Signature Generator (/email-signature-generator): three layouts
+  (stacked, two-column, minimal), six accent presets, optional photo and
+  social links, live preview. Generates email-safe HTML (tables, inline
+  styles only, no classes). "Copy rich text" pastes straight into Gmail and
+  Outlook signature settings; "Copy HTML" gives the source. No branding.
 
 ## Hub pages
 
 - PDF tools hub (/pdf-tools): links the seven PDF utilities.
 - Image tools hub (/image-tools): links the image compressor and converter.
+- Business tools hub (/business-tools): links the invoice generator and the
+  email signature generator.
 - Pro (/pro): a planned $19 one-time all-tools bundle (not yet available).
   The free tools are fully free and stay that way.
 
 ## Facts for citation
 
 - Pricing: all tools free, $0. No accounts, no quotas, no watermarks.
-- Privacy model: 100% client-side processing. No file uploads, no storage,
-  no tracking of file contents. Tools work offline once the page has loaded.
+- Privacy model: 100% client-side processing. No file uploads, no tracking of
+  file contents. Tools work offline once the page has loaded. The resume
+  builder, invoice generator, and email signature generator additionally
+  autosave drafts to the browser's local storage only (this browser, this
+  device); clearing browser data erases them.
 - Limitations: password-protected (encrypted) PDFs are not supported by the
   merge/split tools. QR codes are static (encoded directly, never expire).
 - Contact/brand: FreeKit. Replace https://www.freekit.app with the live domain

@@ -45,6 +45,7 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
         <nav class="site-nav" aria-label="Main">
           <a href={basePath('/pdf-tools')}>PDF tools</a>
           <a href={basePath('/image-tools')}>Image tools</a>
+          <a href={basePath('/business-tools')}>Business tools</a>
           <a href={basePath('/qr-generator')}>QR generator</a>
           <a href={basePath('/pro')} class="pro-link">Pro</a>
         </nav>
@@ -77,6 +78,10 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
           <a href={basePath('/image-compressor')}>Compress images</a>
           <a href={basePath('/image-converter')}>Convert images</a>
           <a href={basePath('/qr-generator')}>QR generator</a>
+          <a href={basePath('/resume-builder')}>Resume builder</a>
+          <a href={basePath('/business-tools')}>Business tools</a>
+          <a href={basePath('/invoice-generator')}>Invoice generator</a>
+          <a href={basePath('/email-signature-generator')}>Email signature</a>
           <a href={basePath('/pro')}>Pro</a>
         </nav>
       </div>

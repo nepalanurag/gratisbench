@@ -116,6 +116,27 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+/**
+ * Shrink an image file to at most maxSize px on the long edge and return a
+ * PNG data URL. Keeps localStorage payloads small for uploaded logos/photos.
+ */
+export async function downscaleImageFile(file: File, maxSize = 400): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not read that image.');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/png');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /** Inline SVG icons for dynamically rendered rows (same stroke style as Icon.astro). */
 export const ICONS = {
   up: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m6 11 6-6 6 6"/></svg>',

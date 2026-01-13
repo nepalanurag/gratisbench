@@ -1,0 +1,98 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { basePath, siteUrl } from '../lib/site';
+
+const title = 'Business Tools - Free Invoice Generator & Email Signature | FreeKit';
+const description =
+  'Free business tools that run in your browser: an invoice generator with live preview and PDF export, and an email signature generator for Gmail and Outlook. No signup, no watermark, no subscription.';
+
+const tools = [
+  { href: '/invoice-generator', icon: 'file', name: 'Invoice generator', desc: 'Line items, tax, discounts, 22 currencies, live preview, free PDF export. Your invoices stay in this browser.' },
+  { href: '/email-signature-generator', icon: 'sign', name: 'Email signature generator', desc: 'Three layouts, six accent colors, photo and social links. Copy rich text into Gmail or Outlook. No branding.' },
+] as const;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'FreeKit business tools',
+  url: siteUrl(Astro.site) + basePath('/business-tools'),
+  description,
+};
+---
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <div class="wrap">
+    <div class="page-head">
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href={basePath("/")}>FreeKit</a><span><span class="sep">/</span><a href={basePath("/business-tools")}>Business tools</a></span>
+      </nav>
+      <h1>Business tools</h1>
+      <p class="lede">
+        The paperwork side of working for yourself: send an invoice that looks professional and sign
+        your emails like one. Free, private, and in your browser.
+      </p>
+      <div>
+        <span class="privacy-line"><Icon name="lock" size={15} /> Your data never leaves your device.</span>
+      </div>
+    </div>
+
+    <!-- Ad slot: hub top (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-top" aria-hidden="true"><span>Advertisement</span></div>
+
+    <div class="tool-index">
+      {tools.map((t) => (
+        <a class="tool-row" href={basePath(t.href)}>
+          <span class="tool-row-icon"><Icon name={t.icon} size={20} /></span>
+          <span>
+            <span class="tool-row-name">{t.name}</span>
+            <p class="tool-row-desc">{t.desc}</p>
+          </span>
+          <span class="arrow"><Icon name="arrow" size={18} /></span>
+        </a>
+      ))}
+    </div>
+
+    <div class="content">
+      <h2>What these tools do</h2>
+      <p>
+        Getting paid and looking professional are two jobs every freelancer and small business does
+        by hand. The invoice generator covers the first: line items with quantities and rates, tax
+        and discount math done in integer cents so totals are exact, auto-incrementing invoice
+        numbers, 22 currencies, a logo, and a live preview styled like a real invoice document.
+        The PDF export is your browser&rsquo;s print function, so it is free in the same way
+        printing is free.
+      </p>
+      <p>
+        The email signature generator covers the second: a signature that works in the email
+        clients people actually use. The HTML it builds is deliberately old-fashioned, tables with
+        inline styles and no classes, because that is the one format Gmail and Outlook render
+        reliably. Three layouts, six tasteful accent colors, an optional photo, and social links,
+        with a rich-text copy button that pastes straight into Gmail&rsquo;s and Outlook&rsquo;s
+        signature boxes.
+      </p>
+
+      <h2>Common questions</h2>
+      <dl>
+        <div class="faq">
+          <dt>Are these business tools free?</dt>
+          <dd>Yes. Both tools are free with no limits, no watermarks, and no account. There is no paid tier, no branding badge to remove, and no per-invoice fee.</dd>
+        </div>
+        <div class="faq">
+          <dt>Where is my business data stored?</dt>
+          <dd>In your browser only, using local storage on your own device. Nothing is uploaded to a server. Clearing your browser data erases it, so keep the downloaded PDFs and a copy of your signature HTML as your permanent records.</dd>
+        </div>
+        <div class="faq">
+          <dt>Will the invoice work for taxes in my country?</dt>
+          <dd>The tool handles the mechanics: sequential numbering, tax percentages, 22 currencies, and exact cent-level math. Local rules vary, some jurisdictions require specific fields or registered tax IDs, so check what yours requires or ask your accountant.</dd>
+        </div>
+        <div class="faq">
+          <dt>Does the email signature work in Gmail and Outlook?</dt>
+          <dd>Yes. The signature is built with tables and inline styles, no classes or style blocks, which is the format email clients have rendered reliably for years. The "Copy rich text" button pastes the rendered signature straight into Gmail&rsquo;s and Outlook&rsquo;s signature settings.</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Ad slot: hub bottom (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-bottom" aria-hidden="true"><span>Advertisement</span></div>
+  </div>
+</BaseLayout>

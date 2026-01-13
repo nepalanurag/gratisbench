@@ -5,9 +5,22 @@ import { basePath, siteUrl } from '../lib/site';
 
 const title = 'FreeKit - Free Online Tools That Run in Your Browser';
 const description =
-  'Free online tools with no signup and no watermarks: merge PDF, split PDF, images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, compress and convert images, QR code generator. Your files never leave your device.';
+  'Free online tools with no signup and no watermarks: resume builder, invoice generator, email signature generator, merge PDF, split PDF, images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, compress and convert images, QR code generator. Your files never leave your device.';
 
 const groups = [
+  {
+    name: 'Career tools',
+    tools: [
+      { href: '/resume-builder', icon: 'file', name: 'Resume builder', desc: 'Write a resume with live preview and download the PDF free. No signup, no pay-to-download trap.' },
+    ],
+  },
+  {
+    name: 'Business tools',
+    tools: [
+      { href: '/invoice-generator', icon: 'file', name: 'Invoice generator', desc: 'Line items, tax, discounts, 22 currencies, live preview, free PDF export.' },
+      { href: '/email-signature-generator', icon: 'sign', name: 'Email signature generator', desc: 'Three layouts, six accent colors. Copy rich text into Gmail or Outlook.' },
+    ],
+  },
   {
     name: 'PDF tools',
     tools: [
@@ -49,11 +62,19 @@ const jsonLd = {
       <p class="eyebrow">FreeKit</p>
       <h1>Small tools that run in your browser.</h1>
       <p class="lede">
-        Merge a PDF, split a PDF, turn images into a PDF, shrink one, convert pages to images,
-        redact sensitive parts, sign a document, compress or convert your images, make a QR code.
-        Free, no accounts, no watermarks. Your files never leave your device.
+        Build a resume and download the PDF free, make an invoice, build an email signature,
+        merge a PDF, split a PDF, turn images into a PDF,
+        shrink one, convert pages to images, redact sensitive parts, sign a document, compress or
+        convert your images, make a QR code. Free, no accounts, no watermarks. Your files never leave your device.
       </p>
     </div>
+
+    <a class="featured-tool" href={basePath('/resume-builder')}>
+      <span class="featured-eyebrow">Flagship tool</span>
+      <span class="featured-name">Resume builder</span>
+      <p class="featured-desc">Write your resume with a live preview, pick from three recruiter-ready templates, and download the PDF free. No signup, no watermark, no pay-to-download trap. Your resume stays in your browser.</p>
+      <span class="featured-cta">Build your resume <Icon name="arrow" size={16} /></span>
+    </a>
 
     <!-- Ad slot: homepage (AdSense display unit goes here) -->
     <div class="ad-slot" data-ad-slot="home-top" aria-hidden="true"><span>Advertisement</span></div>

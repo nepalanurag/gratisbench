@@ -1,0 +1,129 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Resume Builder - Free Online Resume Maker, No Signup';
+const description =
+  'Build a professional resume in your browser and download it as a PDF for free. No signup, no pay-to-download trap, no watermark. Three recruiter-ready templates, live preview, autosave.';
+const h1 = 'Free resume builder';
+const lede =
+  'Write your resume, pick a template, and download the PDF. Free forever, no account, no watermark. Everything stays in your browser.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Resume builder', href: '/resume-builder' }]}
+  toolName="FreeKit Resume Builder"
+  intro={[
+    'Most "free" resume builders run the same play: they let you build for free, then hold the finished resume hostage at the download button. An hour of careful writing ends at a paywall, a trial that quietly converts to a subscription, or a watermark stamped across the page unless you pay. The building is free because the building is not the product. Your finished resume is the product, and that is exactly what they charge for. Call it the pay-to-download trap, and once you have seen it, you cannot unsee it.',
+    'This builder is structured so the trap is impossible. There is no server, no account system, and no billing page to bolt a paywall onto. Your words are saved in your own browser, and the PDF download is just your browser printing the page to a file, something no website can charge you for or take away. The resume on your screen and the PDF you send to employers are the same document, and there is no step where a price appears.',
+    'You get three templates designed like documents a hiring manager would take seriously: Classic, the traditional single-column serif layout and the safest choice for applicant tracking systems; Modern, a two-column layout with a sidebar for contact details and skills; and Compact, a dense one-pager for fitting a full career on a single sheet. Every section is editable, entries can be added, removed, and reordered, and a live preview shows exactly what the PDF will look like.',
+  ]}
+  steps={[
+    'Pick a template above the editor: Classic, Modern, or Compact. You can switch at any time without losing anything you typed.',
+    'Fill in your contact details and professional summary. Add work experience entries with the "Add position" button, one bullet per line, most recent job first.',
+    'Add your education, then group your skills so they scan quickly. Projects, certifications, and languages are optional and can be left empty.',
+    'Reorder entries with the up and down arrows until the story reads the way you want. Remove anything that does not earn its space.',
+    'Check the live preview beside the editor (or the Preview tab on a phone). What you see is what the PDF will contain.',
+    'Click "Download PDF". Your browser\u2019s print dialog opens; choose "Save as PDF" as the destination and save the file. That is the whole transaction: there is no checkout, because there is nothing to buy.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits, no trial'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None. The PDF is your resume, nothing added.'],
+    ['Where your resume is stored', 'In this browser only (local storage). Nothing is uploaded.'],
+    ['PDF export', 'Browser print to PDF. Choose "Save as PDF" in the print dialog.'],
+    ['Templates', 'Classic (most ATS-safe), Modern (sidebar), Compact (one-pager)'],
+    ['Sections', 'Contact, summary, experience, education, skills, projects, certifications, languages'],
+    ['ATS note', 'Classic uses standard single-column formatting. No template guarantees ATS parsing.'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this resume builder really free?',
+      a: 'Yes, completely. There is no trial, no premium tier, and no credit card step. The reason is structural: the tool runs entirely in your browser and the PDF comes from your browser\u2019s own print function, so there is no server cost to recover and nothing to gate behind a payment. Free here means free, not "free until the download button."',
+    },
+    {
+      q: 'How does the free PDF download work?',
+      a: 'Clicking "Download PDF" opens your browser\u2019s print dialog with a stylesheet that prints only the resume itself, none of the page around it. Choose "Save as PDF" (or "Microsoft Print to PDF" on Windows) as the destination and save. This works in Chrome, Edge, Firefox, and Safari, and it produces a clean, selectable-text PDF rather than a blurry image.',
+    },
+    {
+      q: 'Where is my resume saved? Is it private?',
+      a: 'Your resume is saved automatically to your browser\u2019s local storage on your own device, and it is stated right in the editor: saved in this browser only. It is never uploaded to a server, because there is no server involved. The tradeoff is that clearing your browser data erases it, so keep the downloaded PDF as your permanent copy.',
+    },
+    {
+      q: 'Which template is best for applicant tracking systems (ATS)?',
+      a: 'Classic is the safest choice: single column, standard section headings like "Work Experience" and "Education," no graphics or text boxes, which is the formatting parsers handle most reliably. That said, be honest with yourself: no template on any site can guarantee perfect ATS parsing, because every system parses differently. Simple formatting plus standard headings is the best anyone can offer.',
+    },
+    {
+      q: 'What is the pay-to-download trap?',
+      a: 'It is the business model behind most online resume builders: the editor is free, but downloading your finished resume requires payment, a trial signup, or a subscription. The trap works because it strikes after you have invested an hour of writing, when walking away feels expensive. This builder cannot do that to you because the download is your browser\u2019s print function, not a server feature anyone can lock.',
+    },
+    {
+      q: 'Can I build my resume on my phone?',
+      a: 'Yes. On narrow screens the editor and preview become tabs, so you type in the Edit tab and check the result in the Preview tab. The PDF download works from mobile browsers too: use the share or print option and choose "Save as PDF." For long writing sessions a desktop is more comfortable, but nothing about the tool requires one.',
+    },
+    {
+      q: 'What happens if I clear my browser data or switch devices?',
+      a: 'Clearing site data wipes the saved resume, and it does not follow you to another device, because it lives only in the browser where you typed it. Treat the downloaded PDF as the real copy: download it whenever you make meaningful changes. If you need the same draft on two devices, download the PDF on one and retype or paste on the other.',
+    },
+    {
+      q: 'Do I need an account to use this?',
+      a: 'No, and there is no way to create one. Accounts exist so a service can store your data and charge you later; since your resume never leaves your browser, there is nothing an account would do. Open the page, write, download the PDF, close the tab.',
+    },
+  ]}
+>
+  <section class="tool-card resume-app" slot="tool" aria-label="Resume builder">
+    <div class="resume-toolbar no-print">
+      <div class="rb-templates" role="radiogroup" aria-label="Choose a template">
+        <label class="rb-template">
+          <input type="radio" name="rb-template" value="classic" checked />
+          <span>
+            <strong>Classic</strong>
+            <small>Traditional single-column serif layout. The familiar resume shape.</small>
+            <span class="rb-ats">Most ATS-safe</span>
+          </span>
+        </label>
+        <label class="rb-template">
+          <input type="radio" name="rb-template" value="modern" />
+          <span>
+            <strong>Modern</strong>
+            <small>Two-column layout with a sidebar for contact, skills, and languages.</small>
+            <span class="rb-ats">Parses well in most systems</span>
+          </span>
+        </label>
+        <label class="rb-template">
+          <input type="radio" name="rb-template" value="compact" />
+          <span>
+            <strong>Compact</strong>
+            <small>Dense spacing built to fit a full career on a single page.</small>
+            <span class="rb-ats">Single column, ATS-friendly</span>
+          </span>
+        </label>
+      </div>
+      <div class="btn-row">
+        <button id="rb-download" class="btn" type="button">Download PDF</button>
+        <button id="rb-example" class="btn btn-secondary" type="button">Load example</button>
+        <button id="rb-clear" class="btn btn-secondary" type="button">Clear</button>
+      </div>
+      <p class="autosave-note"><Icon name="check" size={14} /> Your resume is saved automatically in this browser only.</p>
+    </div>
+    <div id="rb-error" class="error-box no-print" hidden></div>
+    <div class="resume-tabs no-print" role="tablist" aria-label="Editor or preview">
+      <button type="button" id="rb-tab-edit" class="tab-btn tab-active" role="tab" aria-selected="true">Edit</button>
+      <button type="button" id="rb-tab-preview" class="tab-btn" role="tab" aria-selected="false">Preview</button>
+    </div>
+    <div id="rb-workspace" class="resume-workspace">
+      <div id="rb-editor" class="resume-editor no-print" aria-label="Resume editor"></div>
+      <div class="resume-preview-pane">
+        <div id="rb-preview" class="resume-doc resume-classic" aria-label="Resume preview"></div>
+      </div>
+    </div>
+  </section>
+  <script>
+    import { initResumeBuilder } from '../tools/resume-builder';
+    initResumeBuilder();
+  </script>
+</ToolPage>

@@ -37,6 +37,71 @@ import {
   totalSavings,
   parsePngHeader,
 } from '../src/lib/image-core.ts';
+import {
+  RESUME_SCHEMA_VERSION,
+  RESUME_STORAGE_KEY,
+  TEMPLATES,
+  isTemplateId,
+  blankResume,
+  exampleResume,
+  blankWorkEntry,
+  addEntry,
+  removeEntry,
+  moveEntry,
+  validateResume,
+  serialize,
+  deserialize,
+  renderResume,
+} from '../src/lib/resume-core.ts';
+import {
+  INVOICE_SCHEMA_VERSION,
+  INVOICE_STORAGE_KEY,
+  INVOICE_NUMBER_KEY,
+  INVOICE_HISTORY_KEY,
+  blankInvoice,
+  blankLineItem,
+  exampleInvoice,
+  parseCents,
+  parseQty,
+  parsePct,
+  lineTotalCents,
+  computeTotals,
+  CURRENCIES,
+  isCurrencyCode,
+  formatMoney,
+  formatDate,
+  nextInvoiceNumber,
+  validateInvoice,
+  addItem,
+  removeItem,
+  moveItem,
+  serializeInvoice,
+  deserializeInvoice,
+  upsertHistory,
+  removeFromHistory,
+  renderInvoice,
+} from '../src/lib/invoice-core.ts';
+import {
+  SIGNATURE_SCHEMA_VERSION,
+  SIGNATURE_STORAGE_KEY,
+  ACCENT_SWATCHES,
+  LAYOUTS,
+  isLayoutId,
+  isAccentId,
+  accentHex,
+  blankSignature,
+  blankSocialLink,
+  exampleSignature,
+  validateSignature,
+  serializeSignature,
+  deserializeSignature,
+  renderSignature,
+} from '../src/lib/signature-core.ts';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 let passed = 0;
 let failed = 0;
@@ -374,6 +439,292 @@ console.log('== image-core ==');
   expectThrow('zero-size PNG rejected', () => parsePngHeader(new Uint8Array(PNG.sync.write(new PNG({ width: 0, height: 0 })))), 'zero size');
 }
 
+console.log('== resume-core ==');
+{
+  const blank = blankResume();
+  ok('blank resume has schema version', blank.version === RESUME_SCHEMA_VERSION);
+  ok('blank resume has empty contact', blank.contact.fullName === '' && blank.contact.email === '');
+  ok('blank resume lists start empty',
+    blank.experience.length === 0 && blank.education.length === 0 && blank.skills.length === 0 &&
+    blank.projects.length === 0 && blank.certifications.length === 0 && blank.languages.length === 0);
+  ok('storage key is namespaced', RESUME_STORAGE_KEY.startsWith('freekit.resume-builder'));
+
+  // pure entry ops
+  const e1 = { ...blankWorkEntry(), title: 'First' };
+  const e2 = { ...blankWorkEntry(), title: 'Second' };
+  const e3 = { ...blankWorkEntry(), title: 'Third' };
+  const base = [e1, e2];
+  const added = addEntry(base, e3);
+  ok('addEntry appends', added.length === 3 && added[2] === e3);
+  ok('addEntry does not mutate input', base.length === 2);
+  const removed = removeEntry(added, e2.id);
+  ok('removeEntry drops by id', removed.length === 2 && removed.every((e) => e.id !== e2.id));
+  ok('removeEntry keeps order', removed[0] === e1 && removed[1] === e3);
+  const movedDown = moveEntry(added, e1.id, 1);
+  ok('moveEntry down swaps', movedDown[0] === e2 && movedDown[1] === e1 && movedDown[2] === e3);
+  const movedUp = moveEntry(added, e3.id, -1);
+  ok('moveEntry up swaps', movedUp[1] === e3 && movedUp[2] === e2);
+  ok('moveEntry is a no-op at the top', moveEntry(added, e1.id, -1) === added);
+  ok('moveEntry is a no-op at the bottom', moveEntry(added, e3.id, 1) === added);
+  ok('moveEntry unknown id is a no-op', moveEntry(added, 'nope', 1) === added);
+  ok('moveEntry does not mutate input', added[0] === e1 && added[1] === e2);
+
+  // validation
+  const blankProblems = validateResume(blankResume());
+  ok('blank resume fails validation', blankProblems.length === 3, blankProblems.join(' | '));
+  ok('blank validation asks for a name', blankProblems.some((p) => p.includes('full name')));
+  ok('blank validation asks for contact', blankProblems.some((p) => p.includes('email address or a phone number')));
+  ok('blank validation asks for an entry', blankProblems.some((p) => p.includes('work experience or education')));
+  const example = exampleResume();
+  ok('example resume validates clean', validateResume(example).length === 0);
+  const noContact = exampleResume();
+  noContact.contact.email = '';
+  noContact.contact.phone = '';
+  ok('missing email+phone flagged', validateResume(noContact).some((p) => p.includes('email address')));
+
+  // serialize / deserialize
+  const round = deserialize(serialize(example));
+  ok('round trip keeps name', round.contact.fullName === 'Sam Rivera');
+  ok('round trip keeps entry counts',
+    round.experience.length === 3 && round.skills.length === 3 && round.languages.length === 2);
+  ok('round trip keeps bullets', round.experience[0].bullets.length === 3);
+  ok('corrupt JSON falls back to blank', deserialize('not json{{{').contact.fullName === '');
+  ok('null falls back to blank', deserialize(null).experience.length === 0);
+  ok('empty string falls back to blank', deserialize('').education.length === 0);
+  ok('wrong schema version falls back to blank',
+    deserialize(JSON.stringify({ ...example, version: 999 })).contact.fullName === '');
+  ok('non-object falls back to blank', deserialize('[1,2,3]').summary === '');
+  ok('partial data merges onto defaults', (() => {
+    const r = deserialize(JSON.stringify({ version: 1, contact: { fullName: 'Jo' } }));
+    return r.contact.fullName === 'Jo' && r.contact.email === '' && r.experience.length === 0;
+  })());
+  ok('entries without ids get ids', (() => {
+    const r = deserialize(JSON.stringify({ version: 1, experience: [{ title: 'Dev' }] }));
+    return r.experience.length === 1 && typeof r.experience[0].id === 'string' && r.experience[0].id.length > 0;
+  })());
+
+  // templates
+  ok('three templates defined', TEMPLATES.length === 3);
+  ok('template ids are classic/modern/compact',
+    JSON.stringify(TEMPLATES.map((t) => t.id)) === '["classic","modern","compact"]');
+  ok('every template has an ATS note', TEMPLATES.every((t) => t.atsNote.length > 10));
+  ok('isTemplateId accepts known ids', isTemplateId('classic') && isTemplateId('modern') && isTemplateId('compact'));
+  ok('isTemplateId rejects junk', !isTemplateId('fancy') && !isTemplateId('') && !isTemplateId(null));
+
+  // rendering
+  for (const t of ['classic', 'modern', 'compact']) {
+    const html = renderResume(example, t);
+    ok(`${t} renders the name`, html.includes('Sam Rivera'));
+    ok(`${t} renders work experience`, html.includes('Northwind Mobile') && html.includes('Work Experience'));
+    ok(`${t} renders skills`, html.includes('Figma'));
+    ok(`${t} renders education`, html.includes('California College of the Arts'));
+  }
+  const modern = renderResume(example, 'modern');
+  ok('modern uses sidebar structure', modern.includes('rs-side') && modern.includes('rs-main'));
+  const evil = blankResume();
+  evil.contact.fullName = '<script>alert(1)</script>';
+  evil.summary = 'a < b & "c"';
+  const evilHtml = renderResume(evil, 'classic');
+  ok('rendering escapes HTML in name', evilHtml.includes('&lt;script&gt;') && !evilHtml.includes('<script>alert'));
+  ok('rendering escapes HTML in summary', evilHtml.includes('a &lt; b &amp; &quot;c&quot;'));
+  ok('blank resume still renders a document shell', renderResume(blankResume(), 'classic').includes('rs-sec') === false);
+  ok('skipped when empty: no work section for blank', !renderResume(blankResume(), 'classic').includes('Work Experience'));
+}
+
+console.log('== invoice-core ==');
+{
+  // money parsing
+  ok('parseCents "$1,234.56"', parseCents('$1,234.56') === 123456, `${parseCents('$1,234.56')}`);
+  ok('parseCents european "1.234,56"', parseCents('1.234,56') === 123456, `${parseCents('1.234,56')}`);
+  ok('parseCents rounds "19.999" to 2000', parseCents('19.999') === 2000, `${parseCents('19.999')}`);
+  ok('parseCents negative "-5.00"', parseCents('-5.00') === -500);
+  ok('parseCents garbage is 0', parseCents('abc') === 0 && parseCents('') === 0 && parseCents(null) === 0);
+  ok('parseCents number input', parseCents(19.99) === 1999);
+  ok('parseQty "2.5"', parseQty('2.5') === 2.5);
+  ok('parseQty negative is 0', parseQty('-3') === 0 && parseQty('abc') === 0);
+
+  // the required precision case: 3 x $19.99 + 8.5% tax - $5 discount
+  const inv = blankInvoice();
+  inv.items = [{ ...blankLineItem(), description: 'Widget', qty: 3, rate: '19.99' }];
+  inv.taxPct = '8.5';
+  inv.discountType = 'flat';
+  inv.discountValue = '5.00';
+  const t = computeTotals(inv);
+  ok('3 x $19.99 subtotal is 5997c', t.subtotalCents === 5997, `${t.subtotalCents}`);
+  ok('flat $5 discount is 500c', t.discountCents === 500);
+  ok('8.5% tax on $54.97 is 467c', t.taxCents === 467, `${t.taxCents}`);
+  ok('total is 5964c = $59.64', t.totalCents === 5964 && formatMoney(t.totalCents, 'USD') === '$59.64', `${t.totalCents} ${formatMoney(t.totalCents, 'USD')}`);
+  ok('lineTotalCents fractional qty', lineTotalCents(2.5, 1999) === 4998);
+
+  // percent discount + clamping
+  const inv2 = blankInvoice();
+  inv2.items = [{ ...blankLineItem(), description: 'X', qty: 1, rate: '100.00' }];
+  inv2.discountType = 'percent';
+  inv2.discountValue = '10';
+  const t2 = computeTotals(inv2);
+  ok('10% discount on $100 is $10', t2.discountCents === 1000 && t2.taxableCents === 9000);
+  inv2.discountValue = '150';
+  const t3 = computeTotals(inv2);
+  ok('150% discount clamps at subtotal', t3.discountCents === 10000 && t3.totalCents === 0);
+
+  // currencies
+  ok('22 currencies listed', CURRENCIES.length === 22);
+  ok('isCurrencyCode accepts USD/JPY', isCurrencyCode('USD') && isCurrencyCode('jpy'));
+  ok('isCurrencyCode rejects junk', !isCurrencyCode('XXX') && !isCurrencyCode(''));
+  ok('JPY renders zero decimals', formatMoney(1999, 'JPY') === '¥20' || formatMoney(1999, 'JPY') === '￥20', formatMoney(1999, 'JPY'));
+  ok('unknown currency falls back to USD', formatMoney(100, 'NOPE') === '$1.00');
+  ok('formatDate', formatDate('2026-09-23') === 'Sep 23, 2026', formatDate('2026-09-23'));
+  ok('formatDate passes garbage through', formatDate('soon') === 'soon');
+
+  // number sequencing
+  ok('INV-0042 -> INV-0043', nextInvoiceNumber('INV-0042') === 'INV-0043');
+  ok('plain 100 -> 101', nextInvoiceNumber('100') === '101');
+  ok('INV-2026-009 -> INV-2026-010', nextInvoiceNumber('INV-2026-009') === 'INV-2026-010');
+  ok('empty starts INV-0001', nextInvoiceNumber('') === 'INV-0001' && nextInvoiceNumber(null) === 'INV-0001');
+  ok('width preserved past rollover', nextInvoiceNumber('INV-0099') === 'INV-0100');
+
+  // validation
+  const blankProblems = validateInvoice(blankInvoice());
+  ok('blank invoice fails validation', blankProblems.length >= 3, blankProblems.join(' | '));
+  ok('blank validation asks for business name', blankProblems.some((p) => p.includes('business name')));
+  ok('blank validation asks for invoice number', blankProblems.some((p) => p.includes('invoice number')));
+  ok('blank validation asks for line item', blankProblems.some((p) => p.includes('line item')));
+  const ex = exampleInvoice();
+  ok('example invoice validates clean', validateInvoice(ex).length === 0);
+  const badTax = exampleInvoice();
+  badTax.taxPct = 'abc';
+  ok('bad tax flagged', validateInvoice(badTax).some((p) => p.includes('tax rate')));
+  const badDates = exampleInvoice();
+  badDates.dueDate = '2026-01-01';
+  ok('due-before-issue flagged', validateInvoice(badDates).some((p) => p.includes('due date')));
+
+  // entry ops
+  const a = { ...blankLineItem(), description: 'A' };
+  const b = { ...blankLineItem(), description: 'B' };
+  ok('addItem appends', addItem([a], b).length === 2);
+  ok('removeItem drops by id', removeItem([a, b], a.id).length === 1);
+  const moved = moveItem([a, b], a.id, 1);
+  ok('moveItem swaps', moved[0] === b && moved[1] === a);
+  const edgeList = [a, b];
+  ok('moveItem no-op at top', moveItem(edgeList, a.id, -1) === edgeList);
+  ok('moveItem no-op at bottom', moveItem(edgeList, b.id, 1) === edgeList);
+
+  // serialize / deserialize
+  const round = deserializeInvoice(serializeInvoice(ex));
+  ok('round trip keeps number', round.number === 'INV-0007');
+  ok('round trip keeps 3 items', round.items.length === 3);
+  ok('round trip keeps business name', round.business.name === 'Rivera Design Studio');
+  ok('round trip keeps currency', round.currency === 'USD');
+  ok('corrupt JSON falls back to blank', deserializeInvoice('nope{{{').items.length === 1);
+  ok('wrong version falls back to blank', deserializeInvoice(JSON.stringify({ ...ex, version: 999 })).business.name === '');
+  ok('foreign logo url dropped', deserializeInvoice(JSON.stringify({ ...ex, business: { logoDataUrl: 'https://evil/x.png' } })).business.logoDataUrl === '');
+  ok('schema version + keys namespaced',
+    INVOICE_SCHEMA_VERSION === 1 && INVOICE_STORAGE_KEY.startsWith('freekit.invoice-generator') &&
+    INVOICE_NUMBER_KEY.startsWith('freekit.invoice-generator') && INVOICE_HISTORY_KEY.startsWith('freekit.invoice-generator'));
+
+  // history
+  const h1 = upsertHistory([], ex);
+  ok('upsertHistory adds', h1.length === 1);
+  const h2 = upsertHistory(h1, { ...ex, notes: 'v2' });
+  ok('upsertHistory replaces same number', h2.length === 1 && h2[0].notes === 'v2');
+  ok('removeFromHistory', removeFromHistory(h2, 'INV-0007').length === 0);
+
+  // rendering
+  const html = renderInvoice(ex);
+  ok('renders business name', html.includes('Rivera Design Studio'));
+  ok('renders INVOICE heading', html.includes('>Invoice<'));
+  ok('renders line item', html.includes('Onboarding flow redesign'));
+  ok('renders amount due', html.includes('Amount due'));
+  ok('rendering escapes HTML', (() => {
+    const evil = exampleInvoice();
+    evil.business.name = '<script>alert(1)</script>';
+    evil.items[0].description = 'a < b';
+    const h = renderInvoice(evil);
+    return h.includes('&lt;script&gt;') && !h.includes('<script>alert') && h.includes('a &lt; b');
+  })());
+  ok('evil logo not embedded', (() => {
+    const evil = exampleInvoice();
+    evil.business.logoDataUrl = 'javascript:alert(1)';
+    return !renderInvoice(evil).includes('javascript:');
+  })());
+}
+
+console.log('== signature-core ==');
+{
+  const ex = exampleSignature();
+  const layouts = ['stacked', 'two-column', 'minimal'];
+  ok('three layouts defined', LAYOUTS.length === 3 && layouts.every((l) => LAYOUTS.some((x) => x.id === l)));
+  ok('isLayoutId accepts known', isLayoutId('stacked') && isLayoutId('two-column') && isLayoutId('minimal'));
+  ok('isLayoutId rejects junk', !isLayoutId('fancy') && !isLayoutId(null));
+  ok('six accent swatches', ACCENT_SWATCHES.length === 6);
+  ok('accentHex brick', accentHex('brick') === '#a63d21');
+  ok('accentHex junk falls back', accentHex('nope') === '#a63d21');
+  ok('isAccentId', isAccentId('navy') && !isAccentId('rainbow'));
+
+  for (const layout of layouts) {
+    const html = renderSignature({ ...ex, layout });
+    ok(`${layout} renders the name`, html.includes('Sam Rivera'));
+    ok(`${layout} uses inline styles`, html.includes('style="'));
+    ok(`${layout} has no class attributes`, !/class=/.test(html), html.slice(0, 120));
+    ok(`${layout} has no style block`, !/<style/i.test(html));
+    ok(`${layout} uses a table`, html.includes('<table'));
+    ok(`${layout} carries the accent color`, html.includes('#a63d21'));
+  }
+  ok('minimal omits photo markup', !renderSignature({ ...ex, layout: 'minimal', photoDataUrl: 'data:image/png;base64,AAA' }).includes('<img'));
+  ok('two-column shows photo', renderSignature({ ...ex, layout: 'two-column', photoDataUrl: 'data:image/png;base64,AAA' }).includes('<img'));
+
+  const evil = blankSignature();
+  evil.name = '<script>alert(1)</script>';
+  evil.company = 'A & B "Co"';
+  evil.website = 'not a url at all !!!';
+  const evilHtml = renderSignature(evil);
+  ok('escaping: name', evilHtml.includes('&lt;script&gt;') && !evilHtml.includes('<script>alert'));
+  ok('escaping: company', evilHtml.includes('A &amp; B &quot;Co&quot;'));
+  ok('bad website gets no href', !/href="[^"]*not a url/.test(evilHtml) && evilHtml.includes('not a url at all'));
+
+  const linky = blankSignature();
+  linky.name = 'Jo';
+  linky.socials = [{ ...blankSocialLink(), label: 'LinkedIn', url: 'linkedin.com/in/jo' }];
+  const linkyHtml = renderSignature(linky);
+  ok('bare domain gets https://', linkyHtml.includes('https://linkedin.com/in/jo'));
+
+  const probs = validateSignature(blankSignature());
+  ok('blank signature needs a name', probs.length === 1 && probs[0].includes('name'));
+  ok('example validates clean', validateSignature(ex).length === 0);
+  const badMail = exampleSignature();
+  badMail.email = 'not-an-email';
+  ok('bad email flagged', validateSignature(badMail).some((p) => p.includes('email')));
+
+  const round = deserializeSignature(serializeSignature(ex));
+  ok('round trip keeps name', round.name === 'Sam Rivera');
+  ok('round trip keeps socials', round.socials.length === 2 && round.socials[0].label === 'LinkedIn');
+  ok('round trip keeps layout/accent', round.layout === 'two-column' && round.accent === 'brick');
+  ok('corrupt JSON falls back to blank', deserializeSignature('{{{').name === '');
+  ok('wrong version falls back to blank', deserializeSignature(JSON.stringify({ ...ex, version: 999 })).name === '');
+  ok('unknown layout falls back to two-column', deserializeSignature(JSON.stringify({ ...ex, layout: 'fancy' })).layout === 'two-column');
+  ok('non-image photo dropped', deserializeSignature(JSON.stringify({ ...ex, photoDataUrl: 'https://x/y.png' })).photoDataUrl === '');
+  ok('storage key namespaced', SIGNATURE_STORAGE_KEY.startsWith('freekit.email-signature') && SIGNATURE_SCHEMA_VERSION === 1);
+}
+
+console.log('== element-id cross-checks (glue ids exist in pages) ==');
+{
+  /** Every el('...') id used by a glue module must exist as id="..." in its page
+   *  or in the HTML the glue itself renders into the page. */
+  function checkGlueIds(glueFile, pageFile) {
+    const glue = readFileSync(join(ROOT, glueFile), 'utf8');
+    const page = readFileSync(join(ROOT, pageFile), 'utf8');
+    const haystack = page + '\n' + glue;
+    const ids = new Set();
+    for (const m of glue.matchAll(/el(?:<[^>]+>)?\(\s*['"`]([\w-]+)['"`]\s*\)/g)) ids.add(m[1]);
+    for (const m of glue.matchAll(/getElementById\(\s*['"`]([\w-]+)['"`]\s*\)/g)) ids.add(m[1]);
+    for (const id of ids) {
+      ok(`${glueFile.split('/').pop()} #${id} exists in page or glue-rendered HTML`, haystack.includes(`id="${id}"`), `missing id="${id}"`);
+    }
+  }
+  checkGlueIds('src/tools/invoice-generator.ts', 'src/pages/invoice-generator.astro');
+  checkGlueIds('src/tools/email-signature-generator.ts', 'src/pages/email-signature-generator.astro');
+}
+
 console.log('== glue module smoke import (no top-level DOM access) ==');
 {
   // These must import without touching `document` at module scope.
@@ -391,6 +742,9 @@ console.log('== glue module smoke import (no top-level DOM access) ==');
     '../src/tools/pdf-redactor.ts',
     '../src/tools/pdf-esignature.ts',
     '../src/tools/qr-generator.ts',
+    '../src/tools/resume-builder.ts',
+    '../src/tools/invoice-generator.ts',
+    '../src/tools/email-signature-generator.ts',
   ];
   for (const m of mods) {
     await import(m);
