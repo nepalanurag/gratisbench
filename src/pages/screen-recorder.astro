@@ -1,0 +1,105 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Screen Recorder - Record Your Screen Online Free | FreeKit';
+const description =
+  'Record your screen online for free with no time limit and no watermark. Optional microphone, pause and resume, preview, download as WebM. Everything stays in your browser.';
+const h1 = 'Record your screen';
+const lede = 'Capture a tab, a window, or your whole screen. No time cap, no watermark, no account.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Media tools', href: '/media-tools' }, { label: 'Screen recorder', href: '/screen-recorder' }]}
+  toolName="FreeKit Screen Recorder"
+  intro={[
+    'The best-known screen recorder caps free recordings at five minutes and holds the download hostage behind an account. That is a strange deal for a job your browser can already do by itself. This recorder uses your browser\'s built-in screen capture: you pick a tab, a window, or the whole screen, and it records for as long as you like, with no watermark and no account at the end.',
+    'There is one honest limit, and it is physics, not pricing: the recording is held in your device\'s memory while you record. Short and medium recordings are completely fine; very long recordings on a low-RAM device can fail. The page says so up front instead of letting you discover it after an hour of recording. If you need multi-hour captures, desktop software is still the right tool.',
+    'Everything else is straightforward. An optional microphone toggle adds your voice next to the screen. Pause and resume let you skip the boring parts while recording. When you stop, you get a preview player and a WebM download that plays in every modern browser. Nothing is uploaded at any point, so demos full of private tabs stay private.',
+  ]}
+  steps={[
+    'Tick "Include microphone" if you want your voice in the recording.',
+    'Click "Start recording" and choose a tab, window, or screen in the browser prompt. Recording begins immediately.',
+    'Use Pause and Resume to skip dull stretches. The timer shows the recorded length.',
+    'Click "Stop recording" when you are done, or end sharing from the browser\'s own sharing indicator.',
+    'Preview the recording in the player, then download it as a WebM file.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None'],
+    ['Time limit', 'None imposed. Limited by your device\u2019s available memory.'],
+    ['Where it records', 'In your browser, on your device. Nothing is uploaded.'],
+    ['Microphone', 'Optional toggle before recording starts'],
+    ['System audio', 'Captured when the browser offers it (usually when sharing a tab)'],
+    ['Output', 'WebM video'],
+    ['Pause / resume', 'Yes'],
+    ['Browser support', 'Chrome and Edge on desktop work best. Firefox works with limits. Safari support is partial.'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this screen recorder really free with no time limit?',
+      a: 'Yes. There is no five-minute cap, no daily quota, and no paid tier above the free one. Recording uses your browser\'s built-in capture, so there is no per-minute cost to pass on. The download has no watermark and needs no account.',
+    },
+    {
+      q: 'What is the real limit on recording length?',
+      a: 'Your device\'s memory. The recording is buffered in RAM while you capture, so a very long recording on a low-RAM machine can fail or slow the browser. Recordings of a few minutes to around half an hour are fine on most devices. For multi-hour captures, use desktop recording software instead.',
+    },
+    {
+      q: 'Is my screen recording uploaded anywhere?',
+      a: 'No. Capture and encoding happen in your browser, and the file is assembled on your device when you stop. Nothing is sent to a server, which makes this safe for demos, bug reports, and anything with private tabs visible. Closing the tab removes all trace.',
+    },
+    {
+      q: 'Can it record my voice and the system audio?',
+      a: 'Your voice, yes: tick the microphone box before starting. System audio depends on the browser: when you share a browser tab, Chrome usually offers a "share tab audio" option that this recorder picks up. Sharing a window or the whole screen often excludes system sound, which is a browser limitation, not this tool\'s.',
+    },
+    {
+      q: 'What format is the download?',
+      a: 'WebM, which plays in Chrome, Edge, Firefox, and Safari 14.1 and later. If you need MP4 for a specific tool, run the result through the video converter on this site. WebM was chosen because it is what browsers can record natively without plugins.',
+    },
+    {
+      q: 'Why does my browser not offer screen capture?',
+      a: 'Screen capture needs a desktop browser with the feature enabled: Chrome and Edge work best, Firefox mostly works, and Safari is partial. Mobile browsers generally cannot capture the screen this way. If the start button reports no support, try Chrome on a desktop.',
+    },
+    {
+      q: 'The recording stopped by itself. What happened?',
+      a: 'Two usual causes. The browser ran low on memory during a long recording, or the shared tab was closed, which ends the capture automatically. Shorter recordings and closing heavy tabs before you start both help. The recorder saves in one-second slices, so a crash keeps most of what was captured.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Screen recorder tool">
+    <div class="rec-bar">
+      <span id="rec-dot" class="rec-dot" hidden></span>
+      <span id="rec-timer" class="rec-timer">0:00.0</span>
+      <span id="rec-status" class="rec-status">Choose your options, then start recording.</span>
+    </div>
+    <div id="error-box" class="error-box" hidden></div>
+
+    <video id="preview" class="preview-video" playsinline></video>
+
+    <div class="field checkline" style="margin-top: 1rem">
+      <input type="checkbox" id="mic-toggle" />
+      <label for="mic-toggle" style="margin: 0; font-weight: 500">Include microphone</label>
+    </div>
+
+    <div class="btn-row">
+      <button id="start-btn" class="btn">Start recording</button>
+      <button id="pause-btn" class="btn btn-secondary" disabled>Pause</button>
+      <button id="stop-btn" class="btn btn-secondary" disabled>Stop recording</button>
+    </div>
+    <p class="honest-note"><strong>Recordings are held in your device's memory.</strong> Short and medium recordings are fine; very long ones can fail on low-RAM devices. For multi-hour captures, use desktop software.</p>
+
+    <div id="result" class="result" hidden>
+      <h3>Recording ready</h3>
+      <p id="result-info"></p>
+      <button id="download-btn" class="btn">Download WebM</button>
+    </div>
+  </section>
+  <script>
+    import { initScreenRecorder } from '../tools/screen-recorder';
+    initScreenRecorder();
+  </script>
+</ToolPage>

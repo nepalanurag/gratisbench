@@ -1,0 +1,105 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Audio Merger - Join Audio Files Online Free | FreeKit';
+const description =
+  'Join multiple audio clips into one file online for free. Reorder clips, add fade in/out at each join, export WAV. No signup, no watermark. Your audio never leaves your browser.';
+const h1 = 'Join audio clips';
+const lede = 'Stitch voice memos, song parts, or podcast segments into one file, in your order. Free, no account, no watermark.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Media tools', href: '/media-tools' }, { label: 'Audio merger', href: '/audio-merger' }]}
+  toolName="FreeKit Audio Merger"
+  intro={[
+    'Joining audio clips is the kind of job that sounds trivial until a website makes it complicated: upload each file, wait in a queue, sit through an ad, then discover the download has a watermark or a daily limit attached. This merger does the whole thing in your tab. Files are decoded locally, arranged in your order, joined locally, and handed back as a download. No queue, no account, nothing uploaded.',
+    'The part most mergers get wrong is the join itself. Slamming two clips together usually leaves an audible click where they meet. This tool fades the end of each clip out and the start of the next one in, with a fade length you control from zero to five seconds. A short fade of half a second is enough to kill the click; longer fades give you a smooth DJ-style blend between segments.',
+    'Clips do not need to match. Different sample rates and mono versus stereo are normalized before joining, so a phone voice memo and a desktop recording land in the same file without pitch or speed surprises. The result exports as WAV, which keeps every sample exactly as rendered: lossless, and ready for any editor or player.',
+  ]}
+  steps={[
+    'Drop your audio clips onto the box above, or click it to browse. Add as many as you like, in any order.',
+    'Reorder the clips with the up and down arrows. The number on each row is its position in the final file.',
+    'Set the fade length for the joins. Half a second removes clicks; longer fades blend the clips together. Set it to zero for hard cuts.',
+    'Click "Join clips". The merged file is rendered on your device.',
+    'Download the result as a WAV file.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Clip limit', 'None enforced. Very long joins are limited only by your device\u2019s memory.'],
+    ['Fade at joins', '0 to 5 seconds, fade-out plus fade-in at every join'],
+    ['Mixed formats', 'Clips are resampled to a common rate automatically'],
+    ['Output', 'WAV, 16-bit PCM, lossless'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this audio merger really free?',
+      a: 'Yes. There is no free tier with a paid tier above it, no daily quota, and no features held back. Joining audio is a small local computation, so there is nothing to charge for. The merged file downloads with no watermark and no account.',
+    },
+    {
+      q: 'Are my audio files uploaded to a server?',
+      a: 'No. Your clips are decoded, ordered, faded, and joined entirely in your browser. Nothing is sent anywhere, which makes this safe for voice memos, interviews, and unreleased recordings. Closing the tab removes all trace of the files.',
+    },
+    {
+      q: 'Why add fades at the joins?',
+      a: 'When two clips meet, the waveform usually jumps from one level to another in a single sample. Your ear hears that jump as a click or pop. Fading the outgoing clip out and the incoming clip in over even half a second smooths the transition so the join disappears. Longer fades turn the join into a deliberate crossfade-style blend.',
+    },
+    {
+      q: 'Can I join clips with different sample rates or formats?',
+      a: 'Yes. Clips are resampled to the highest sample rate among them before joining, and mono clips are widened to stereo when mixed with stereo ones. The pitch and speed of every clip stay correct. The only thing to know is that the final file takes the highest sample rate present.',
+    },
+    {
+      q: 'Why is the output WAV and not MP3?',
+      a: 'WAV is lossless, so the joined file keeps every sample exactly as rendered, and it exports instantly with no extra downloads. If you need an MP3, trim or convert the result afterwards with the audio trimmer, which exports real MP3s. Keeping one honest lossless output here beats a fake MP3 button.',
+    },
+    {
+      q: 'How many clips can I join at once?',
+      a: 'There is no built-in limit. In practice the limit is your device\u2019s memory, because every clip is decoded before joining. Dozens of normal clips join without trouble; hours of audio may slow things down. If a join ever fails, try fewer clips at a time.',
+    },
+    {
+      q: 'Will joining change the sound quality?',
+      a: 'Only in the ways you ask for: the fades at the joins, and resampling if your clips had different sample rates. Everything else is copied sample for sample into the WAV. There is no re-encoding step that would degrade the audio.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Audio merger tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add audio clips to join">
+      <div class="dz-icon"><Icon name="audio" size={30} /></div>
+      <div class="dz-title">Drop audio clips here</div>
+      <div class="dz-sub">or click to choose files &middot; they stay on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="audio/*,.m4a,.ogg,.oga,.flac,.wav,.mp3" multiple hidden />
+    <div id="error-box" class="error-box" hidden></div>
+    <ul id="file-list" class="file-list"></ul>
+    <p id="empty-state" class="empty-state">No clips yet. Add your audio above, then arrange them in order.</p>
+
+    <div class="field" style="max-width: 420px">
+      <label for="fade-slider">Fade at each join</label>
+      <div class="range-row">
+        <input type="range" id="fade-slider" min="0" max="5" step="0.5" value="0.5" />
+        <span class="range-val" id="fade-val">0.5s</span>
+      </div>
+      <p class="hint">Each join fades the outgoing clip out and the incoming clip in. Zero means a hard cut.</p>
+    </div>
+
+    <div class="btn-row">
+      <button id="merge-btn" class="btn" disabled>Join clips</button>
+      <span id="count-label" class="count-label"></span>
+    </div>
+    <div id="result" class="result" hidden>
+      <h3>Joined</h3>
+      <p id="result-info"></p>
+    </div>
+  </section>
+  <script>
+    import { initAudioMerger } from '../tools/audio-merger';
+    initAudioMerger();
+  </script>
+</ToolPage>

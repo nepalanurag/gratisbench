@@ -2,51 +2,17 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import { basePath, siteUrl } from '../lib/site';
+import { TOOL_GROUPS, toolCount } from '../lib/tools';
 
 const title = 'FreeKit - Free Online Tools That Run in Your Browser';
 const description =
-  'Free online tools with no signup and no watermarks: resume builder, invoice generator, email signature generator, merge PDF, split PDF, images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, compress and convert images, QR code generator. Your files never leave your device.';
+  'Free online tools with no signup and no watermarks: resume builder, invoice generator, email signature generator, merge PDF, split PDF, images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, compress and convert images, remove backgrounds, image OCR, trace images to SVG, QR code generator, trim and join audio, convert audio, compress/trim/convert video, screen recorder. Your files never leave your device.';
 
-const groups = [
-  {
-    name: 'Career tools',
-    tools: [
-      { href: '/resume-builder', icon: 'file', name: 'Resume builder', desc: 'Write a resume with live preview and download the PDF free. No signup, no pay-to-download trap.' },
-    ],
-  },
-  {
-    name: 'Business tools',
-    tools: [
-      { href: '/invoice-generator', icon: 'file', name: 'Invoice generator', desc: 'Line items, tax, discounts, 22 currencies, live preview, free PDF export.' },
-      { href: '/email-signature-generator', icon: 'sign', name: 'Email signature generator', desc: 'Three layouts, six accent colors. Copy rich text into Gmail or Outlook.' },
-    ],
-  },
-  {
-    name: 'PDF tools',
-    tools: [
-      { href: '/merge-pdf', icon: 'merge', name: 'Merge PDF', desc: 'Combine several PDFs into one, in your order.' },
-      { href: '/split-pdf', icon: 'split', name: 'Split PDF', desc: 'Extract pages by number into new documents.' },
-      { href: '/images-to-pdf', icon: 'image', name: 'Images to PDF', desc: 'Turn JPG, PNG, and WebP images into one PDF.' },
-      { href: '/pdf-compressor', icon: 'compress', name: 'Compress PDF', desc: 'Shrink a PDF by rebuilding pages at lower resolution.' },
-      { href: '/pdf-to-jpg', icon: 'photo', name: 'PDF to JPG', desc: 'Convert PDF pages to JPG or PNG images.' },
-      { href: '/pdf-redactor', icon: 'redact', name: 'Redact PDF', desc: 'Permanently black out sensitive parts of a PDF.' },
-      { href: '/pdf-esignature', icon: 'sign', name: 'Sign PDF', desc: 'Draw or type a signature and place it on any page.' },
-    ],
-  },
-  {
-    name: 'Image tools',
-    tools: [
-      { href: '/image-compressor', icon: 'compress', name: 'Image compressor', desc: 'Shrink photos and screenshots with a quality slider.' },
-      { href: '/image-converter', icon: 'image', name: 'Image converter', desc: 'Convert between PNG, JPEG, WebP, and AVIF.' },
-    ],
-  },
-  {
-    name: 'Generators',
-    tools: [
-      { href: '/qr-generator', icon: 'qr', name: 'QR generator', desc: 'QR codes for links and text, with optional logo.' },
-    ],
-  },
-] as const;
+let n = 0;
+const groups = TOOL_GROUPS.map((g) => ({
+  ...g,
+  tools: g.tools.map((t) => ({ ...t, num: String(++n).padStart(2, '0') })),
+}));
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -59,42 +25,43 @@ const jsonLd = {
 <BaseLayout title={title} description={description} jsonLd={jsonLd}>
   <div class="wrap">
     <div class="home-head">
-      <p class="eyebrow">FreeKit</p>
-      <h1>Small tools that run in your browser.</h1>
+      <p class="eyebrow">{toolCount()} tools &middot; 100% in your browser &middot; No sign-up</p>
+      <h1>Free tools for everyday file work.</h1>
       <p class="lede">
-        Build a resume and download the PDF free, make an invoice, build an email signature,
-        merge a PDF, split a PDF, turn images into a PDF,
-        shrink one, convert pages to images, redact sensitive parts, sign a document, compress or
-        convert your images, make a QR code. Free, no accounts, no watermarks. Your files never leave your device.
+        Merge a PDF, compress an image, build a resume, make an invoice.
+        <strong>Everything runs on your device.</strong> Your files never upload to a server.
       </p>
     </div>
-
-    <a class="featured-tool" href={basePath('/resume-builder')}>
-      <span class="featured-eyebrow">Flagship tool</span>
-      <span class="featured-name">Resume builder</span>
-      <p class="featured-desc">Write your resume with a live preview, pick from three recruiter-ready templates, and download the PDF free. No signup, no watermark, no pay-to-download trap. Your resume stays in your browser.</p>
-      <span class="featured-cta">Build your resume <Icon name="arrow" size={16} /></span>
-    </a>
 
     <!-- Ad slot: homepage (AdSense display unit goes here) -->
     <div class="ad-slot" data-ad-slot="home-top" aria-hidden="true"><span>Advertisement</span></div>
 
     <div class="tool-index">
       {groups.map((g) => (
-        <section aria-label={g.name}>
-          <h2>{g.name}</h2>
+        <section class="tool-group" aria-label={g.name}>
+          <div class="tool-group-head">
+            <h2>{g.name}</h2>
+            <span class="count">{String(g.tools.length).padStart(2, '0')}</span>
+          </div>
           {g.tools.map((t) => (
             <a class="tool-row" href={basePath(t.href)}>
-              <span class="tool-row-icon"><Icon name={t.icon} size={20} /></span>
+              <span class="tool-row-num">{t.num}</span>
               <span>
                 <span class="tool-row-name">{t.name}</span>
                 <p class="tool-row-desc">{t.desc}</p>
               </span>
-              <span class="arrow"><Icon name="arrow" size={18} /></span>
+              <span class="tool-row-tag">{t.tag}</span>
+              <span class="arrow" aria-hidden="true">&rarr;</span>
             </a>
           ))}
         </section>
       ))}
+    </div>
+
+    <div class="pro-strip">
+      <span class="pmark">PRO</span>
+      <p><strong>Heavier work?</strong> Batch processing, bigger files, no ads. One payment, yours forever.</p>
+      <a class="btn" href={basePath('/pro')}>See Pro</a>
     </div>
 
     <div class="content">

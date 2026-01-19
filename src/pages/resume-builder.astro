@@ -76,6 +76,29 @@ const lede =
   ]}
 >
   <section class="tool-card resume-app" slot="tool" aria-label="Resume builder">
+    <div id="rb-import-panel" class="no-print">
+      <p class="mono-label">Starting point</p>
+      <div id="rb-import-drop" class="dropzone" tabindex="0" role="button" aria-label="Upload an existing resume as a PDF or Word file">
+        <div class="dz-icon"><Icon name="upload" size={30} /></div>
+        <div class="dz-title">Upload an existing resume</div>
+        <div class="dz-sub">Drop a PDF or Word file here, or click to browse</div>
+      </div>
+      <input type="file" id="rb-import-file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+      <p id="rb-import-status" role="status" hidden></p>
+      <div class="btn-row">
+        <button id="rb-start-blank" class="btn btn-secondary" type="button">Start from a blank resume</button>
+        <span class="stamp">Your files never leave your device</span>
+      </div>
+      <div id="rb-import-review" hidden>
+        <p class="mono-label">Check what we found</p>
+        <p>We read your file on this device. Look over the details, then use them or discard and start blank.</p>
+        <dl id="rb-import-fields"></dl>
+        <div class="btn-row">
+          <button id="rb-import-use" class="btn" type="button">Use these details</button>
+          <button id="rb-import-discard" class="btn btn-secondary" type="button">Discard and start blank</button>
+        </div>
+      </div>
+    </div>
     <div class="resume-toolbar no-print">
       <div class="rb-templates" role="radiogroup" aria-label="Choose a template">
         <label class="rb-template">
@@ -124,6 +147,8 @@ const lede =
   </section>
   <script>
     import { initResumeBuilder } from '../tools/resume-builder';
+    import { initResumeImport } from '../tools/resume-import-ui';
     initResumeBuilder();
+    initResumeImport();
   </script>
 </ToolPage>

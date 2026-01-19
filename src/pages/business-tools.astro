@@ -8,6 +8,7 @@ const description =
   'Free business tools that run in your browser: an invoice generator with live preview and PDF export, and an email signature generator for Gmail and Outlook. No signup, no watermark, no subscription.';
 
 const tools = [
+  { href: '/business-profile', icon: 'file', name: 'Business profile', desc: 'Save your business name, logo, and contact details once. The invoice and signature tools fill them in automatically.' },
   { href: '/invoice-generator', icon: 'file', name: 'Invoice generator', desc: 'Line items, tax, discounts, 22 currencies, live preview, free PDF export. Your invoices stay in this browser.' },
   { href: '/email-signature-generator', icon: 'sign', name: 'Email signature generator', desc: 'Three layouts, six accent colors, photo and social links. Copy rich text into Gmail or Outlook. No branding.' },
 ] as const;
@@ -75,7 +76,7 @@ const jsonLd = {
       <dl>
         <div class="faq">
           <dt>Are these business tools free?</dt>
-          <dd>Yes. Both tools are free with no limits, no watermarks, and no account. There is no paid tier, no branding badge to remove, and no per-invoice fee.</dd>
+          <dd>Yes. All three are free with no limits, no watermarks, and no account. There is no paid tier, no branding badge to remove, and no per-invoice fee.</dd>
         </div>
         <div class="faq">
           <dt>Where is my business data stored?</dt>

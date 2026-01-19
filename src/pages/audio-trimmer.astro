@@ -1,0 +1,143 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Audio Trimmer - Cut Audio Online Free | FreeKit';
+const description =
+  'Trim MP3, WAV, and other audio files online for free. Waveform editor, precise to a tenth of a second, preview before you cut. Export WAV or MP3. No signup, no watermark. Your audio never leaves your browser.';
+const h1 = 'Trim audio files';
+const lede = 'Cut the silence off a recording, pull a clip out of a song, or shorten a voice memo. Free, no account, no watermark.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Media tools', href: '/media-tools' }, { label: 'Audio trimmer', href: '/audio-trimmer' }]}
+  toolName="FreeKit Audio Trimmer"
+  intro={[
+    'Cutting a piece out of an audio file should be a thirty-second job, but the usual online trimmers turn it into an ordeal: upload queues, accounts before download, and a watermark or a paywall waiting at the end. This trimmer skips all of that. Your file is decoded on your own device, you see the waveform, you drag the handles to the exact spot, and the cut happens right there in the tab.',
+    'Precision matters here, so the trimmer shows a real waveform and reads times out to a tenth of a second. Click anywhere on the waveform to move the playhead, drag the brick-colored handles to set the start and end, or type times directly if you know them. A preview button plays just your selection, so you can check the cut sounds right before you commit to it.',
+    'Export gives you two honest choices. WAV is instant and lossless, encoded directly in the page with no extra downloads. MP3 is encoded with a real MP3 encoder (lamejs) at the bitrate you pick. What you do not get is a fake format button that produces a renamed file: the format on the button is the format in the download.',
+  ]}
+  steps={[
+    'Drop your audio file onto the box above, or click it to browse. MP3, WAV, OGG, and M4A all decode in the browser.',
+    'Drag the handles on the waveform to mark your start and end, or type exact times. Click the waveform to move the playhead.',
+    'Press "Play selection" to hear exactly what you will keep. Adjust the handles until it sounds right.',
+    'Export as WAV for a lossless cut, or pick an MP3 bitrate and export as MP3. The trimmed file downloads immediately.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Input formats', 'Anything your browser can decode: MP3, WAV, OGG, M4A, FLAC in most browsers'],
+    ['Precision', 'Handles snap to 0.1 second'],
+    ['WAV export', 'Instant, lossless, 16-bit PCM'],
+    ['MP3 export', 'Real MP3 encoding at 128, 192, or 320 kbps'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this audio trimmer really free?',
+      a: 'Yes. There is no free tier with a paid tier above it, no daily quota, and no features held back. Trimming is a small local computation, so there is nothing to charge for. The trimmed file downloads with no watermark and no account.',
+    },
+    {
+      q: 'Is my audio uploaded to a server?',
+      a: 'No. Your file is decoded, displayed, cut, and re-encoded entirely in your browser. Nothing is sent anywhere, which also means voice memos and unreleased recordings stay private. Closing the tab removes all trace of the file.',
+    },
+    {
+      q: 'Which is better for export, WAV or MP3?',
+      a: 'WAV is lossless, so it is the best choice when you plan to edit the clip further or you want the exact quality of the original. MP3 is much smaller and sounds fine for sharing or playback; 192 kbps is a good middle ground, and 320 kbps is near-transparent for most ears.',
+    },
+    {
+      q: 'How precise is the trim?',
+      a: 'The start and end handles snap to a tenth of a second, and the time readouts show the same precision. That is finer than most people can hear. If you need sample-exact editing for music production, use a desktop editor; for clips, ringtones, and voice memos, a tenth of a second is plenty.',
+    },
+    {
+      q: 'Does trimming reduce the audio quality?',
+      a: 'WAV export keeps every sample of your selection exactly, so there is no quality change. MP3 export re-encodes the selection, which loses a little quality the way any MP3 conversion does, but at 192 or 320 kbps the difference is inaudible to most listeners.',
+    },
+    {
+      q: 'The page says it cannot decode my file. Why?',
+      a: 'Decoding uses your browser\'s built-in audio engine, so formats the browser cannot play cannot be trimmed here. MP3, WAV, OGG, and M4A work everywhere. Some FLAC and less common formats depend on the browser; Chrome and Edge handle the most. Convert the file to MP3 or WAV first and try again.',
+    },
+    {
+      q: 'Can I trim a video\'s audio with this?',
+      a: 'Not directly. Extract the audio first with the audio converter, or trim the video itself with the video trimmer. This tool only reads audio files.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Audio trimmer tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add an audio file to trim">
+      <div class="dz-icon"><Icon name="audio" size={30} /></div>
+      <div class="dz-title">Drop audio here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="audio/*,.m4a,.ogg,.oga,.flac,.wav,.mp3" hidden />
+    <div id="error-box" class="error-box" hidden></div>
+
+    <div id="editor" hidden>
+      <p id="file-info" class="count-label"></p>
+      <div id="waveform-wrap" class="wave-wrap">
+        <canvas id="waveform" class="waveform" aria-label="Audio waveform. Click to move the playhead, drag the handles to trim."></canvas>
+      </div>
+
+      <div class="slider-pair">
+        <div class="slider-line">
+          <span>Start</span>
+          <input type="range" id="start-slider" min="0" value="0" step="0.1" aria-label="Trim start time" />
+          <span class="range-val" id="start-readout">0:00.0</span>
+        </div>
+        <div class="slider-line">
+          <span>End</span>
+          <input type="range" id="end-slider" min="0" value="0" step="0.1" aria-label="Trim end time" />
+          <span class="range-val" id="end-readout">0:00.0</span>
+        </div>
+      </div>
+
+      <div class="time-row">
+        <div class="time-field">
+          <label for="start-input">Start time</label>
+          <input type="text" id="start-input" value="0:00.0" inputmode="decimal" />
+          <p class="hint">Seconds like <code>90</code> or <code>1:30.5</code></p>
+        </div>
+        <div class="time-field">
+          <label for="end-input">End time</label>
+          <input type="text" id="end-input" value="0:00.0" inputmode="decimal" />
+          <p class="hint">Seconds like <code>90</code> or <code>1:30.5</code></p>
+        </div>
+      </div>
+
+      <p id="duration-readout" class="count-label"></p>
+
+      <div class="btn-row">
+        <button id="play-btn" class="btn btn-secondary">Play selection</button>
+      </div>
+
+      <div class="field" style="max-width: 280px">
+        <label for="mp3-bitrate">MP3 bitrate</label>
+        <select id="mp3-bitrate">
+          <option value="128">128 kbps (smaller file)</option>
+          <option value="192" selected>192 kbps (recommended)</option>
+          <option value="320">320 kbps (best quality)</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <button id="export-wav-btn" class="btn">Export WAV</button>
+        <button id="export-mp3-btn" class="btn btn-secondary">Export MP3</button>
+      </div>
+      <p class="honest-note"><strong>WAV is instant.</strong> MP3 loads a small encoder (about 150KB) on first use, then encodes on your device. The heavy 30MB video engine is never needed here.</p>
+
+      <div id="result" class="result" hidden>
+        <h3>Trimmed</h3>
+        <p id="result-info"></p>
+      </div>
+    </div>
+  </section>
+  <script>
+    import { initAudioTrimmer } from '../tools/audio-trimmer';
+    initAudioTrimmer();
+  </script>
+</ToolPage>

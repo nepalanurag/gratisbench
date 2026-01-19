@@ -1,0 +1,104 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { basePath, siteUrl } from '../lib/site';
+
+const title = 'Media Tools - Free Online Audio & Video Utilities | FreeKit';
+const description =
+  'Free online media tools: trim audio, join audio clips, convert audio, compress video, trim video, convert video, and record your screen. No signup, no watermark. Everything runs in your browser.';
+
+const tools = [
+  { href: '/audio-trimmer', icon: 'audio', name: 'Audio trimmer', desc: 'Cut audio with a waveform editor, precise to a tenth of a second. Export WAV or MP3.' },
+  { href: '/audio-merger', icon: 'audio', name: 'Audio merger', desc: 'Join multiple clips into one file, with fade in/out at each join.' },
+  { href: '/audio-converter', icon: 'audio', name: 'Audio converter', desc: 'Convert between MP3, WAV, and OGG Vorbis with a real encoder.' },
+  { href: '/video-compressor', icon: 'video', name: 'Video compressor', desc: 'Shrink video to a target size: 25MB for chat apps, 10MB for email, or custom.' },
+  { href: '/video-trimmer', icon: 'video', name: 'Video trimmer', desc: 'Cut a section out of a video. Fast keyframe cuts or precise re-encoded cuts.' },
+  { href: '/video-converter', icon: 'video', name: 'Video converter', desc: 'Convert video between MP4 (H.264), WebM (VP8), and MOV.' },
+  { href: '/screen-recorder', icon: 'record', name: 'Screen recorder', desc: 'Record a tab, window, or screen. No time cap, no watermark, mic optional.' },
+] as const;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'FreeKit media tools',
+  url: siteUrl(Astro.site) + basePath('/media-tools'),
+  description,
+};
+---
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <div class="wrap">
+    <div class="page-head">
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href={basePath("/")}>FreeKit</a><span><span class="sep">/</span><a href={basePath("/media-tools")}>Media tools</a></span>
+      </nav>
+      <h1>Media tools</h1>
+      <p class="lede">
+        Seven utilities for everyday audio and video jobs: trimming clips, joining recordings,
+        converting formats, shrinking files to fit chat and email limits, and recording your
+        screen. All free, all private, all in your browser.
+      </p>
+      <div>
+        <span class="privacy-line"><Icon name="lock" size={15} /> Your files never leave your device.</span>
+      </div>
+    </div>
+
+    <!-- Ad slot: hub top (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-top" aria-hidden="true"><span>Advertisement</span></div>
+
+    <div class="tool-index">
+      {tools.map((t) => (
+        <a class="tool-row" href={basePath(t.href)}>
+          <span class="tool-row-icon"><Icon name={t.icon} size={20} /></span>
+          <span>
+            <span class="tool-row-name">{t.name}</span>
+            <p class="tool-row-desc">{t.desc}</p>
+          </span>
+          <span class="arrow"><Icon name="arrow" size={18} /></span>
+        </a>
+      ))}
+    </div>
+
+    <div class="content">
+      <h2>What these tools do</h2>
+      <p>
+        The audio tools cover the small jobs: <a href={basePath("/audio-trimmer")}>Audio trimmer</a> cuts
+        a section out of a recording with a waveform editor, <a href={basePath("/audio-merger")}>Audio merger</a> joins
+        several clips with smooth fades at each join, and <a href={basePath("/audio-converter")}>Audio converter</a> moves
+        files between MP3, WAV, and OGG. The video tools handle the heavy jobs with a real ffmpeg encoder running
+        in your browser: <a href={basePath("/video-compressor")}>Video compressor</a> shrinks a file to the size a chat
+        app or email will accept, <a href={basePath("/video-trimmer")}>Video trimmer</a> cuts out a section, and{' '}
+        <a href={basePath("/video-converter")}>Video converter</a> changes containers and codecs.
+        <a href={basePath("/screen-recorder")}>Screen recorder</a> captures a tab, window, or screen with no time cap.
+      </p>
+      <p>
+        A useful pattern: record a demo with the screen recorder, trim the dead air off the start with the video
+        trimmer, then compress the result to 25MB so it sends in a chat message. Or trim a voice memo, join several
+        takes with the merger, and convert the result to MP3 for sharing. Everything stays on your device the whole
+        way through.
+      </p>
+
+      <h2>Common questions</h2>
+      <dl>
+        <div class="faq">
+          <dt>Are these media tools free?</dt>
+          <dd>Yes. All seven tools are free with no limits, no watermarks, and no account. The video tools download a roughly 30MB encoder on first use, which your browser caches; the tools themselves cost nothing.</dd>
+        </div>
+        <div class="faq">
+          <dt>Do my files get uploaded?</dt>
+          <dd>No. All seven tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded. The honest exception is the first load of the video encoder, which downloads code, not your files.</dd>
+        </div>
+        <div class="faq">
+          <dt>Why is video encoding slow?</dt>
+          <dd>Video encoding in a browser runs without the hardware acceleration that desktop apps use, so it is roughly five to fifty times slower than native software. Short clips take minutes; long 4K files can take a very long time. The tools show progress bars and ask you to keep the tab open.</dd>
+        </div>
+        <div class="faq">
+          <dt>Will my files lose quality?</dt>
+          <dd>It depends on the job. Trimming and converting audio to WAV are lossless. Compressing video, converting video, and encoding MP3 all trade some quality for size; the tools use high-quality settings and say plainly where the tradeoff is. Fast video trim copies the stream with zero quality change.</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Ad slot: hub bottom (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-bottom" aria-hidden="true"><span>Advertisement</span></div>
+  </div>
+</BaseLayout>

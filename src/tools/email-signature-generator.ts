@@ -15,6 +15,7 @@ import {
   renderSignature,
 } from '../lib/signature-core.ts';
 import { el, showError, hideError, ICONS, downscaleImageFile } from './common.ts';
+import { loadBusinessProfile, saveBusinessProfile, profileIsEmpty } from '../lib/business-profile.ts';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -22,6 +23,7 @@ function escapeHtml(s: string): string {
 
 export function initSignatureGenerator(): void {
   let sig: SignatureData = loadSignature();
+  syncBusinessProfile();
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -34,6 +36,45 @@ export function initSignatureGenerator(): void {
       return deserializeSignature(localStorage.getItem(SIGNATURE_STORAGE_KEY));
     } catch {
       return blankSignature(); // storage blocked or unavailable
+    }
+  }
+
+  // ---------- business profile sync ----------
+  //
+  // The shared business profile fills empty company fields, and a one-time
+  // migration copies details already saved here into the profile. Name and job
+  // title are personal, not business data, so they are never touched.
+
+  function syncBusinessProfile(): void {
+    const hasDetails = [sig.company, sig.address, sig.email, sig.phone, sig.website, sig.photoDataUrl].some(
+      (v) => v.trim() !== ''
+    );
+    const profile = loadBusinessProfile();
+    if (!profileIsEmpty(profile)) {
+      if (!hasDetails) {
+        sig.company = profile.name;
+        sig.address = profile.address;
+        sig.email = profile.email;
+        sig.phone = profile.phone;
+        sig.website = profile.website;
+        sig.photoDataUrl = profile.logoDataUrl;
+      }
+      return;
+    }
+    // Profile is empty: migrate this tool's own saved details once, but never
+    // the shipped example content.
+    const isExample = sig.name.trim() === 'Sam Rivera' && sig.company.trim() === 'Northwind Mobile';
+    if (hasDetails && !isExample) {
+      saveBusinessProfile({
+        name: sig.company,
+        tagline: '',
+        address: sig.address,
+        email: sig.email,
+        phone: sig.phone,
+        website: sig.website,
+        color: '',
+        logoDataUrl: sig.photoDataUrl,
+      });
     }
   }
 

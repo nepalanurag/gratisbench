@@ -1,7 +1,6 @@
 ---
 import '../styles/global.css';
-import '@fontsource/space-grotesk/500.css';
-import '@fontsource/space-grotesk/700.css';
+import CommandPalette from '../components/CommandPalette.astro';
 import { siteUrl, basePath } from '../lib/site';
 
 interface Props {
@@ -28,6 +27,12 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={pageUrl} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
     <!-- Plausible analytics: set data-domain to the real domain when ready, then uncomment.
     <script defer data-domain="www.freekit.app" src="https://plausible.io/js/script.js"></script>
@@ -37,18 +42,19 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
     <header class="site-header">
       <div class="wrap">
         <a class="brand" href={basePath('/')} aria-label="FreeKit home">
-          <span class="brand-mark" aria-hidden="true">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M5 4h11v6H5z"/><path d="M5 4v16"/><path d="M5 12h8"/></svg>
-          </span>
+          <span class="brand-mark" aria-hidden="true"></span>
           FreeKit
         </a>
         <nav class="site-nav" aria-label="Main">
-          <a href={basePath('/pdf-tools')}>PDF tools</a>
-          <a href={basePath('/image-tools')}>Image tools</a>
-          <a href={basePath('/business-tools')}>Business tools</a>
-          <a href={basePath('/qr-generator')}>QR generator</a>
+          <a href={basePath('/pdf-tools')}>PDF</a>
+          <a href={basePath('/image-tools')}>Image</a>
+          <a href={basePath('/media-tools')}>Media</a>
+          <a href={basePath('/business-tools')}>Business</a>
           <a href={basePath('/pro')} class="pro-link">Pro</a>
         </nav>
+        <button class="kbtn" data-open-palette type="button" aria-label="Search tools">
+          Search <kbd class="k">⌘K</kbd>
+        </button>
       </div>
     </header>
 
@@ -59,32 +65,24 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
     <footer class="site-footer">
       <div class="wrap">
         <a class="brand" href={basePath('/')}>
-          <span class="brand-mark" aria-hidden="true">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M5 4h11v6H5z"/><path d="M5 4v16"/><path d="M5 12h8"/></svg>
-          </span>
+          <span class="brand-mark" aria-hidden="true"></span>
           FreeKit
         </a>
-        <span>Free tools that run in your browser.</span>
+        <span class="fine">Free tools that run in your browser</span>
         <nav aria-label="Footer">
           <a href={basePath('/pdf-tools')}>PDF tools</a>
-          <a href={basePath('/merge-pdf')}>Merge PDF</a>
-          <a href={basePath('/split-pdf')}>Split PDF</a>
-          <a href={basePath('/images-to-pdf')}>Images to PDF</a>
-          <a href={basePath('/pdf-compressor')}>Compress PDF</a>
-          <a href={basePath('/pdf-to-jpg')}>PDF to JPG</a>
-          <a href={basePath('/pdf-redactor')}>Redact PDF</a>
-          <a href={basePath('/pdf-esignature')}>Sign PDF</a>
           <a href={basePath('/image-tools')}>Image tools</a>
-          <a href={basePath('/image-compressor')}>Compress images</a>
-          <a href={basePath('/image-converter')}>Convert images</a>
-          <a href={basePath('/qr-generator')}>QR generator</a>
-          <a href={basePath('/resume-builder')}>Resume builder</a>
+          <a href={basePath('/media-tools')}>Media tools</a>
           <a href={basePath('/business-tools')}>Business tools</a>
-          <a href={basePath('/invoice-generator')}>Invoice generator</a>
-          <a href={basePath('/email-signature-generator')}>Email signature</a>
+          <a href={basePath('/money-tools')}>Money tools</a>
+          <a href={basePath('/design-tools')}>Design tools</a>
+          <a href={basePath('/business-profile')}>Business profile</a>
+          <a href={basePath('/resume-builder')}>Resume builder</a>
+          <a href={basePath('/qr-generator')}>QR generator</a>
           <a href={basePath('/pro')}>Pro</a>
         </nav>
       </div>
     </footer>
+    <CommandPalette />
   </body>
 </html>

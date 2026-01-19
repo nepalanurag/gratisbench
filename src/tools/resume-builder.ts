@@ -348,6 +348,17 @@ export function initResumeBuilder(): void {
     renderPreview();
   });
 
+  // Filled by the import panel (src/tools/resume-import-ui.ts): replace the
+  // whole resume with the parsed data, then re-render editor and preview.
+  window.addEventListener('freekit:resume-import', (e) => {
+    const data = (e as CustomEvent).detail as ResumeData | null;
+    if (!data || typeof data !== 'object' || !data.contact) return;
+    resume = data;
+    save();
+    renderEditor();
+    renderPreview();
+  });
+
   el('rb-clear').addEventListener('click', () => {
     if (!window.confirm('Clear everything and start over? This cannot be undone.')) return;
     resume = blankResume();

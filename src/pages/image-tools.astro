@@ -3,13 +3,16 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import { basePath, siteUrl } from '../lib/site';
 
-const title = 'Image Tools - Free Online Image Compressor and Converter | FreeKit';
+const title = 'Image Tools - Free Online Image Utilities | FreeKit';
 const description =
-  'Free online image tools: compress images with a quality slider, convert between PNG, JPEG, WebP, and AVIF. No signup, no watermark. Everything runs in your browser.';
+  'Free online image tools: compress images, convert formats, remove backgrounds with AI, read text from images (OCR), and trace images to SVG vectors. No signup, no watermark. Everything runs in your browser.';
 
 const tools = [
   { href: '/image-compressor', icon: 'compress', name: 'Image compressor', desc: 'Shrink photos and screenshots with a quality slider, batch and ZIP included.' },
   { href: '/image-converter', icon: 'photo', name: 'Image converter', desc: 'Convert between PNG, JPEG, WebP, and AVIF, with a transparency warning for JPEG.' },
+  { href: '/background-remover', icon: 'image', name: 'Background remover', desc: 'AI background removal in your browser. Full-resolution transparent PNG, free.' },
+  { href: '/image-ocr', icon: 'file', name: 'Image OCR', desc: 'Read text from photos and scans with Tesseract. Copy or download .txt.' },
+  { href: '/image-tracer', icon: 'image', name: 'Image tracer', desc: 'Turn logos and icons into clean SVG vectors. Free SVG download.' },
 ] as const;
 
 const jsonLd = {
@@ -28,8 +31,9 @@ const jsonLd = {
       </nav>
       <h1>Image tools</h1>
       <p class="lede">
-        Two utilities for everyday image jobs: shrinking files with a quality slider you control,
-        and converting between the formats your software and websites actually accept.
+        Five utilities for everyday image jobs: shrinking files with a quality slider you control,
+        converting between the formats your software and websites actually accept, removing
+        backgrounds with AI, reading text out of photos, and tracing logos into SVG vectors.
         All free, all private, all in your browser.
       </p>
       <div>
@@ -68,6 +72,14 @@ const jsonLd = {
         format itself is the problem, such as a PNG that needs to become a JPEG for an upload form. Both tools
         process batches and hand you a single ZIP at the end. Everything stays on your device the whole way through.
       </p>
+      <p>
+        The three newer tools go further. The <a href={basePath("/background-remover")}>background remover</a> runs
+        an AI segmentation model in your browser and gives you a full-resolution transparent PNG, which paid
+        services charge per image for. <a href={basePath("/image-ocr")}>Image OCR</a> reads text out of photos and
+        scans with Tesseract, with copy and .txt download. And the <a href={basePath("/image-tracer")}>image
+        tracer</a> turns logos and icons into clean SVG vectors with a free download. Same deal as the rest:
+        free, private, in your browser.
+      </p>
 
       <h2>Honest limitations, stated up front</h2>
       <p>
@@ -82,11 +94,11 @@ const jsonLd = {
       <dl>
         <div class="faq">
           <dt>Are these image tools free?</dt>
-          <dd>Yes. Both tools are free with no limits, no watermarks, and no account.</dd>
+          <dd>Yes. All five tools are free with no limits, no watermarks, and no account.</dd>
         </div>
         <div class="faq">
           <dt>Do my images get uploaded?</dt>
-          <dd>No. Both tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded.</dd>
+          <dd>No. All five tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded. The background remover and OCR download their AI models once, then work offline too.</dd>
         </div>
         <div class="faq">
           <dt>Will my images lose quality?</dt>

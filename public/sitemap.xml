@@ -17,5 +17,24 @@
   <url><loc>https://www.freekit.app/image-tools</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://www.freekit.app/image-compressor</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://www.freekit.app/image-converter</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/background-remover</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/image-ocr</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/image-tracer</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/business-profile</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/money-tools</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/budget-planner</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/subscription-tracker</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/design-tools</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/logo-maker</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/og-image-generator</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/device-mockup-generator</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/media-tools</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/audio-trimmer</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/audio-merger</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/audio-converter</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/video-compressor</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/video-trimmer</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/video-converter</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.freekit.app/screen-recorder</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://www.freekit.app/pro</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
 </urlset>

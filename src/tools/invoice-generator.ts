@@ -23,6 +23,7 @@ import {
   renderInvoice,
 } from '../lib/invoice-core.ts';
 import { el, showError, hideError, ICONS, downscaleImageFile } from './common.ts';
+import { loadBusinessProfile, saveBusinessProfile, profileIsEmpty } from '../lib/business-profile.ts';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -30,6 +31,7 @@ function escapeHtml(s: string): string {
 
 export function initInvoiceGenerator(): void {
   let invoice: InvoiceData = loadInvoice();
+  syncBusinessProfile();
   let history: InvoiceData[] = loadHistory();
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -66,6 +68,43 @@ export function initInvoiceGenerator(): void {
         .filter((i) => i.number.trim());
     } catch {
       return [];
+    }
+  }
+
+  // ---------- business profile sync ----------
+  //
+  // The shared business profile fills empty business fields, and a one-time
+  // migration copies details already saved here into the profile. Anything the
+  // user typed in this tool always wins: prefill only touches empty fields and
+  // migration never runs once a profile exists.
+
+  function syncBusinessProfile(): void {
+    const b = invoice.business;
+    const hasDetails = [b.name, b.address, b.email, b.phone, b.logoDataUrl].some((v) => v.trim() !== '');
+    const profile = loadBusinessProfile();
+    if (!profileIsEmpty(profile)) {
+      if (!hasDetails) {
+        b.name = profile.name;
+        b.address = profile.address;
+        b.email = profile.email;
+        b.phone = profile.phone;
+        b.logoDataUrl = profile.logoDataUrl;
+      }
+      return;
+    }
+    // Profile is empty: migrate this tool's own saved details once, but never
+    // the shipped example content.
+    if (hasDetails && b.name.trim() !== 'Rivera Design Studio') {
+      saveBusinessProfile({
+        name: b.name,
+        tagline: '',
+        address: b.address,
+        email: b.email,
+        phone: b.phone,
+        website: '',
+        color: '',
+        logoDataUrl: b.logoDataUrl,
+      });
     }
   }
 

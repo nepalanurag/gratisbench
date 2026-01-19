@@ -39,6 +39,41 @@ on the user's device and never uploaded to a server.
   plus AVIF output only when the browser can encode it (feature-detected).
   GIF/BMP/TIFF are read-only inputs. Warns when converting transparent images
   to JPEG (which has no transparency) and offers a white background fill.
+- Background Remover (/background-remover): AI background removal in the
+  browser (@imgly/background-removal, ~40MB model downloaded once per browser
+  then cached). Full-resolution transparent PNG download free (the undercut
+  vs remove.bg's 0.25MP free preview), plus optional white/black background.
+  Before/after toggle. Honest about hard cases: wispy hair, glass, busy
+  backgrounds.
+- Image OCR (/image-ocr): Tesseract.js OCR in the browser (engine + language
+  data download once, ~15MB, then cached). 12 languages, honest preprocessing
+  (upscale small images, grayscale + contrast stretch), progress %, text in a
+  textarea with Copy and Download .txt. Honest that clean high-contrast images
+  work best and handwriting does not.
+- Image Tracer (/image-tracer): PNG/JPG to SVG vector tracing with
+  imagetracerjs (pure JS, no WASM; @neplex/vectorizer's browser build needs a
+  WASI shim + COOP/COEP headers the static host cannot set). Color (2-16
+  colors) or monochrome, detail slider 1-10, free SVG download + PNG preview
+  render. Honest that logos/icons trace well and photos do not.
+- Audio Trimmer (/audio-trimmer): cut audio with a waveform editor, handles
+  snap to 0.1s, preview the selection, export WAV (instant, lossless, pure-JS
+  16-bit PCM encode) or real MP3 at 128/192/320 kbps (lamejs, lazy-loaded).
+- Audio Merger (/audio-merger): join multiple clips in a chosen order, with an
+  adjustable 0-5s fade-out/fade-in at each join. Clips are resampled to a
+  common rate; output is lossless WAV via OfflineAudioContext render.
+- Audio Converter (/audio-converter): MP3 (LAME), WAV (16-bit PCM), and OGG
+  Vorbis via ffmpeg.wasm (single-threaded @ffmpeg/core 0.12.10, lazy-loaded
+  after file pick, ~30MB first download, cached after).
+- Video Compressor (/video-compressor): presets for 25MB (Discord/WhatsApp),
+  10MB (email), or custom size. One H.264 pass at targetSize/duration minus
+  128k audio. Honest about in-browser encode speed and memory limits.
+- Video Trimmer (/video-trimmer): fast mode (stream copy, cuts snap to
+  keyframes) or precise mode (H.264 re-encode, frame-exact). MP4 output.
+- Video Converter (/video-converter): MP4 (H.264), WebM (VP8, not VP9 - the
+  in-browser build's VP9 encoder hangs), MOV (H.264). High-quality CRF encodes.
+- Screen Recorder (/screen-recorder): getDisplayMedia + MediaRecorder, no time
+  cap, optional mic, pause/resume, preview, WebM download. Honest limit is
+  device memory; very long recordings may fail on low-RAM devices.
 - Invoice Generator (/invoice-generator): line items with quantity and rate,
   tax %, percent or flat discount, 22 currencies, optional logo, live preview
   styled like a real invoice. Totals computed in integer cents (no float
@@ -50,13 +85,43 @@ on the user's device and never uploaded to a server.
   social links, live preview. Generates email-safe HTML (tables, inline
   styles only, no classes). "Copy rich text" pastes straight into Gmail and
   Outlook signature settings; "Copy HTML" gives the source. No branding.
+- Budget Planner (/budget-planner): zero-based monthly budgeting in the
+  browser. Income entries, per-category planned vs actual spending, and a
+  "remaining to assign" figure. All money math in integer cents. Data saved
+  in this browser only (local storage), no account, no sync in v1.
+- Subscription Tracker (/subscription-tracker): list subscriptions with cost,
+  weekly/monthly/yearly billing cycle, and billing date. Dashboard shows
+  monthly and yearly totals plus cost per day; renewals are computed from
+  the billing dates and shown on the page (no push notifications in v1).
+  Saved in this browser only.
+- Logo Maker (/logo-maker): simple wordmark-style logos from templates -
+  18 stroke icons, four background shapes, four fonts, eight color presets.
+  PNG (512/1024px) and SVG download, free, no pay-to-download fee. Can save
+  the finished logo to the shared business profile. Scoped to simple
+  wordmarks; not a design agency.
+- OG Image Generator (/og-image-generator): social cards in four exact
+  sizes (1200x630 Open Graph, 1080x1080 square, 1600x900 wide, 1200x675 X
+  card), eight themes, five background patterns. Headline text wraps and
+  shrinks to fit automatically. Full-resolution PNG download.
+- Device Mockup Generator (/device-mockup-generator): frame a screenshot
+  in a browser window, phone, or laptop with background, padding, and
+  shadow controls. Screenshot is contain-fit automatically. The transparent
+  background option exports with real transparency (the preview
+  checkerboard never reaches the file). PNG export.
 
 ## Hub pages
 
 - PDF tools hub (/pdf-tools): links the seven PDF utilities.
-- Image tools hub (/image-tools): links the image compressor and converter.
-- Business tools hub (/business-tools): links the invoice generator and the
-  email signature generator.
+- Image tools hub (/image-tools): links the image compressor, converter,
+  background remover, OCR, and tracer.
+- Media tools hub (/media-tools): links the seven media utilities (audio
+  trimmer/merger/converter, video compressor/trimmer/converter, screen recorder).
+- Business tools hub (/business-tools): links the business profile, the invoice
+  generator, and the email signature generator.
+- Money tools hub (/money-tools): links the budget planner and the
+  subscription tracker.
+- Design tools hub (/design-tools): links the logo maker, the OG image
+  generator, and the device mockup generator.
 - Pro (/pro): a planned $19 one-time all-tools bundle (not yet available).
   The free tools are fully free and stay that way.
 
@@ -65,10 +130,15 @@ on the user's device and never uploaded to a server.
 - Pricing: all tools free, $0. No accounts, no quotas, no watermarks.
 - Privacy model: 100% client-side processing. No file uploads, no tracking of
   file contents. Tools work offline once the page has loaded. The resume
-  builder, invoice generator, and email signature generator additionally
-  autosave drafts to the browser's local storage only (this browser, this
-  device); clearing browser data erases them.
+  builder, invoice generator, email signature generator, business profile,
+  budget planner, subscription tracker, logo maker, OG image generator, and
+  device mockup generator additionally autosave drafts to the browser's local
+  storage only (this browser, this device); clearing browser data erases them.
 - Limitations: password-protected (encrypted) PDFs are not supported by the
   merge/split tools. QR codes are static (encoded directly, never expire).
+  Video encoding runs in-browser without hardware acceleration (slow; keep the
+  tab open). Screen recordings are buffered in device memory. The WebM output
+  of the video converter uses VP8 because the in-browser ffmpeg build's VP9
+  encoder hangs.
 - Contact/brand: FreeKit. Replace https://www.freekit.app with the live domain
   when citing specific URLs.

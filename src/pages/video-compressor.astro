@@ -1,0 +1,117 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Video Compressor - Shrink Video Online Free | FreeKit';
+const description =
+  'Compress video online for free to fit Discord, WhatsApp, or email limits. Set a target size and the bitrate is calculated for you. Real H.264 encoding in your browser. No signup, no watermark.';
+const h1 = 'Compress videos';
+const lede = 'Shrink a video to fit a 25MB chat limit or a 10MB email attachment. You pick the size, the tool does the math.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Media tools', href: '/media-tools' }, { label: 'Video compressor', href: '/video-compressor' }]}
+  toolName="FreeKit Video Compressor"
+  intro={[
+    'Every chat app has a file size limit and none of them tell you how to hit it. Discord caps uploads at 25MB, WhatsApp is about the same, and email attachments start bouncing around 10MB. The usual online compressors answer this with a vague quality slider, a watermark, or a paywall at exactly the moment your file is ready. This compressor starts from the other end: you tell it the size you need, and it calculates the video bitrate that gets you there.',
+    'The math is simple and shown on the page: target size divided by duration, minus the audio track, gives the video bitrate. Then a real H.264 encoder, ffmpeg running in your browser, does one careful pass at that bitrate. Nothing is uploaded, so a two-gigabyte screen recording never has to travel anywhere before it shrinks.',
+    'Be honest with yourself about what compression can do. Squeezing an hour of 4K footage into 10MB will look rough no matter who does the encoding; the bits have to come from somewhere. This tool is at its best on the everyday job: a phone video or screen recording that is a bit too big for where it needs to go. The FAQ below says plainly what to expect.',
+  ]}
+  steps={[
+    'Drop your video onto the box above, or click it to browse. The tool reads its length automatically.',
+    'Pick a preset: 25MB for Discord and WhatsApp, 10MB for email, or set your own size.',
+    'Check the estimated bitrate shown. It is calculated from your target size and the video length.',
+    'Click "Compress video". The encoder downloads once (about 30MB), then the compression runs on your device with a progress bar.',
+    'Download the MP4 when it finishes.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None. The output is your video, nothing added.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Presets', '25MB (Discord / WhatsApp), 10MB (email), custom size'],
+    ['Method', 'One H.264 pass at a computed target bitrate, AAC audio at 128 kbps'],
+    ['Output', 'MP4 with faststart (plays while downloading)'],
+    ['Engine download', 'About 30MB on first use, cached afterwards'],
+    ['Works offline', 'Yes, once the page and the engine have loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this video compressor really free?',
+      a: 'Yes. There is no free tier with a paid tier above it, no daily quota, and no features held back. Compression runs on your device, so there is no per-minute encoding cost to pass on. The compressed video downloads with no watermark and no account.',
+    },
+    {
+      q: 'Is my video uploaded to a server?',
+      a: 'No. The compression runs inside your browser using a WebAssembly build of ffmpeg. Your video never leaves your device, which matters for screen recordings full of private tabs and for any footage you would not upload. Closing the tab removes all trace.',
+    },
+    {
+      q: 'How does the target size actually work?',
+      a: 'The tool divides your target size by the video length to get a total bitrate, subtracts 128 kbps for the audio track, and encodes the video at the rest. It is one careful H.264 pass rather than true two-pass encoding, which would be much slower in a browser for little visible gain. Results land close to the target, usually within a few percent.',
+    },
+    {
+      q: 'How long will compression take?',
+      a: 'Longer than you hope. Video encoding in a browser runs roughly five to fifty times slower than on a desktop with hardware acceleration, depending on your device. A one-minute phone clip takes a few minutes on a decent laptop; a long 4K recording can take a very long time. The progress bar keeps you informed, and the tab must stay open.',
+    },
+    {
+      q: 'Will my video look worse after compression?',
+      a: 'It depends on how far you squeeze it. Dropping a 200MB recording to 25MB keeps most of the visible quality; dropping it to 10MB will show softness and blockiness in busy scenes. The tool shows the computed bitrate before you start so you can judge: anything above about 2,000 kbps usually looks fine, below 800 kbps starts to look rough.',
+    },
+    {
+      q: 'Why did my file come out bigger than the target, or fail entirely?',
+      a: 'Very short videos cannot hit tiny targets because even the minimum bitrate overshoots, and very large files can exhaust the browser\'s memory mid-encode. If a file fails, try a larger target size or a shorter clip. Files over a few hundred megabytes are the usual victims; the honest limit here is your device\'s RAM.',
+    },
+    {
+      q: 'What formats can I compress?',
+      a: 'Anything ffmpeg can read in a browser: MP4, WebM, MOV, MKV, and most phone and camera formats. The output is always MP4 with H.264 video and AAC audio, which plays everywhere.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Video compressor tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a video to compress">
+      <div class="dz-icon"><Icon name="video" size={30} /></div>
+      <div class="dz-title">Drop video here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="video/*,.mkv,.mov,.webm,.mp4,.m4v,.avi" hidden />
+    <div id="error-box" class="error-box" hidden></div>
+    <p id="file-info" class="count-label"></p>
+    <div id="preview-wrap" hidden>
+      <video id="preview" class="preview-video" controls muted playsinline></video>
+    </div>
+    <p id="engine-status" class="engine-status" hidden></p>
+
+    <h3 class="tool-step">Target size</h3>
+    <div class="radio-cards" role="radiogroup" aria-label="Target size preset">
+      <label class="radio-card"><input type="radio" name="preset" value="25" checked /><span><strong>25 MB</strong><small>Discord, WhatsApp, Telegram</small></span></label>
+      <label class="radio-card"><input type="radio" name="preset" value="10" /><span><strong>10 MB</strong><small>Email attachments</small></span></label>
+      <label class="radio-card"><input type="radio" name="preset" value="custom" /><span><strong>Custom</strong><small>Pick your own size</small></span></label>
+    </div>
+
+    <div class="field" id="custom-row" style="max-width: 280px" hidden>
+      <label for="custom-mb">Target size (MB)</label>
+      <input type="number" id="custom-mb" value="25" min="1" max="2000" />
+    </div>
+
+    <p id="bitrate-note" class="honest-note" hidden></p>
+
+    <div class="btn-row">
+      <button id="compress-btn" class="btn" disabled>Compress video</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-label" id="progress-label"></div>
+      <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
+    </div>
+    <p class="honest-note"><strong>Encoding happens on your device</strong> and takes a while: minutes for short clips, much longer for big files. Keep the tab open. Very large files can run out of browser memory.</p>
+    <div id="result" class="result" hidden>
+      <h3>Compressed</h3>
+      <p id="result-info"></p>
+    </div>
+  </section>
+  <script>
+    import { initVideoCompressor } from '../tools/video-compressor';
+    initVideoCompressor();
+  </script>
+</ToolPage>

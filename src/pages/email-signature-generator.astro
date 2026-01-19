@@ -1,5 +1,6 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
+import { basePath } from '../lib/site';
 
 const title = 'Free Email Signature Generator - No Branding, No Signup';
 const description =
@@ -82,6 +83,7 @@ const lede =
       <button id="es-clear" class="btn btn-secondary" type="button">Clear</button>
     </div>
     <p class="autosave-note no-print">Your signature is saved automatically in this browser only.</p>
+    <p class="autosave-note no-print">Company details are pulled from your <a href={basePath('/business-profile')}>business profile</a>.</p>
     <div id="es-error" class="error-box no-print" hidden></div>
     <p id="es-copied" class="copied-note no-print" hidden></p>
     <div class="es-tabs no-print" role="tablist" aria-label="Editor or preview">

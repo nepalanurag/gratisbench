@@ -54,6 +54,10 @@ import {
   renderResume,
 } from '../src/lib/resume-core.ts';
 import {
+  parseResumeText,
+  parsedToResumeData,
+} from '../src/lib/resume-import.ts';
+import {
   INVOICE_SCHEMA_VERSION,
   INVOICE_STORAGE_KEY,
   INVOICE_NUMBER_KEY,
@@ -97,6 +101,70 @@ import {
   deserializeSignature,
   renderSignature,
 } from '../src/lib/signature-core.ts';
+import {
+  PROFILE_SCHEMA_VERSION,
+  PROFILE_STORAGE_KEY,
+  blankBusinessProfile,
+  profileIsEmpty,
+  sanitizeBusinessProfile,
+  loadBusinessProfile,
+  saveBusinessProfile,
+  clearBusinessProfile,
+  exportBusinessProfile,
+  parseBusinessProfileFile,
+} from '../src/lib/business-profile.ts';
+import {
+  clamp,
+  formatTime,
+  parseTimeInput,
+  estimateVideoBitrateKbps,
+  mbToBytes,
+  encodeWav,
+  parseWavHeader,
+  readWavSample,
+  floatToInt16,
+  resampleLinear,
+  computePeaks,
+  sliceChannels,
+  validateTrimRange,
+  stemOf,
+  withExtension,
+  preferredRecorderMimeTypes,
+} from '../src/lib/media-core.ts';
+import { encodeMp3, mp3SafeSampleRate } from '../src/lib/mp3-encode.ts';
+import {
+  validateBgChoice,
+  bgFillColor,
+  bgOutputFileName,
+  bgStageFromProgressKey,
+  bgProgressLabel,
+  bgRemoveErrorMessage,
+  BG_MODEL_DOWNLOAD_NOTE,
+} from '../src/lib/bgremove-core.ts';
+import {
+  OCR_LANGUAGES,
+  DEFAULT_OCR_LANG,
+  OCR_ENGINE_NOTE,
+  resolveOcrLanguage,
+  validateOcrOptions,
+  cleanupOcrText,
+  ocrOutputFileName,
+  ocrProgressLabel,
+  ocrErrorMessage,
+} from '../src/lib/ocr-core.ts';
+import {
+  validateTraceOptions,
+  resolveImageTracerOptions,
+  scaleForTrace,
+  traceOutputFileName,
+  tracePreviewFileName,
+  validateSvg,
+  countSvgPaths,
+  svgDimensions,
+  traceErrorMessage,
+  TRACE_DETAIL_DEFAULT,
+  TRACE_ENGINE_NOTE,
+} from '../src/lib/trace-core.ts';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -531,6 +599,83 @@ console.log('== resume-core ==');
   ok('skipped when empty: no work section for blank', !renderResume(blankResume(), 'classic').includes('Work Experience'));
 }
 
+console.log('== resume-import ==');
+{
+  const sample = [
+    'Priya Sharma',
+    'Senior Product Designer',
+    'priya.sharma@example.com · +1 (415) 555-0132 · San Francisco, CA',
+    'linkedin.com/in/priyasharma',
+    '',
+    'Summary',
+    'Product designer with 6 years of experience shipping mobile apps used by millions.',
+    '',
+    'Experience',
+    'Senior Product Designer, Northwind Mobile',
+    'San Francisco, CA · Mar 2021 – Present',
+    '• Led redesign of onboarding; activation rose from 31% to 47%.',
+    '• Built the design system used by 4 product teams.',
+    '',
+    'Product Designer, Brightline Health',
+    'Remote · Jun 2018 – Feb 2021',
+    '• Designed the patient scheduling app from zero to launch.',
+    '• Partnered with clinicians to simplify intake forms.',
+    '',
+    'Education',
+    'BFA, Communication Design — California College of the Arts',
+    '2012 – 2016',
+    '',
+    'Skills',
+    'Design: Figma, Sketch, prototyping, design systems',
+    'Code: HTML, CSS, JavaScript',
+  ].join('\n');
+
+  const parsed = parseResumeText(sample);
+  ok('import finds name', parsed.fullName === 'Priya Sharma', parsed.fullName);
+  ok('import finds headline', parsed.title === 'Senior Product Designer', parsed.title);
+  ok('import finds email', parsed.email === 'priya.sharma@example.com', parsed.email);
+  ok('import finds phone', parsed.phone === '+1 (415) 555-0132', parsed.phone);
+  ok('import finds location', parsed.location === 'San Francisco, CA', parsed.location);
+  ok('import finds linkedin', parsed.linkedin === 'linkedin.com/in/priyasharma', parsed.linkedin);
+  ok('import finds summary', parsed.summary.startsWith('Product designer with 6 years'));
+  ok('import finds two jobs', parsed.experience.length === 2, String(parsed.experience.length));
+  const j1 = parsed.experience[0];
+  ok('first job title/company', j1.title === 'Senior Product Designer' && j1.company === 'Northwind Mobile', `${j1.title} @ ${j1.company}`);
+  ok('first job location', j1.location === 'San Francisco, CA', j1.location);
+  ok('first job dates', j1.start === 'Mar 2021' && j1.end === '' && j1.current === true, `${j1.start} - ${j1.end} current=${j1.current}`);
+  ok('first job bullets', j1.bullets.length === 2 && j1.bullets[0].startsWith('Led redesign'), j1.bullets.join(' | '));
+  const j2 = parsed.experience[1];
+  ok('second job title/company', j2.title === 'Product Designer' && j2.company === 'Brightline Health', `${j2.title} @ ${j2.company}`);
+  ok('second job dates', j2.start === 'Jun 2018' && j2.end === 'Feb 2021' && j2.current === false, `${j2.start} - ${j2.end}`);
+  ok('second job location', j2.location === 'Remote', j2.location);
+  ok('import finds education', parsed.education.length === 1, String(parsed.education.length));
+  const edu = parsed.education[0];
+  ok('education degree/school', edu.degree === 'BFA, Communication Design' && edu.school === 'California College of the Arts', `${edu.degree} / ${edu.school}`);
+  ok('education dates', edu.start === '2012' && edu.end === '2016', `${edu.start}-${edu.end}`);
+  ok('import groups skills', parsed.skills.length === 2 && parsed.skills[0].label === 'Design' && parsed.skills[1].label === 'Code');
+  ok('skill items split', parsed.skills[0].items.includes('Figma') && parsed.skills[1].items.includes('JavaScript'), JSON.stringify(parsed.skills));
+
+  // dash-separated header variant
+  const dashy = parseResumeText(['Jane Doe', 'Experience', 'UI Designer - Pixelworks Studio', 'Jan 2016 - May 2018', '• Shipped websites for 15 clients.'].join('\n'));
+  ok('dash header splits title/company', dashy.experience[0].title === 'UI Designer' && dashy.experience[0].company === 'Pixelworks Studio', `${dashy.experience[0].title} @ ${dashy.experience[0].company}`);
+
+  // mapping to ResumeData
+  const data = parsedToResumeData(parsed);
+  ok('mapped data has schema version', data.version === RESUME_SCHEMA_VERSION);
+  ok('mapped data keeps contact', data.contact.fullName === 'Priya Sharma' && data.contact.email === 'priya.sharma@example.com');
+  ok('mapped entries have unique ids', (() => {
+    const ids = data.experience.map((e) => e.id).concat(data.education.map((e) => e.id));
+    return ids.every((id) => typeof id === 'string' && id.length > 0) && new Set(ids).size === ids.length;
+  })());
+  ok('mapped data keeps bullets', data.experience[0].bullets.length === 2);
+  ok('mapped skills become groups', data.skills[0].label === 'Design' && data.skills[0].items.includes('Figma'));
+  ok('mapped data round-trips', deserialize(serialize(data)).contact.phone === '+1 (415) 555-0132');
+
+  // empty input
+  const empty = parseResumeText('');
+  ok('empty text gives blank parse', empty.fullName === '' && empty.experience.length === 0 && empty.skills.length === 0);
+}
+
 console.log('== invoice-core ==');
 {
   // money parsing
@@ -706,6 +851,327 @@ console.log('== signature-core ==');
   ok('storage key namespaced', SIGNATURE_STORAGE_KEY.startsWith('freekit.email-signature') && SIGNATURE_SCHEMA_VERSION === 1);
 }
 
+console.log('== business-profile ==');
+{
+  const blank = blankBusinessProfile();
+  ok('blank profile is empty', profileIsEmpty(blank));
+  ok('filled profile is not empty', !profileIsEmpty({ ...blank, name: 'Acme' }));
+  ok('storage key namespaced', PROFILE_STORAGE_KEY === 'freekit.business-profile.v1' && PROFILE_SCHEMA_VERSION === 1);
+  ok('sanitize handles null', profileIsEmpty(sanitizeBusinessProfile(null)));
+
+  const valid = {
+    name: 'Acme Co', tagline: 'We make things', address: '1 Main St', email: 'a@b.co',
+    phone: '123', website: 'acme.co', color: '#a63d21', logoDataUrl: 'data:image/png;base64,AAA',
+    extra: 'should be dropped', version: 1,
+  };
+  const parsed = parseBusinessProfileFile(JSON.stringify(valid));
+  ok('valid JSON parses', parsed.name === 'Acme Co' && parsed.tagline === 'We make things');
+  ok('unknown fields dropped', !('extra' in parsed));
+  ok('logo data URL kept', parsed.logoDataUrl === 'data:image/png;base64,AAA');
+  ok('valid hex color kept', parsed.color === '#a63d21');
+
+  const coerced = parseBusinessProfileFile(JSON.stringify({
+    name: 42, email: null, tagline: ['a'], color: 'not-a-color', logoDataUrl: 'https://x/y.png',
+  }));
+  ok('wrong types coerced to empty', coerced.name === '' && coerced.email === '' && coerced.tagline === '');
+  ok('bad color dropped', coerced.color === '');
+  ok('non-data-url logo dropped', coerced.logoDataUrl === '');
+
+  expectThrow('junk JSON throws', () => parseBusinessProfileFile('{{{'), 'business profile');
+  expectThrow('empty string throws', () => parseBusinessProfileFile(''), 'business profile');
+
+  // save/load go through the in-memory fallback under node (no localStorage here)
+  saveBusinessProfile({ ...blankBusinessProfile(), name: 'Round Trip Co', website: 'rt.co' });
+  const back = loadBusinessProfile();
+  ok('save/load round trip', back.name === 'Round Trip Co' && back.website === 'rt.co');
+  clearBusinessProfile();
+  ok('clear empties the profile', profileIsEmpty(loadBusinessProfile()));
+  ok('export is valid JSON', JSON.parse(exportBusinessProfile()).name === '');
+}
+
+console.log('== media-core: time ==');
+{
+  ok('formatTime 0 -> 0:00.0', formatTime(0) === '0:00.0', formatTime(0));
+  ok('formatTime 75.25 -> 1:15.3 (rounds)', formatTime(75.25) === '1:15.3', formatTime(75.25));
+  ok('formatTime 61.04 -> 1:01.0', formatTime(61.04) === '1:01.0', formatTime(61.04));
+  ok('formatTime 3599.9 -> 59:59.9', formatTime(3599.9) === '59:59.9', formatTime(3599.9));
+  ok('formatTime pads seconds', formatTime(5.05) === '0:05.1', formatTime(5.05));
+  expectThrow('formatTime rejects negative', () => formatTime(-1), 'non-negative');
+  expectThrow('formatTime rejects NaN', () => formatTime(NaN), 'non-negative');
+
+  ok('parse "90"', parseTimeInput('90') === 90);
+  ok('parse "1:30"', parseTimeInput('1:30') === 90);
+  ok('parse "1:30.5"', parseTimeInput('1:30.5') === 90.5);
+  ok('parse "0:05.25"', parseTimeInput('0:05.25') === 5.25);
+  ok('parse " 2:03 " trims', parseTimeInput(' 2:03 ') === 123);
+  ok('parse "0"', parseTimeInput('0') === 0);
+  expectThrow('parse garbage rejected', () => parseTimeInput('abc'), 'Could not understand');
+  expectThrow('parse empty rejected', () => parseTimeInput('   '), 'Enter a time');
+  expectThrow('parse "1:70" rejected', () => parseTimeInput('1:70'), 'Could not understand');
+  expectThrow('parse "1:2:3" rejected', () => parseTimeInput('1:2:3'), 'Could not understand');
+  expectThrow('parse "-5" rejected', () => parseTimeInput('-5'), 'Could not understand');
+}
+
+console.log('== media-core: bitrate math ==');
+{
+  // 25MB over 60s: (25*1024*1024*8/60)/1000 = 3495.25 -> floor 3495 - 128 = 3367
+  const vkb = estimateVideoBitrateKbps(mbToBytes(25), 60);
+  ok('25MB/60s -> 3367 kbps video', vkb === 3367, `got ${vkb}`);
+  ok('10MB/30s -> 2668 kbps', estimateVideoBitrateKbps(mbToBytes(10), 30) === 2668, `${estimateVideoBitrateKbps(mbToBytes(10), 30)}`);
+  ok('tiny target floors at 100', estimateVideoBitrateKbps(1000, 3600) === 100);
+  ok('custom audio bitrate subtracted', estimateVideoBitrateKbps(mbToBytes(25), 60, 64) === 3431);
+  expectThrow('zero duration throws', () => estimateVideoBitrateKbps(1000, 0), 'duration');
+  expectThrow('negative target throws', () => estimateVideoBitrateKbps(-5, 60), 'positive');
+  ok('mbToBytes(25)', mbToBytes(25) === 25 * 1024 * 1024);
+  ok('clamp', clamp(5, 0, 3) === 3 && clamp(-1, 0, 3) === 0 && clamp(2, 0, 3) === 2);
+}
+
+console.log('== media-core: WAV encode/decode round trip ==');
+{
+  // 1s stereo 44100Hz sine, like the browser trimmer would export.
+  const sr = 44100;
+  const n = sr;
+  const left = new Float32Array(n);
+  const right = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const v = Math.sin((2 * Math.PI * 440 * i) / sr) * 0.5;
+    left[i] = v;
+    right[i] = -v;
+  }
+  const wav = encodeWav([left, right], sr);
+  ok('RIFF magic', wav[0] === 0x52 && wav[1] === 0x49 && wav[2] === 0x46 && wav[3] === 0x46);
+  ok('WAVE magic', wav[8] === 0x57 && wav[9] === 0x41 && wav[10] === 0x56 && wav[11] === 0x45);
+  ok('file length = 44 + frames*channels*2', wav.length === 44 + n * 2 * 2, `got ${wav.length}`);
+  const info = parseWavHeader(wav);
+  ok('header: 44100Hz stereo 16-bit', info.sampleRate === 44100 && info.channels === 2 && info.bitsPerSample === 16);
+  ok('header: sample count matches', info.sampleCount === n, `got ${info.sampleCount}`);
+  // sample values survive the round trip (16-bit quantization tolerance)
+  const f0l = readWavSample(wav, info, 0, 0);
+  const f0r = readWavSample(wav, info, 0, 1);
+  ok('frame 0 ~ 0 (sine starts at 0)', Math.abs(f0l) < 0.001 && Math.abs(f0r) < 0.001, `${f0l}, ${f0r}`);
+  const peakFrame = Math.round(sr / 440 / 4); // quarter period ~ peak
+  const peakL = readWavSample(wav, info, peakFrame, 0);
+  const peakR = readWavSample(wav, info, peakFrame, 1);
+  ok('peak frame ~ +0.5 / -0.5', Math.abs(peakL - 0.5) < 0.002 && Math.abs(peakR + 0.5) < 0.002, `${peakL}, ${peakR}`);
+  // mono
+  const mono = encodeWav([left], 22050);
+  const mi = parseWavHeader(mono);
+  ok('mono 22050 header', mi.channels === 1 && mi.sampleRate === 22050 && mi.sampleCount === n);
+  expectThrow('empty channels throws', () => encodeWav([], 44100), 'no audio channels');
+  expectThrow('empty frames throws', () => encodeWav([new Float32Array(0)], 44100), 'empty');
+  expectThrow('mismatched channels throws', () => encodeWav([left, new Float32Array(10)], 44100), 'same length');
+  expectThrow('garbage header rejected', () => parseWavHeader(new Uint8Array([1, 2, 3])), 'too short');
+}
+
+console.log('== media-core: resample / int16 / peaks / slice ==');
+{
+  const flat = new Float32Array([0.5, 0.5, 0.5, 0.5]);
+  const half = resampleLinear(flat, 44100, 22050);
+  ok('44100->22050 halves length', half.length === 2, `got ${half.length}`);
+  ok('flat signal stays flat', Math.abs(half[0] - 0.5) < 1e-6 && Math.abs(half[1] - 0.5) < 1e-6);
+  const same = resampleLinear(flat, 44100, 44100);
+  ok('equal rates return a copy', same.length === 4 && same !== flat);
+  const ramp = new Float32Array([0, 1]);
+  const up = resampleLinear(ramp, 1, 5);
+  ok('ramp interpolates endpoints', up.length === 10 && up[0] === 0 && up[9] === 1 && Math.abs(up[4] - 4 / 9) < 1e-6, `${[...up].slice(0, 5)}…`);
+  expectThrow('bad rate throws', () => resampleLinear(flat, 0, 44100), 'positive');
+
+  const i16 = floatToInt16(new Float32Array([1, -1, 0, 2, -2, 0.5]));
+  ok('1.0 -> 32767, -1.0 -> -32767 (symmetric)', i16[0] === 32767 && i16[1] === -32767, `${i16[0]}, ${i16[1]}`);
+  ok('clamps out-of-range', i16[3] === 32767 && i16[4] === -32767);
+  ok('0.5 -> 16384', i16[5] === 16384, `${i16[5]}`);
+
+  const peaks = computePeaks(new Float32Array([0, 0.5, -1, 0.25, 0, 0, 0.75, 0]), 4);
+  ok('4 buckets', peaks.length === 4);
+  ok('loudest bucket normalizes to 1', peaks[1] === 1, `${[...peaks]}`);
+  ok('bucket values proportional', Math.abs(peaks[0] - 0.5) < 1e-6 && Math.abs(peaks[3] - 0.75) < 1e-6, `${[...peaks]}`);
+  const silent = computePeaks(new Float32Array(8), 4);
+  ok('silence -> zeros', [...silent].every((v) => v === 0));
+  expectThrow('zero buckets throws', () => computePeaks(new Float32Array(8), 0), 'bucket');
+
+  const ch = [new Float32Array([1, 2, 3, 4, 5]), new Float32Array([6, 7, 8, 9, 10])];
+  const sliced = sliceChannels(ch, 1, 4);
+  ok('slice [1,4)', sliced[0].length === 3 && sliced[0][0] === 2 && sliced[1][2] === 9);
+  expectThrow('empty slice throws', () => sliceChannels(ch, 3, 3), 'empty');
+}
+
+console.log('== media-core: trim validation + filenames + recorder mimes ==');
+{
+  const r = validateTrimRange(1.5, 10, 60);
+  ok('valid range passes through', r.start === 1.5 && r.end === 10);
+  expectThrow('end <= start rejected', () => validateTrimRange(10, 10, 60), 'after the start');
+  expectThrow('end past duration rejected', () => validateTrimRange(1, 61, 60), 'past the end');
+  expectThrow('negative start rejected', () => validateTrimRange(-1, 10, 60), 'negative');
+  expectThrow('tiny range rejected', () => validateTrimRange(1, 1.01, 60), 'too short');
+  expectThrow('zero duration rejected', () => validateTrimRange(0, 1, 0), 'length');
+
+  ok('stemOf strips extension', stemOf('song.mp3') === 'song');
+  ok('stemOf keeps inner dots', stemOf('my.song.mp3') === 'my.song');
+  ok('stemOf falls back for dotfile', stemOf('.mp3') === 'audio');
+  ok('withExtension replaces', withExtension('song.mp3', 'wav') === 'song.wav');
+  ok('withExtension adds', withExtension('song', 'mp3') === 'song.mp3');
+  ok('withExtension dotfile fallback', withExtension('.mp3', 'wav') === 'audio.wav');
+  ok('withExtension tolerates leading dot', withExtension('song.mp3', '.ogg') === 'song.ogg');
+
+  const mimes = preferredRecorderMimeTypes();
+  ok('mime list non-empty, webm first', mimes.length > 0 && mimes[0].includes('webm'), mimes.join(' | '));
+  ok('mp4 fallback present', mimes.some((m) => m === 'video/mp4'));
+}
+
+console.log('== mp3-encode (lamejs) ==');
+{
+  ok('44100 is mp3-safe', mp3SafeSampleRate(44100) === 44100);
+  ok('48000 is mp3-safe', mp3SafeSampleRate(48000) === 48000);
+  ok('96000 falls back to 44100', mp3SafeSampleRate(96000) === 44100);
+  ok('11025 stays (MPEG-2.5)', mp3SafeSampleRate(11025) === 11025);
+
+  const sr = 44100;
+  const n = sr; // 1s
+  const mk = (f) => {
+    const c = new Float32Array(n);
+    for (let i = 0; i < n; i++) c[i] = Math.sin((2 * Math.PI * f * i) / sr) * 0.5;
+    return c;
+  };
+  const mk22 = (f) => {
+    const len = 22050;
+    const c = new Float32Array(len);
+    for (let i = 0; i < len; i++) c[i] = Math.sin((2 * Math.PI * f * i) / 22050) * 0.5;
+    return c;
+  };
+  const mp3 = await encodeMp3([mk(440), mk(880)], sr, 192);
+  ok('stereo MP3 starts with frame sync', mp3[0] === 0xff && (mp3[1] & 0xe0) === 0xe0, `${mp3[0].toString(16)} ${mp3[1].toString(16)}`);
+  // 192kbps 1s stereo ≈ 24000 bytes; allow ±25% for encoder padding/headers
+  ok('stereo 192kbps 1s plausible size', mp3.length > 18000 && mp3.length < 30000, `got ${mp3.length}`);
+  // walk frames: every header parses as a valid MPEG-1 Layer III frame
+  const BITRATES = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+  let pos = 0;
+  let frames = 0;
+  let bad = 0;
+  while (pos + 4 <= mp3.length) {
+    if (mp3[pos] === 0xff && (mp3[pos + 1] & 0xe0) === 0xe0) {
+      frames++;
+      const br = BITRATES[(mp3[pos + 2] >> 4) & 15];
+      const pad = (mp3[pos + 2] >> 1) & 1;
+      const flen = Math.floor((144 * br * 1000) / sr) + pad;
+      if (!flen || br !== 192) {
+        bad++;
+        break;
+      }
+      pos += flen;
+    } else {
+      bad++;
+      pos++;
+    }
+  }
+  ok('all frames valid 192kbps MPEG-1', bad === 0 && frames > 30 && pos === mp3.length, `frames=${frames} bad=${bad} pos=${pos}/${mp3.length}`);
+
+  const monoMp3 = await encodeMp3([mk22(440)], 22050, 96);
+  ok('mono 22050 MP3 has frame sync', monoMp3[0] === 0xff && (monoMp3[1] & 0xe0) === 0xe0);
+  ok('mono 96kbps 1s plausible size', monoMp3.length > 9000 && monoMp3.length < 15000, `got ${monoMp3.length}`);
+  await expectThrowAsync('empty channels throws', () => encodeMp3([], 44100), 'no audio channels');
+  await expectThrowAsync('empty frames throws', () => encodeMp3([new Float32Array(0)], 44100), 'empty');
+}
+
+console.log('== bgremove-core ==');
+{
+  ok('transparent validates', validateBgChoice('transparent') === 'transparent');
+  ok('white validates', validateBgChoice('white') === 'white');
+  ok('black validates', validateBgChoice('black') === 'black');
+  ok('junk falls back to transparent', validateBgChoice('checker') === 'transparent' && validateBgChoice(null) === 'transparent');
+  ok('fill colors', bgFillColor('white') === '#ffffff' && bgFillColor('black') === '#000000' && bgFillColor('transparent') === null);
+  ok('output filename', bgOutputFileName('photo.jpg') === 'photo-no-bg.png');
+  ok('dotfile falls back', bgOutputFileName('.jpg') === 'image-no-bg.png');
+  ok('fetch key -> loading-model', bgStageFromProgressKey('fetch:isnet.onnx') === 'loading-model');
+  ok('compute key -> removing', bgStageFromProgressKey('compute:inference') === 'removing');
+  ok('model label mentions once per browser', bgProgressLabel('fetch:x', 50, 100).includes('once per browser'));
+  ok('model label percent', bgProgressLabel('fetch:x', 50, 100).includes('50%'));
+  ok('inference label', bgProgressLabel('compute:inference', 1, 4) === 'Removing the background…');
+  ok('mask label', bgProgressLabel('compute:mask', 2, 4) === 'Cleaning up the edges…');
+  ok('model note mentions 40 MB', BG_MODEL_DOWNLOAD_NOTE.includes('40 MB'));
+  ok('network error is friendly', bgRemoveErrorMessage(new Error('fetch failed')).includes('Check your connection'));
+  ok('gpu error is friendly', bgRemoveErrorMessage(new Error('wasm init failed')).includes('WebAssembly'));
+}
+
+console.log('== ocr-core ==');
+{
+  ok('12 languages offered', OCR_LANGUAGES.length === 12);
+  ok('english is first/default', OCR_LANGUAGES[0].code === 'eng' && DEFAULT_OCR_LANG === 'eng');
+  ok('resolve known code', resolveOcrLanguage('fra') === 'fra' && resolveOcrLanguage('chi_sim') === 'chi_sim');
+  ok('resolve junk -> eng', resolveOcrLanguage('xx') === 'eng' && resolveOcrLanguage(null) === 'eng');
+  const o = validateOcrOptions({ lang: 'deu' });
+  ok('options default on', o.upscaleSmall && o.enhanceContrast && o.lightCleanup && o.lang === 'deu');
+  const o2 = validateOcrOptions({ lang: 'xx', upscaleSmall: false });
+  ok('junk lang + opt-out', o2.lang === 'eng' && o2.upscaleSmall === false);
+  ok('cleanup joins hyphenated breaks', cleanupOcrText('exam-\nple') === 'example');
+  ok('cleanup collapses blank lines', cleanupOcrText('a\n\n\n\nb') === 'a\n\nb');
+  ok('cleanup drops form feeds', cleanupOcrText('a\fb') === 'ab');
+  ok('cleanup trims trailing spaces', cleanupOcrText('a   \nb') === 'a\nb');
+  ok('cleanup normalizes CRLF', cleanupOcrText('a\r\nb') === 'a\nb');
+  ok('cleanup trims ends', cleanupOcrText('\n\n hi \n') === 'hi');
+  ok('ocr filename', ocrOutputFileName('scan.png') === 'scan-ocr.txt');
+  ok('ocr dotfile fallback', ocrOutputFileName('.png') === 'image-ocr.txt');
+  const p1 = ocrProgressLabel({ status: 'recognizing text', progress: 0.5 });
+  ok('recognition 50% -> 80% "Reading"', p1.percent === 80 && p1.label.includes('Reading'), `${p1.percent} ${p1.label}`);
+  const p2 = ocrProgressLabel({ status: 'loading language traineddata', progress: 1 });
+  ok('language data 100% -> 55%', p2.percent === 55, `${p2.percent}`);
+  const p3 = ocrProgressLabel({ status: 'loading tesseract core', progress: 0.5 });
+  ok('core load 50% -> ~13%', p3.percent === 13 && p3.label.includes('engine'), `${p3.percent}`);
+  ok('engine note mentions 15 MB', OCR_ENGINE_NOTE.includes('15 MB'));
+  ok('ocr network error is friendly', ocrErrorMessage(new Error('Failed to fetch')).includes('Check your connection'));
+}
+
+console.log('== trace-core (incl. real imagetracerjs run in Node) ==');
+{
+  ok('color validates', validateTraceOptions({ mode: 'color', detail: 6 }).mode === 'color');
+  ok('mono validates', validateTraceOptions({ mode: 'mono', detail: 3 }).detail === 3);
+  ok('junk mode -> color', validateTraceOptions({ mode: 'x', detail: 6 }).mode === 'color');
+  ok('detail clamps high', validateTraceOptions({ detail: 99 }).detail === 10);
+  ok('detail clamps low', validateTraceOptions({ detail: -2 }).detail === 1);
+  ok('detail rounds', validateTraceOptions({ detail: 4.6 }).detail === 5);
+  ok('NaN detail -> default', validateTraceOptions({ detail: NaN }).detail === TRACE_DETAIL_DEFAULT);
+  const hi = resolveImageTracerOptions({ mode: 'color', detail: 10 });
+  ok('detail 10 color -> 16 colors, pathomit 4', hi.numberofcolors === 16 && hi.pathomit === 4, JSON.stringify({ c: hi.numberofcolors, p: hi.pathomit }));
+  const lo = resolveImageTracerOptions({ mode: 'color', detail: 1 });
+  ok('detail 1 color -> 2 colors, pathomit 48', lo.numberofcolors === 2 && lo.pathomit === 48);
+  const mo = resolveImageTracerOptions({ mode: 'mono', detail: 10 });
+  ok('mono always 2 colors', mo.numberofcolors === 2);
+  ok('scale passes small images through', JSON.stringify(scaleForTrace(800, 600)) === '{"width":800,"height":600}');
+  const sc = scaleForTrace(2048, 1024);
+  ok('scale caps long edge at 1024', sc.width === 1024 && sc.height === 512, `${sc.width}x${sc.height}`);
+  expectThrow('zero dims rejected', () => scaleForTrace(0, 10), 'Invalid image');
+  ok('trace filename', traceOutputFileName('logo.png') === 'logo-traced.svg');
+  ok('preview filename', tracePreviewFileName('logo.png') === 'logo-traced.png');
+
+  // imagetracerjs is pure JS: run a real trace on canned pixels.
+  const it = (await import('imagetracerjs')).default;
+  const w = 16;
+  const h = 16;
+  const data = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const black = x > 3 && x < 12 && y > 3 && y < 12;
+      data[i] = data[i + 1] = data[i + 2] = black ? 0 : 255;
+      data[i + 3] = 255;
+    }
+  }
+  const svg = it.imagedataToSVG({ width: w, height: h, data }, resolveImageTracerOptions({ mode: 'mono', detail: 6 }));
+  ok('real trace validates as SVG with paths', validateSvg(svg).ok === true, svg.slice(0, 90));
+  ok('real trace has >= 1 path', countSvgPaths(svg) >= 1, `paths=${countSvgPaths(svg)}`);
+  const dims = svgDimensions(svg);
+  ok('svg dimensions parse 16x16', dims !== null && dims.width === 16 && dims.height === 16, JSON.stringify(dims));
+  // color mode on a two-tone image
+  const svgColor = it.imagedataToSVG({ width: w, height: h, data }, resolveImageTracerOptions({ mode: 'color', detail: 8 }));
+  ok('color trace validates too', validateSvg(svgColor).ok === true);
+  ok('garbage rejected', validateSvg('nope').ok === false);
+  ok('short string rejected', validateSvg('<svg></svg>').ok === false);
+  const pathless = `<svg width="8" height="8" xmlns="http://www.w3.org/2000/svg"><rect width="8" height="8"/></svg>`.padEnd(300, ' ');
+  ok('pathless svg rejected', validateSvg(pathless).ok === false);
+  ok('truncated svg rejected', validateSvg('<svg width="8" height="8"><path d="M0 0L8 8Z"/>'.padEnd(300, 'x')).ok === false);
+  ok('engine note honest about photos', TRACE_ENGINE_NOTE.includes('photos do not'));
+  ok('memory error is friendly', traceErrorMessage(new Error('allocation failed')).includes('smaller image'));
+}
+
 console.log('== element-id cross-checks (glue ids exist in pages) ==');
 {
   /** Every el('...') id used by a glue module must exist as id="..." in its page
@@ -723,6 +1189,18 @@ console.log('== element-id cross-checks (glue ids exist in pages) ==');
   }
   checkGlueIds('src/tools/invoice-generator.ts', 'src/pages/invoice-generator.astro');
   checkGlueIds('src/tools/email-signature-generator.ts', 'src/pages/email-signature-generator.astro');
+  checkGlueIds('src/tools/audio-trimmer.ts', 'src/pages/audio-trimmer.astro');
+  checkGlueIds('src/tools/audio-merger.ts', 'src/pages/audio-merger.astro');
+  checkGlueIds('src/tools/audio-converter.ts', 'src/pages/audio-converter.astro');
+  checkGlueIds('src/tools/video-compressor.ts', 'src/pages/video-compressor.astro');
+  checkGlueIds('src/tools/video-trimmer.ts', 'src/pages/video-trimmer.astro');
+  checkGlueIds('src/tools/video-converter.ts', 'src/pages/video-converter.astro');
+  checkGlueIds('src/tools/screen-recorder.ts', 'src/pages/screen-recorder.astro');
+  checkGlueIds('src/tools/background-remover.ts', 'src/pages/background-remover.astro');
+  checkGlueIds('src/tools/image-ocr.ts', 'src/pages/image-ocr.astro');
+  checkGlueIds('src/tools/image-tracer.ts', 'src/pages/image-tracer.astro');
+  checkGlueIds('src/tools/business-profile.ts', 'src/pages/business-profile.astro');
+  checkGlueIds('src/tools/resume-import-ui.ts', 'src/pages/resume-builder.astro');
 }
 
 console.log('== glue module smoke import (no top-level DOM access) ==');
@@ -743,8 +1221,24 @@ console.log('== glue module smoke import (no top-level DOM access) ==');
     '../src/tools/pdf-esignature.ts',
     '../src/tools/qr-generator.ts',
     '../src/tools/resume-builder.ts',
+    '../src/tools/resume-import-ui.ts',
     '../src/tools/invoice-generator.ts',
     '../src/tools/email-signature-generator.ts',
+    '../src/tools/business-profile.ts',
+    '../src/tools/ffmpeg-loader.ts',
+    '../src/tools/audio-trimmer.ts',
+    '../src/tools/audio-merger.ts',
+    '../src/tools/audio-converter.ts',
+    '../src/tools/video-compressor.ts',
+    '../src/tools/video-trimmer.ts',
+    '../src/tools/video-converter.ts',
+    '../src/tools/screen-recorder.ts',
+    '../src/tools/bgremove-loader.ts',
+    '../src/tools/tesseract-loader.ts',
+    '../src/tools/trace-loader.ts',
+    '../src/tools/background-remover.ts',
+    '../src/tools/image-ocr.ts',
+    '../src/tools/image-tracer.ts',
   ];
   for (const m of mods) {
     await import(m);
@@ -752,6 +1246,64 @@ console.log('== glue module smoke import (no top-level DOM access) ==');
   }
   const { ICONS } = await import('../src/tools/common.ts');
   ok('ICONS exported', !!(ICONS.up && ICONS.down && ICONS.x));
+}
+
+console.log('== built HTML: page scripts survived the build ==');
+{
+  // Bug-class guard: each tool page's <script> must actually land in the
+  // built output. (Note: esbuild minifies the bundle, so the literal init
+  // function name, e.g. initAudioTrimmer, does not survive. Instead we check
+  // that the page HTML references a bundled script chunk and that the chunk
+  // contains a minification-proof marker string unique to that tool's code —
+  // which fails the same way if the script were silently dropped.)
+  const { existsSync } = await import('node:fs');
+  const pages = [
+    ['audio-trimmer', 'waveform'],
+    ['audio-merger', 'merge-btn'],
+    ['audio-converter', 'quality-select'],
+    ['video-compressor', 'compress-btn'],
+    ['video-trimmer', 'trim-btn'],
+    ['video-converter', 'libvpx'],
+    ['screen-recorder', 'rec-timer'],
+    ['background-remover', 'removeBackground'],
+    ['image-ocr', 'createWorker'],
+    ['image-tracer', 'imagedataToSVG'],
+  ];
+  const distAudio = join(ROOT, 'dist', 'audio-trimmer', 'index.html');
+  if (!existsSync(distAudio)) {
+    console.log('  SKIP built-HTML check: dist/ not present (run npm run build first)');
+  } else {
+    for (const [page, marker] of pages) {
+      const pageHtml = join(ROOT, 'dist', page, 'index.html');
+      if (!existsSync(pageHtml)) {
+        console.log(`  SKIP ${page}: not in dist/ yet (run npm run build first)`);
+        continue;
+      }
+      const html = readFileSync(pageHtml, 'utf8');
+      // Allow an optional base-path prefix (e.g. /freekit/_astro/ on GitHub Pages).
+      const m = html.match(/<script type="module" src="([^"]*\/_astro\/[a-z-]+\.astro_astro_type_script_index_0_lang\.[A-Za-z0-9_-]+\.js)"/);
+      const rel = m ? m[1].slice(m[1].indexOf('/_astro/') + 1) : null;
+      const chunkPath = rel ? join(ROOT, 'dist', rel) : null;
+      const chunk = chunkPath && existsSync(chunkPath) ? readFileSync(chunkPath, 'utf8') : '';
+      ok(
+        `${page}: bundled page script references tool code ("${marker}")`,
+        !!chunk && chunk.includes(marker) && chunk.length > 1000,
+        chunkPath ? `${chunkPath} missing marker or too small (${chunk.length}b)` : 'no bundled page script in HTML'
+      );
+    }
+  }
+}
+
+console.log('== coverage honesty note (not pass/fail) ==');
+{
+  // These genuinely cannot run under Node and are verified by build + review:
+  console.log('  NOTE not covered in Node: ffmpeg.wasm encoding (needs the WASM core + browser worker),');
+  console.log('  NOTE MediaRecorder/getDisplayMedia, AudioContext.decodeAudioData, OfflineAudioContext,');
+  console.log('  NOTE canvas waveform drawing, and <video> duration probing. The pure math they rely on');
+  console.log('  NOTE (bitrate estimation, WAV encode, time parsing, trim validation, MP3 frames) is tested above.');
+  console.log('  NOTE not covered in Node: @imgly/background-removal and tesseract.js inference');
+  console.log('  NOTE (both need browser WASM + CDN model downloads at runtime). imagetracerjs IS');
+  console.log('  NOTE exercised in Node above because it is dependency-free pure JS on ImageData.');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

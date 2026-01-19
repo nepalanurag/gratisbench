@@ -1,0 +1,122 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Video Trimmer - Cut Video Online Free | FreeKit';
+const description =
+  'Trim videos online for free. Fast keyframe cuts or precise re-encoded cuts, your choice. MP4 output, no signup, no watermark. Your video never leaves your browser.';
+const h1 = 'Trim videos';
+const lede = 'Cut the start, the end, or a middle section out of a video. Fast or frame-exact, your call.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Media tools', href: '/media-tools' }, { label: 'Video trimmer', href: '/video-trimmer' }]}
+  toolName="FreeKit Video Trimmer"
+  intro={[
+    'Trimming a video online usually gives you two bad choices: a "fast" tool that cuts wherever it feels like, or a precise one that makes you wait through an upload first. This trimmer offers both modes honestly, in your browser, with no upload at all. You set the start and end, you see what you are keeping, and you pick whether speed or exactness matters more for this cut.',
+    'Fast trim copies the video stream without re-encoding, which means it finishes in seconds with zero quality loss. The tradeoff is real and stated up front: it can only cut on keyframes, so your cut points may shift by a second or so. Precise trim re-encodes the kept section with H.264, so the cut lands exactly where you put it, at the cost of encoding time and a tiny, usually invisible quality cost.',
+    'For most jobs the choice is easy. Chopping a long recording down to the interesting part? Fast trim. Cutting a clip to start on an exact word or beat? Precise trim. Either way the output is a plain MP4 that plays everywhere, with no watermark stamped on it and no account standing between you and the download.',
+  ]}
+  steps={[
+    'Drop your video onto the box above, or click it to browse. A preview appears with the video length.',
+    'Type the start and end times, in seconds like "90" or as "1:30". The kept section is shown as you type.',
+    'Choose fast trim (instant, cuts snap to keyframes) or precise trim (exact cuts, re-encoded).',
+    'Click "Trim video". The encoder loads once if needed, then the trim runs on your device.',
+    'Download the trimmed MP4.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Fast trim', 'Stream copy: instant, no quality loss, cuts snap to keyframes'],
+    ['Precise trim', 'H.264 re-encode: frame-exact cuts, takes longer'],
+    ['Output', 'MP4 (H.264 video, AAC audio)'],
+    ['Engine download', 'About 30MB on first use, cached afterwards'],
+    ['Works offline', 'Yes, once the page and the engine have loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this video trimmer really free?',
+      a: 'Yes. There is no free tier with a paid tier above it, no daily quota, and no features held back. Trimming runs on your device, so there is no per-minute cost to pass on. The trimmed video downloads with no watermark and no account.',
+    },
+    {
+      q: 'Is my video uploaded to a server?',
+      a: 'No. The trim runs inside your browser using a WebAssembly build of ffmpeg. Your video never leaves your device, which matters for screen recordings and personal footage. Closing the tab removes all trace of the file.',
+    },
+    {
+      q: 'What is the difference between fast and precise trim?',
+      a: 'Fast trim copies the compressed video data without re-encoding, so it finishes in seconds with zero quality loss, but it can only cut where the video has keyframes, meaning cuts may shift by a second or two. Precise trim re-encodes the kept section, so cuts land exactly on your times, but it takes minutes and costs a tiny amount of quality.',
+    },
+    {
+      q: 'Which mode should I choose?',
+      a: 'Choose fast when you are roughly chopping a recording and a second of drift does not matter. Choose precise when the cut must land on an exact moment, like the start of a spoken sentence or a beat in music. If fast trim gives you the wrong section, run it again in precise mode.',
+    },
+    {
+      q: 'Why does precise trim take so long?',
+      a: 'Re-encoding video in a browser is slow, roughly five to fifty times slower than desktop software with hardware acceleration. A one-minute clip takes a few minutes on a decent laptop. The progress bar shows where it is, and the tab must stay open until it finishes.',
+    },
+    {
+      q: 'Will trimming reduce the video quality?',
+      a: 'Fast trim does not touch the picture at all, so quality is identical to the source. Precise trim re-encodes at high quality (CRF 20), which is visually indistinguishable from the original for almost everyone. If you trim an already-trimmed file several times in precise mode, tiny losses can accumulate, so keep the original around.',
+    },
+    {
+      q: 'Can I trim the middle out of a video?',
+      a: 'This tool keeps one continuous section: everything between your start and end. To remove a middle section, trim the two halves you want to keep and join them with the audio merger\'s video equivalent. A dedicated multi-cut editor is on the wishlist.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Video trimmer tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a video to trim">
+      <div class="dz-icon"><Icon name="video" size={30} /></div>
+      <div class="dz-title">Drop video here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="video/*,.mkv,.mov,.webm,.mp4,.m4v,.avi" hidden />
+    <div id="error-box" class="error-box" hidden></div>
+    <p id="file-info" class="count-label"></p>
+    <div id="preview-wrap" hidden>
+      <video id="preview" class="preview-video" controls muted playsinline></video>
+    </div>
+    <p id="engine-status" class="engine-status" hidden></p>
+
+    <div class="time-row">
+      <div class="time-field">
+        <label for="start-input">Keep from</label>
+        <input type="text" id="start-input" value="0:00.0" inputmode="decimal" />
+        <p class="hint">Seconds like <code>90</code> or <code>1:30.5</code></p>
+      </div>
+      <div class="time-field">
+        <label for="end-input">Keep until</label>
+        <input type="text" id="end-input" value="0:00.0" inputmode="decimal" />
+        <p class="hint">Seconds like <code>90</code> or <code>1:30.5</code></p>
+      </div>
+    </div>
+    <p id="range-hint" class="count-label"></p>
+
+    <h3 class="tool-step">Trim mode</h3>
+    <div class="radio-cards" role="radiogroup" aria-label="Trim mode">
+      <label class="radio-card"><input type="radio" name="mode" value="fast" checked /><span><strong>Fast trim</strong><small>Instant stream copy. Cuts snap to keyframes.</small></span></label>
+      <label class="radio-card"><input type="radio" name="mode" value="precise" /><span><strong>Precise trim</strong><small>Re-encodes. Exact cuts, takes longer.</small></span></label>
+    </div>
+
+    <div class="btn-row">
+      <button id="trim-btn" class="btn" disabled>Trim video</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-label" id="progress-label"></div>
+      <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
+    </div>
+    <div id="result" class="result" hidden>
+      <h3>Trimmed</h3>
+      <p id="result-info"></p>
+    </div>
+  </section>
+  <script>
+    import { initVideoTrimmer } from '../tools/video-trimmer';
+    initVideoTrimmer();
+  </script>
+</ToolPage>

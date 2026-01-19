@@ -1,5 +1,6 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
+import { basePath } from '../lib/site';
 
 const title = 'Free Invoice Generator - Make Invoices Online, No Signup';
 const description =
@@ -84,6 +85,7 @@ const lede =
       <button id="inv-clear" class="btn btn-secondary" type="button">Clear</button>
     </div>
     <p class="autosave-note no-print">Your invoice is saved automatically in this browser only.</p>
+    <p class="autosave-note no-print">Your business details are pulled from your <a href={basePath('/business-profile')}>business profile</a>.</p>
     <div id="inv-error" class="error-box no-print" hidden></div>
     <p id="inv-saved-note" class="copied-note no-print" hidden>Saved to this browser&rsquo;s invoice history.</p>
     <div class="inv-tabs no-print" role="tablist" aria-label="Editor or preview">
