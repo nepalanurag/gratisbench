@@ -2,6 +2,7 @@
 // Dispatches a window CustomEvent('freekit:resume-import') with the parsed
 // ResumeData; the builder listens for it and fills the editor.
 import { el, showError, hideError, setupDropzone } from './common.ts';
+import { renderPdfThumb } from './pdf-render.ts';
 import {
   extractTextFromPdf,
   extractTextFromDocx,
@@ -89,7 +90,9 @@ export function initResumeImport(): void {
     drop.setAttribute('aria-disabled', 'true');
     showStatus('Reading your file…');
     try {
-      const text = isPdf ? await extractTextFromPdf(file) : await extractTextFromDocx(file);
+      const buf = new Uint8Array(await file.arrayBuffer());
+      const asFile = new File([buf.buffer as ArrayBuffer], file.name, { type: file.type });
+      const text = isPdf ? await extractTextFromPdf(asFile) : await extractTextFromDocx(asFile);
       if (!text.trim()) {
         fail('We could not find any readable text in that file. Scanned images of resumes cannot be read; please use a file with selectable text.');
         return;
@@ -97,6 +100,18 @@ export function initResumeImport(): void {
       const parsed = parseResumeText(text);
       imported = parsedToResumeData(parsed);
       renderReview(parsed);
+      const preview = el<HTMLImageElement>('rb-import-preview');
+      if (isPdf) {
+        const thumb = await renderPdfThumb(buf);
+        if (thumb) {
+          preview.src = thumb;
+          preview.hidden = false;
+        } else {
+          preview.hidden = true;
+        }
+      } else {
+        preview.hidden = true;
+      }
       review.hidden = false;
       review.scrollIntoView({ behavior: 'smooth', block: 'start' });
       showStatus(`Read ${file.name}. Check the details below, then use them or discard and start blank.`);
@@ -124,6 +139,7 @@ export function initResumeImport(): void {
     imported = null;
     review.hidden = true;
     status.hidden = true;
+    el<HTMLImageElement>('rb-import-preview').hidden = true;
   });
 
   el('rb-start-blank').addEventListener('click', () => {

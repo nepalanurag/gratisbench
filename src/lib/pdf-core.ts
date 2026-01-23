@@ -161,3 +161,23 @@ export async function getPageCount(buffer: Uint8Array): Promise<number> {
   const doc = await PDFDocument.load(buffer, { ignoreEncryption: false });
   return doc.getPageCount();
 }
+
+/**
+ * Copy the given 1-based page numbers into a new PDF, in the order given.
+ * Used by the split tool's visual page picker.
+ */
+export async function extractPages(buffer: Uint8Array, pages: number[]): Promise<Uint8Array> {
+  const src = await PDFDocument.load(buffer, { ignoreEncryption: false });
+  const pageCount = src.getPageCount();
+  const indices = [...new Set(pages)]
+    .map((p) => Math.floor(p))
+    .filter((p) => p >= 1 && p <= pageCount)
+    .map((p) => p - 1);
+  if (indices.length === 0) {
+    throw new Error('Pick at least one page to extract.');
+  }
+  const out = await PDFDocument.create();
+  const copied = await out.copyPages(src, indices);
+  for (const page of copied) out.addPage(page);
+  return out.save();
+}

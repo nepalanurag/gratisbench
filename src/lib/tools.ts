@@ -24,6 +24,13 @@ export const TOOL_GROUPS: { name: string; tools: ToolEntry[] }[] = [
     ],
   },
   {
+    name: 'Money',
+    tools: [
+      { href: '/budget-planner', name: 'Budget planner', desc: 'Zero-based monthly budgeting: income, planned vs actual spending, remaining-to-assign. Saved in this browser.', group: 'Money', tag: 'Budget' },
+      { href: '/subscription-tracker', name: 'Subscription tracker', desc: 'Track subscriptions, renewal dates, and monthly and yearly spend. Renewal reminders on the page.', group: 'Money', tag: 'Renewals' },
+    ],
+  },
+  {
     name: 'PDF',
     tools: [
       { href: '/merge-pdf', name: 'Merge PDF', desc: 'Combine several PDFs into one, in your order.', group: 'PDF', tag: 'PDF' },
@@ -43,6 +50,14 @@ export const TOOL_GROUPS: { name: string; tools: ToolEntry[] }[] = [
       { href: '/background-remover', name: 'Background remover', desc: 'AI background removal, full-resolution PNG, free.', group: 'Image', tag: 'PNG' },
       { href: '/image-ocr', name: 'Image OCR', desc: 'Read text from photos and scans, copy or download .txt.', group: 'Image', tag: 'TXT' },
       { href: '/image-tracer', name: 'Image tracer', desc: 'Turn logos and icons into SVG vectors, free download.', group: 'Image', tag: 'SVG' },
+    ],
+  },
+  {
+    name: 'Design',
+    tools: [
+      { href: '/logo-maker', name: 'Logo maker', desc: 'Simple wordmark-style logos: icon, shape, font, and colors. PNG and SVG download.', group: 'Design', tag: 'PNG · SVG' },
+      { href: '/og-image-generator', name: 'OG image generator', desc: 'Social cards in four sizes with themes and patterns. Full-resolution PNG download.', group: 'Design', tag: 'PNG' },
+      { href: '/device-mockup-generator', name: 'Device mockup generator', desc: 'Frame a screenshot in a browser window, phone, or laptop. PNG export.', group: 'Design', tag: 'PNG' },
     ],
   },
   {

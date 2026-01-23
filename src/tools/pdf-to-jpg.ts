@@ -120,7 +120,6 @@ export function initPdfToJpg(): void {
         });
         page.cleanup();
       }
-      await doc.destroy();
       renderList();
       el('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {

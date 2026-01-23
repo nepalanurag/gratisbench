@@ -299,7 +299,6 @@ export function initPdfEsignature(): void {
       renderPlacements();
       refreshSignButton();
       el('doc-info').textContent = `${file.name} · ${doc.numPages} page${doc.numPages === 1 ? '' : 's'} · ${formatBytes(file.size)}`;
-      await doc.destroy();
     } catch (err) {
       showError('error-box', pdfJsLoadErrorMessage(err));
     }

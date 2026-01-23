@@ -69,3 +69,32 @@ export function pdfJsLoadErrorMessage(err: unknown): string {
   }
   return msg || 'Could not read that file as a PDF.';
 }
+
+/**
+ * Render the first page of a PDF to a small JPEG data URL for file-list
+ * thumbnails. Returns '' when the page cannot be rendered, so callers can
+ * simply skip the <img>.
+ */
+export async function renderPdfThumb(data: Uint8Array, maxSize = 96): Promise<string> {
+  try {
+    const pdfjs = await loadPdfjs();
+    const doc = await pdfjs.getDocument({ data: data.slice() }).promise;
+    const page = await doc.getPage(1);
+    const canvas = await renderPageToCanvas(page, 36);
+    page.cleanup();
+    const scale = Math.min(1, maxSize / Math.max(canvas.width, canvas.height));
+    const tw = Math.max(1, Math.round(canvas.width * scale));
+    const th = Math.max(1, Math.round(canvas.height * scale));
+    const thumb = document.createElement('canvas');
+    thumb.width = tw;
+    thumb.height = th;
+    const ctx = thumb.getContext('2d');
+    if (!ctx) return '';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tw, th);
+    ctx.drawImage(canvas, 0, 0, tw, th);
+    return thumb.toDataURL('image/jpeg', 0.7);
+  } catch {
+    return '';
+  }
+}

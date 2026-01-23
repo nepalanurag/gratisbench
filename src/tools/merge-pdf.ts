@@ -1,5 +1,6 @@
 // Merge PDF tool: DOM glue. Core logic lives in ../lib/pdf-core.ts
 import { mergePdfs, getPageCount } from '../lib/pdf-core.ts';
+import { renderPdfThumb } from './pdf-render.ts';
 import {
   el,
   formatBytes,
@@ -16,6 +17,7 @@ interface Item {
   file: File;
   bytes: Uint8Array;
   pages: number;
+  thumb: string;
 }
 
 export function initMergePdf(): void {
@@ -31,8 +33,12 @@ export function initMergePdf(): void {
     items.forEach((item, i) => {
       const row = document.createElement('li');
       row.className = 'file-row';
+      const thumbHtml = item.thumb
+        ? `<img class="thumb" src="${item.thumb}" alt="First page of ${escapeHtml(item.file.name)}" loading="lazy" />`
+        : '';
       row.innerHTML = `
         <span class="file-order">${i + 1}</span>
+        ${thumbHtml}
         <span class="file-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
         <span class="file-meta">${item.pages} page${item.pages === 1 ? '' : 's'} · ${formatBytes(item.file.size)}</span>
         <span class="file-actions">
@@ -70,7 +76,8 @@ export function initMergePdf(): void {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
         const pages = await getPageCount(bytes);
-        items.push({ file, bytes, pages });
+        const thumb = await renderPdfThumb(bytes);
+        items.push({ file, bytes, pages, thumb });
       } catch (err) {
         showError('error-box', `"${file.name}": ${pdfLoadErrorMessage(err)}`);
       }

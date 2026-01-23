@@ -184,6 +184,28 @@ a { color: var(--accent); }
 .icon-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .icon-btn:disabled { opacity: 0.3; cursor: default; }
 .thumb { width: 52px; height: 52px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--line); flex: 0 0 auto; }
+
+/* Split PDF page picker: thumbnail grid with check marks. */
+.page-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; margin: 12px 0 4px; }
+.page-pick { position: relative; display: block; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; cursor: pointer; overflow: hidden; }
+.page-pick input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.page-pick img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top; }
+.page-pick .pg-num { position: absolute; left: 6px; bottom: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; background: rgba(255,253,247,.94); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 5px; line-height: 1.7; }
+.page-pick .pick-check { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); opacity: 0; transform: scale(.85); transition: opacity .12s ease, transform .12s ease; }
+.page-pick input:checked ~ .pick-check { opacity: 1; transform: scale(1); background: var(--accent); border-color: var(--accent-dark); color: #fff; }
+.page-pick input:checked ~ img { outline: 2px solid var(--accent); outline-offset: -2px; }
+.page-pick input:focus-visible ~ .pick-check { outline: 2px solid var(--ink); outline-offset: 1px; }
+.picker-tools { align-items: center; gap: 10px; }
+.btn-armed { border-color: var(--danger); color: var(--danger); }
+
+/* Resume import review: original file preview next to extracted fields. */
+.rb-import-review-grid { display: flex; gap: 18px; align-items: flex-start; margin: 12px 0; }
+.rb-import-review-grid dl { flex: 1; min-width: 0; margin: 0; }
+.rb-import-preview { width: 132px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+@media (max-width: 560px) {
+  .rb-import-review-grid { flex-direction: column; }
+  .rb-import-preview { width: 110px; }
+}
 .empty-state { color: var(--faint); text-align: center; padding: 0.9rem; font-size: 0.92rem; }
 
 /* ---------- forms ---------- */

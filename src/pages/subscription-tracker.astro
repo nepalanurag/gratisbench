@@ -1,0 +1,111 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+
+const title = 'Free Subscription Tracker - Renewals & Spending, No Signup';
+const description =
+  'A free subscription tracker that runs in your browser: list subscriptions with costs and billing cycles, see monthly and yearly spend, and get renewal reminders on the page. No signup. Your data never leaves your device.';
+const h1 = 'Free subscription tracker';
+const lede =
+  'List every subscription, see what they cost per month and per year, and never get surprised by a renewal again. Free, no account, saved in this browser only.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Money tools', href: '/money-tools' }, { label: 'Subscription tracker', href: '/subscription-tracker' }]}
+  toolName="FreeKit Subscription Tracker"
+  intro={[
+    'Apps like Rocket Money find your subscriptions and charge a monthly fee for the dashboard that shows them to you. The core job, a list of what you pay, when it renews, and what it adds up to, is arithmetic a browser does for free. The subscription is not paying for computation; it is paying for the convenience of not typing a list.',
+    'This tracker is the list, typed once. Add each subscription with its cost, billing cycle (weekly, monthly, or yearly), and a billing date, and the dashboard does the rest: total monthly spend, total yearly spend, a cost-per-day figure for the morbidly curious, and every subscription sorted by its next renewal with a plain "renews in N days" label. Renewal dates are computed correctly even for awkward billing days: a subscription that started January 31 renews February 28, then March 31.',
+    'Renewal reminders are computed from the dates you saved and shown on the page itself, in an "Upcoming renewals" section. There are no push notifications in v1, and the tool says so plainly instead of pretending otherwise. Everything lives in your browser\u2019s local storage: saved in this browser only, no account, no sync. Clearing your browser data erases the list, so the subscriptions you actually care about are worth also putting in your calendar.',
+  ]}
+  steps={[
+    'Add a subscription: its name, what it costs, whether it bills weekly, monthly, or yearly, and a billing date (any past bill date works). A category like "Streaming" is optional.',
+    'Check the dashboard at the top: your total monthly and yearly spend, the cost per day, and how many subscriptions you track.',
+    'Look at "Upcoming renewals" for anything billing in the next 7 days. The full list below is sorted by next renewal, soonest first.',
+    'Edit a subscription any time with the Edit button when a price changes or a billing date moves. Delete cancels the tracking, not the subscription itself.',
+    'Click "Load example" to see a filled-in tracker, or "Clear all" to start over.',
+    'For the renewals that would hurt to miss, put them in your calendar too: this page shows reminders but cannot notify you in v1.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Billing cycles', 'Weekly, monthly, yearly; monthly-equivalent cost computed for each'],
+    ['Renewal math', 'Next renewal computed from the billing date; Jan 31 bills Feb 28, then Mar 31'],
+    ['Dashboard', 'Total monthly spend, total yearly spend, cost per day, subscription count'],
+    ['Reminders', 'On-page "Upcoming renewals" (next 7 days). No push notifications in v1.'],
+    ['Where data is stored', 'In this browser only (local storage). No sync in v1.'],
+    ['Money math', 'All amounts stored and computed in integer cents'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this subscription tracker really free?',
+      a: 'Yes. There is no account, no premium tier, and no limit on how many subscriptions you track. The math behind it, adding costs and counting days to a date, runs entirely in your browser, so there is no server cost to recover. Paid alternatives charge a monthly fee for the same arithmetic plus bank connections; this tool skips the bank connection and the fee together.',
+    },
+    {
+      q: 'How are renewal dates calculated?',
+      a: 'From the billing date you enter, stepping forward by your billing cycle until the date is today or later. Monthly billing keeps the original day of the month and clamps it for short months, so a January 31 subscription renews February 28 (or 29 in a leap year) and then March 31, the way card billing actually works. Weekly steps 7 days at a time; yearly handles February 29 the same clamped way.',
+    },
+    {
+      q: 'Will it remind me before a subscription renews?',
+      a: 'On the page, yes: the "Upcoming renewals" section lists everything billing in the next 7 days with "renews today", "renews tomorrow", or "renews in N days" labels, computed from your saved dates every time you open the page. It cannot send push notifications or emails in v1, and it says so plainly. For a renewal that would cost you real money to miss, add it to your phone calendar as well.',
+    },
+    {
+      q: 'How is the monthly cost of a yearly subscription figured?',
+      a: 'By dividing by 12, rounded to the cent: $119.99 a year shows as $10.00 a month. Weekly subscriptions multiply by 52/12, so $29.99 a week shows as about $129.95 a month. The dashboard totals use these monthly equivalents, so weekly, monthly, and yearly subscriptions add up on the same basis.',
+    },
+    {
+      q: 'Where is my subscription data stored? Is it private?',
+      a: 'In this browser only, using local storage on your own device. Nothing is uploaded to any server, because there is no server involved. The tradeoff is stated in the tool: clearing your browser data erases your list, and it does not sync to another device. Your subscription list is arguably sensitive, a map of what you pay for, so keeping it local-only is a privacy feature, not a limitation.',
+    },
+    {
+      q: 'Can I track subscriptions in other currencies?',
+      a: 'The tracker assumes one currency, US dollars for formatting, and does not convert between currencies. If your subscriptions span currencies, the honest approach is to enter each cost converted to your home currency, or track one currency per browser profile. Multi-currency conversion with live rates would need a server, which is exactly what this tool refuses to be.',
+    },
+    {
+      q: 'Does deleting a subscription here cancel it?',
+      a: 'No. Deleting removes it from your tracker only. To actually cancel, you still have to go through the service itself, which is usually the point where they make it difficult. The tracker helps you notice the renewal coming; the cancellation is still between you and them.',
+    },
+    {
+      q: 'Do I need an account to use this?',
+      a: 'No, and there is no way to create one. Your subscription list never leaves your browser, so there is nothing an account would store or sync. Open the page, add your subscriptions, close the tab. The list and the renewal math are waiting when you come back on the same browser.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Subscription tracker">
+    <p class="autosave-note">Your subscriptions are saved automatically in this browser only. No account, no sync in v1.</p>
+    <div id="subs-summary" class="stat-grid" aria-live="polite"></div>
+    <div id="subs-error" class="error-box" hidden></div>
+    <h3 class="tool-step">Add a subscription</h3>
+    <div class="field-row">
+      <input type="text" id="subs-name" placeholder="Netflix" aria-label="Subscription name" />
+      <input type="text" id="subs-cost" class="money-input" inputmode="decimal" placeholder="$15.49" aria-label="Cost per billing period" />
+    </div>
+    <div class="field-row">
+      <select id="subs-cycle" aria-label="Billing cycle">
+        <option value="monthly">Monthly</option>
+        <option value="yearly">Yearly</option>
+        <option value="weekly">Weekly</option>
+      </select>
+      <input type="date" id="subs-date" aria-label="Billing date (any past bill date)" />
+      <input type="text" id="subs-category" placeholder="Category, e.g. Streaming (optional)" aria-label="Category (optional)" />
+    </div>
+    <div class="btn-row">
+      <button id="subs-add" class="btn" type="button">Add subscription</button>
+      <button id="subs-cancel-edit" class="btn btn-secondary" type="button" hidden>Cancel edit</button>
+      <button id="subs-example" class="btn btn-secondary" type="button">Load example</button>
+      <button id="subs-clear" class="btn btn-secondary" type="button">Clear all</button>
+    </div>
+    <h3 class="tool-step">Upcoming renewals</h3>
+    <p class="rb-hint">Computed from your saved dates and shown here. No push notifications in v1: for renewals that matter, add them to your calendar too.</p>
+    <div id="subs-upcoming"></div>
+    <h3 class="tool-step">All subscriptions</h3>
+    <div id="subs-list"></div>
+  </section>
+  <script>
+    import { initSubscriptionTracker } from '../tools/subscription-tracker';
+    initSubscriptionTracker();
+  </script>
+</ToolPage>

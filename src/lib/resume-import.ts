@@ -108,7 +108,7 @@ function loadPdfjs(): Promise<PdfJs> {
   return pdfjsPromise;
 }
 
-/** Extract plain text from a PDF file, one blank line between pages. */
+/** Extract plain text from a PDF file, preserving line breaks. */
 export async function extractTextFromPdf(file: File): Promise<string> {
   const pdfjs = await loadPdfjs();
   const buf = await file.arrayBuffer();
@@ -126,14 +126,62 @@ export async function extractTextFromPdf(file: File): Promise<string> {
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const content = await page.getTextContent();
-    const text = content.items
-      .map((it) => ('str' in it && typeof (it as { str: unknown }).str === 'string' ? (it as { str: string }).str : ''))
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const lines = pdfItemsToLines(content.items);
+    const text = lines.map((l) => l.replace(/\s+/g, ' ').trim()).filter((l) => l.length > 0).join('\n');
     if (text) pages.push(text);
   }
   return pages.join('\n\n');
+}
+
+interface PdfTextItem {
+  str?: unknown;
+  hasEOL?: boolean;
+  transform?: number[];
+}
+
+/**
+ * Rebuild text lines from pdf.js items. Prefers the hasEOL flag (pdf.js v4+);
+ * falls back to grouping items by their Y position for older content.
+ */
+export function pdfItemsToLines(items: unknown[]): string[] {
+  const typed = items as PdfTextItem[];
+  const strs = typed.map((it) => (typeof it.str === 'string' ? it.str : ''));
+
+  if (typed.some((it) => it.hasEOL)) {
+    const lines: string[] = [];
+    let cur = '';
+    typed.forEach((it, i) => {
+      cur += strs[i];
+      if (it.hasEOL) {
+        lines.push(cur);
+        cur = '';
+      }
+    });
+    if (cur.trim()) lines.push(cur);
+    return lines;
+  }
+
+  // Fallback: group by Y coordinate (transform[5]), top line first.
+  const rows: { y: number; x: number; order: number; str: string }[] = typed.map((it, order) => ({
+    y: Array.isArray(it.transform) ? it.transform[5] : 0,
+    x: Array.isArray(it.transform) ? it.transform[4] : 0,
+    order,
+    str: strs[order],
+  }));
+  rows.sort((a, b) => b.y - a.y || a.x - b.x || a.order - b.order);
+  const lines: string[] = [];
+  const lineYs: number[] = [];
+  const TOL = 3;
+  for (const row of rows) {
+    const prevY = lineYs.length > 0 ? lineYs[lineYs.length - 1] : null;
+    if (prevY !== null && Math.abs(row.y - prevY) <= TOL) {
+      lines[lines.length - 1] += row.str;
+    } else {
+      lines.push(row.str);
+      lineYs.push(row.y);
+    }
+  }
+  return lines;
 }
 
 function docxXmlToText(xml: string): string {

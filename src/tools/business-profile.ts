@@ -185,9 +185,27 @@ export function initBusinessProfile(): void {
     reader.readAsText(file);
   });
 
-  // clear
-  el('bp-clear').addEventListener('click', () => {
-    if (!window.confirm('Delete your business profile from this browser? This cannot be undone.')) return;
+  // clear (two-step inline confirm: native confirm() is auto-dismissed in
+  // some contexts, which made the button look broken)
+  const clearBtn = el<HTMLButtonElement>('bp-clear');
+  let clearArmed = false;
+  let clearTimer: number | undefined;
+  function disarmClear(): void {
+    clearArmed = false;
+    clearBtn.textContent = 'Clear';
+    clearBtn.classList.remove('btn-armed');
+    if (clearTimer) window.clearTimeout(clearTimer);
+    clearTimer = undefined;
+  }
+  clearBtn.addEventListener('click', () => {
+    if (!clearArmed) {
+      clearArmed = true;
+      clearBtn.textContent = 'Click again to delete';
+      clearBtn.classList.add('btn-armed');
+      clearTimer = window.setTimeout(disarmClear, 5000);
+      return;
+    }
+    disarmClear();
     clearBusinessProfile();
     profile = blankBusinessProfile();
     fillForm(profile);

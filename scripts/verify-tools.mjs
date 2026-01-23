@@ -9,6 +9,7 @@ import {
   parsePageRanges,
   imagesToPdf,
   getPageCount,
+  extractPages,
 } from '../src/lib/pdf-core.ts';
 import { makeQrPng, makeQrSvg } from '../src/lib/qr-core.ts';
 import {
@@ -56,6 +57,7 @@ import {
 import {
   parseResumeText,
   parsedToResumeData,
+  pdfItemsToLines,
 } from '../src/lib/resume-import.ts';
 import {
   INVOICE_SCHEMA_VERSION,
@@ -165,6 +167,108 @@ import {
   TRACE_DETAIL_DEFAULT,
   TRACE_ENGINE_NOTE,
 } from '../src/lib/trace-core.ts';
+import {
+  BUDGET_SCHEMA_VERSION,
+  BUDGET_STORAGE_KEY,
+  blankIncomeEntry,
+  blankCategory,
+  blankMonth,
+  blankStore as blankBudgetStore,
+  exampleMonth,
+  monthKey,
+  parseMonthKey,
+  currentMonthKey,
+  shiftMonth,
+  monthLabel,
+  totalIncomeCents,
+  totalPlannedCents,
+  totalActualCents,
+  remainingToAssignCents,
+  actualLeftCents,
+  categoryLeftCents,
+  validateBudgetMonth,
+  addIncomeEntry,
+  removeIncomeEntry,
+  addCategory,
+  removeCategory,
+  serializeStore as serializeBudgetStore,
+  deserializeStore as deserializeBudgetStore,
+} from '../src/lib/budget-core.ts';
+import {
+  SUBS_SCHEMA_VERSION,
+  SUBS_STORAGE_KEY,
+  isCycle,
+  blankSubscription,
+  blankStore as blankSubsStore,
+  exampleSubscriptions,
+  isValidISODate,
+  addMonthsClamped,
+  addYearsClamped,
+  nextRenewalDate,
+  daysUntil,
+  renewalLabel,
+  formatISODate,
+  monthlyEquivalentCents,
+  totals as subsTotals,
+  sortedByRenewal,
+  upcomingRenewals,
+  validateSubscription,
+  addSubscription,
+  removeSubscription,
+  updateSubscription,
+  serializeStore as serializeSubsStore,
+  deserializeStore as deserializeSubsStore,
+} from '../src/lib/subs-core.ts';
+import {
+  LOGO_SCHEMA_VERSION,
+  LOGO_STORAGE_KEY,
+  LOGO_ICONS,
+  LOGO_SHAPES,
+  LOGO_FONTS,
+  LOGO_PRESETS,
+  LOGO_PNG_SIZES,
+  logoIconById,
+  logoSvg,
+  logoPngSize,
+  logoFileName,
+  blankLogoSpec,
+  exampleLogoSpec,
+  sanitizeLogoSpec,
+  serializeLogoSpec,
+  deserializeLogoSpec,
+  fitFontSize as logoFitFontSize,
+} from '../src/lib/logo-core.ts';
+import {
+  OG_SCHEMA_VERSION,
+  OG_STORAGE_KEY,
+  OG_PRESETS,
+  OG_PATTERNS,
+  OG_THEMES,
+  ogPresetById,
+  blankOgSpec,
+  exampleOgSpec,
+  sanitizeOgSpec,
+  serializeOgSpec,
+  deserializeOgSpec,
+  wrapLines,
+  fitFontSize as ogFitFontSize,
+  layoutOg,
+  ogFileName,
+} from '../src/lib/og-core.ts';
+import {
+  MOCKUP_SCHEMA_VERSION,
+  MOCKUP_STORAGE_KEY,
+  MOCKUP_FRAMES,
+  MOCKUP_BACKGROUNDS,
+  blankMockupSettings,
+  sanitizeMockupSettings,
+  serializeMockupSettings,
+  deserializeMockupSettings,
+  mockupBackgroundById,
+  fitContain,
+  frameGeometry,
+  mockupFileName,
+} from '../src/lib/mockup-core.ts';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -286,6 +390,12 @@ console.log('== split ==');
   await expectThrowAsync('empty spec throws', () => splitPdf(src, ' ; '), 'Enter page ranges');
   await expectThrowAsync('out-of-range throws', () => splitPdf(src, '1-99'), 'out of range');
   ok('getPageCount works', (await getPageCount(src)) === 10);
+  const picked = await extractPages(src, [3, 1, 2, 3]);
+  ok('extractPages dedupes and keeps order', (await PDFDocument.load(picked)).getPageCount() === 3);
+  const pickedOrdered = await extractPages(src, [9, 2]);
+  ok('extractPages honors given order', (await PDFDocument.load(pickedOrdered)).getPageCount() === 2);
+  await expectThrowAsync('extractPages rejects empty', () => extractPages(src, []), 'at least one page');
+  await expectThrowAsync('extractPages rejects out-of-range only', () => extractPages(src, [99]), 'at least one page');
 }
 
 console.log('== imagesToPdf ==');
@@ -674,6 +784,29 @@ console.log('== resume-import ==');
   // empty input
   const empty = parseResumeText('');
   ok('empty text gives blank parse', empty.fullName === '' && empty.experience.length === 0 && empty.skills.length === 0);
+
+  // pdf.js item -> line reconstruction (the PDF extractor feeds these to the parser)
+  const eolItems = [
+    { str: 'Priya Sharma', hasEOL: true, transform: [1, 0, 0, 1, 72, 720] },
+    { str: 'priya.sharma@example.com', hasEOL: false, transform: [1, 0, 0, 1, 72, 706] },
+    { str: ' · ', hasEOL: false, transform: [1, 0, 0, 1, 200, 706] },
+    { str: 'San Francisco, CA', hasEOL: true, transform: [1, 0, 0, 1, 210, 706] },
+    { str: 'Experience', hasEOL: true, transform: [1, 0, 0, 1, 72, 690] },
+  ];
+  const eolLines = pdfItemsToLines(eolItems);
+  ok('hasEOL items become lines', JSON.stringify(eolLines) === JSON.stringify(['Priya Sharma', 'priya.sharma@example.com · San Francisco, CA', 'Experience']), JSON.stringify(eolLines));
+  const eolParsed = parseResumeText(eolLines.join('\n'));
+  ok('parsed from reconstructed lines finds name', eolParsed.fullName === 'Priya Sharma', eolParsed.fullName);
+
+  const yItems = [
+    { str: 'Priya Sharma', transform: [1, 0, 0, 1, 72, 720] },
+    { str: 'priya.sharma@example.com', transform: [1, 0, 0, 1, 72, 706] },
+    { str: ' · ', transform: [1, 0, 0, 1, 200, 706.4] },
+    { str: 'San Francisco, CA', transform: [1, 0, 0, 1, 215, 705.6] },
+    { str: 'Experience', transform: [1, 0, 0, 1, 72, 690] },
+  ];
+  const yLines = pdfItemsToLines(yItems);
+  ok('Y-grouping fallback joins same-line items', yLines.length === 3 && yLines[1].includes('San Francisco, CA'), JSON.stringify(yLines));
 }
 
 console.log('== invoice-core ==');
@@ -1172,7 +1305,273 @@ console.log('== trace-core (incl. real imagetracerjs run in Node) ==');
   ok('memory error is friendly', traceErrorMessage(new Error('allocation failed')).includes('smaller image'));
 }
 
+console.log('== budget-core ==');
+{
+  ok('monthKey formats', monthKey(2026, 9) === '2026-09' && monthKey(2026, 1) === '2026-01');
+  expectThrow('monthKey rejects month 13', () => monthKey(2026, 13), 'Invalid year/month');
+  ok('parseMonthKey round trip', JSON.stringify(parseMonthKey('2026-09')) === '{"year":2026,"month":9}');
+  ok('parseMonthKey rejects junk', parseMonthKey('sep 2026') === null && parseMonthKey('2026-13') === null);
+  ok('shiftMonth across year', shiftMonth('2026-01', -1) === '2025-12' && shiftMonth('2026-12', 1) === '2027-01');
+  ok('shiftMonth zero', shiftMonth('2026-09', 0) === '2026-09');
+  ok('monthLabel', monthLabel('2026-09') === 'September 2026' && monthLabel('2026-01') === 'January 2026');
+  ok('currentMonthKey shape', /^\d{4}-(0[1-9]|1[0-2])$/.test(currentMonthKey()));
+  ok('storage key versioned', BUDGET_STORAGE_KEY === 'freekit.budget-planner.v1' && BUDGET_SCHEMA_VERSION === 1);
+
+  // integer-cent money math
+  ok('parseCents dollars', parseCents('15.49') === 1549);
+  ok('parseCents with symbols', parseCents('$1,234.56') === 123456);
+  ok('parseCents junk is 0', parseCents('abc') === 0 && parseCents('') === 0);
+  ok('formatMoney', formatMoney(123456, 'USD') === '$1,234.56');
+
+  const m = exampleMonth('2026-09');
+  ok('example month has income and categories', m.income.length > 0 && m.categories.length > 0);
+  ok('example income total', totalIncomeCents(m) === 365000, String(totalIncomeCents(m)));
+  ok('planned and actual >= 0', totalPlannedCents(m) >= 0 && totalActualCents(m) >= 0);
+  ok(
+    'remaining = income - planned',
+    remainingToAssignCents(m) === totalIncomeCents(m) - totalPlannedCents(m)
+  );
+  ok(
+    'actual left = income - actual',
+    actualLeftCents(m) === totalIncomeCents(m) - totalActualCents(m)
+  );
+  const cat = m.categories[0];
+  ok('category left = planned - actual', categoryLeftCents(cat) === cat.plannedCents - cat.actualCents);
+
+  // add/remove entries
+  const withIncome = addIncomeEntry([], { ...blankIncomeEntry(), label: 'Paycheck', cents: 300000 });
+  ok('addIncomeEntry appends', withIncome.length === 1 && withIncome[0].cents === 300000);
+  ok('removeIncomeEntry removes by id', removeIncomeEntry(withIncome, withIncome[0].id).length === 0);
+  ok('removeIncomeEntry keeps others', removeIncomeEntry(withIncome, 'nope').length === 1);
+  const withCat = addCategory([], { ...blankCategory(), name: 'Rent', plannedCents: 150000 });
+  ok('addCategory appends', withCat.length === 1 && withCat[0].plannedCents === 150000);
+  ok('removeCategory removes by id', removeCategory(withCat, withCat[0].id).length === 0);
+
+  // validation
+  ok('blank month asks for data', validateBudgetMonth(blankMonth('2026-09')).length === 1);
+  ok('example month validates', validateBudgetMonth(m).length === 0);
+  const neg = {
+    ...blankMonth('2026-09'),
+    income: [],
+    categories: [{ ...blankCategory(), name: 'Fun', plannedCents: -500 }],
+  };
+  ok('negative planned flagged', validateBudgetMonth(neg).length > 0);
+  const unlabeled = {
+    ...blankMonth('2026-09'),
+    income: [{ ...blankIncomeEntry(), label: '', cents: 100000 }],
+    categories: [],
+  };
+  ok('unlabeled income flagged', validateBudgetMonth(unlabeled).length > 0);
+
+  // serialization
+  const store = { months: { '2026-09': m }, version: BUDGET_SCHEMA_VERSION };
+  const rt = deserializeBudgetStore(serializeBudgetStore(store));
+  ok('store round trip', totalIncomeCents(rt.months['2026-09']) === totalIncomeCents(m));
+  ok('deserialize null -> blank', Object.keys(deserializeBudgetStore(null).months).length === 0);
+  ok('deserialize junk -> blank', Object.keys(deserializeBudgetStore('{{{').months).length === 0);
+  ok('blankBudgetStore has no months', Object.keys(blankBudgetStore().months).length === 0);
+}
+
+console.log('== subs-core ==');
+{
+  ok('storage key versioned', SUBS_STORAGE_KEY === 'freekit.subscription-tracker.v1' && SUBS_SCHEMA_VERSION === 1);
+  ok('isCycle', isCycle('weekly') && isCycle('monthly') && isCycle('yearly') && !isCycle('daily'));
+  ok('isValidISODate', isValidISODate('2026-09-23') && !isValidISODate('2026-13-01') && !isValidISODate('nope'));
+
+  // renewal edge cases: the Jan 31 problem and friends
+  ok('Jan 31 + 1 month clamps to Feb 28', addMonthsClamped('2026-01-31', 1) === '2026-02-28');
+  ok('Jan 31 + 1 month in leap year -> Feb 29', addMonthsClamped('2024-01-31', 1) === '2024-02-29');
+  ok(
+    'Jan 31 anchored: next after Mar 1 is Mar 31',
+    nextRenewalDate('2026-01-31', 'monthly', '2026-03-01') === '2026-03-31'
+  );
+  ok(
+    'Jan 31 as of Feb 15 renews Feb 28',
+    nextRenewalDate('2026-01-31', 'monthly', '2026-02-15') === '2026-02-28'
+  );
+  ok('Feb 29 yearly -> Feb 28 next year', addYearsClamped('2024-02-29', 1) === '2025-02-28');
+  ok(
+    'Feb 29 yearly renewal clamps',
+    nextRenewalDate('2024-02-29', 'yearly', '2025-01-15') === '2025-02-28'
+  );
+  ok(
+    'weekly steps 7 days',
+    nextRenewalDate('2026-09-01', 'weekly', '2026-09-23') === '2026-09-29'
+  );
+  ok(
+    'weekly start in future stays',
+    nextRenewalDate('2026-10-01', 'weekly', '2026-09-23') === '2026-10-01'
+  );
+  ok(
+    'start date itself is a renewal',
+    nextRenewalDate('2026-09-23', 'monthly', '2026-09-23') === '2026-09-23'
+  );
+  expectThrow('bad date throws', () => nextRenewalDate('nope', 'monthly', '2026-09-23'), 'Invalid date');
+
+  ok('daysUntil counts whole days', daysUntil('2026-09-23', '2026-09-29') === 6);
+  ok('daysUntil same day is 0', daysUntil('2026-09-23', '2026-09-23') === 0);
+  ok('renewalLabel today', renewalLabel(0) === 'renews today');
+  ok('renewalLabel tomorrow', renewalLabel(1) === 'renews tomorrow');
+  ok('renewalLabel n days', renewalLabel(5) === 'renews in 5 days');
+  ok('formatISODate', formatISODate('2026-09-23') === 'Sep 23, 2026', formatISODate('2026-09-23'));
+
+  // monthly-equivalent math
+  ok('yearly / 12', monthlyEquivalentCents(11999, 'yearly') === 1000);
+  ok('weekly * 52 / 12', monthlyEquivalentCents(2999, 'weekly') === 12996);
+  ok('monthly passes through', monthlyEquivalentCents(1549, 'monthly') === 1549);
+
+  const subs = exampleSubscriptions();
+  ok('example subscriptions load', subs.length === 3);
+  const t = subsTotals(subs);
+  ok('totals count', t.count === 3);
+  ok('totals monthly', t.monthlyCents === 15545, String(t.monthlyCents));
+  ok('totals yearly = 12x monthly', t.yearlyCents === t.monthlyCents * 12);
+  ok('per-day positive', t.perDayCents > 0);
+
+  const sorted = sortedByRenewal(subs, '2026-09-23');
+  ok(
+    'sorted by renewal ascending',
+    sorted.every((r, i, a) => i === 0 || a[i - 1].renewal <= r.renewal)
+  );
+  const upcoming = upcomingRenewals(subs, '2026-09-23', 7);
+  ok('upcoming within 7 days', upcoming.every((r) => r.days <= 7));
+  ok(
+    'upcoming default window is 7',
+    upcomingRenewals(subs, '2026-09-23').every((r) => r.days <= 7)
+  );
+
+  // validation + CRUD
+  const bad = validateSubscription(blankSubscription());
+  ok('blank subscription invalid', bad.length >= 2, bad.join('; '));
+  ok(
+    'zero cost invalid',
+    validateSubscription({ ...blankSubscription(), name: 'X', costCents: 0, cycle: 'monthly', startDate: '2026-09-01' }).length > 0
+  );
+  const good = { ...blankSubscription(), name: 'Test', costCents: 999, cycle: 'monthly', startDate: '2026-09-01' };
+  ok('valid subscription passes', validateSubscription(good).length === 0);
+  const added = addSubscription([], good);
+  ok('addSubscription appends', added.length === 1);
+  const updated = updateSubscription(added, { ...good, costCents: 1999 });
+  ok('updateSubscription changes', updated[0].costCents === 1999 && updated.length === 1);
+  ok('removeSubscription removes', removeSubscription(updated, good.id).length === 0);
+
+  const rt = deserializeSubsStore(serializeSubsStore({ subscriptions: subs, version: SUBS_SCHEMA_VERSION }));
+  ok('store round trip', rt.subscriptions.length === subs.length);
+  ok('deserialize null -> blank', deserializeSubsStore(null).subscriptions.length === 0);
+  ok('blankSubsStore empty', blankSubsStore().subscriptions.length === 0);
+}
+
+console.log('== logo-core ==');
+{
+  ok('storage key versioned', LOGO_STORAGE_KEY === 'freekit.logo-maker.v1' && LOGO_SCHEMA_VERSION === 1);
+  ok('18 icons', LOGO_ICONS.length === 18, String(LOGO_ICONS.length));
+  ok('shapes none/circle/square/badge', LOGO_SHAPES.map((s) => s.id).join(',') === 'none,circle,square,badge');
+  ok('4 fonts', LOGO_FONTS.length === 4);
+  ok('8 presets', LOGO_PRESETS.length === 8);
+  ok('icon lookup by id', logoIconById('star').id === 'star');
+  ok('icon lookup falls back', logoIconById('bogus').id === LOGO_ICONS[0].id);
+
+  const spec = exampleLogoSpec();
+  ok('example spec named', spec.name === 'Northwind');
+  const svg = logoSvg(spec);
+  ok('svg starts with <svg', svg.startsWith('<svg'));
+  ok('svg contains the name', svg.includes('Northwind'));
+  ok('svg contains tagline', svg.includes('MOBILE STUDIO'));
+  ok('svg has viewBox', svg.includes('viewBox'));
+  const evil = logoSvg({ ...spec, name: '<img src=x onerror=alert(1)>' });
+  ok('name is HTML-escaped', !evil.includes('<img src=x') && evil.includes('&lt;img'));
+
+  ok('png size 512', JSON.stringify(logoPngSize(512)) === '{"width":512,"height":512}');
+  ok('png size 1024', JSON.stringify(logoPngSize(1024)) === '{"width":1024,"height":1024}');
+  expectThrow('bad png size throws', () => logoPngSize(100), 'Unsupported export size');
+  ok('LOGO_PNG_SIZES', JSON.stringify([...LOGO_PNG_SIZES]) === '[512,1024]');
+  ok('filename slug', logoFileName('Acme Bakery', 'png') === 'acme-bakery-logo.png');
+  ok('filename blank -> logo', logoFileName('', 'svg') === 'logo-logo.svg');
+  ok('fitFontSize shrinks long names', logoFitFontSize('A very long business name indeed', 100, 76) < 76);
+  ok('fitFontSize keeps short names', logoFitFontSize('Acme', 400, 76) === 76);
+
+  const clean = sanitizeLogoSpec({ name: 42, iconId: 'bogus', shape: 'bogus', fontId: 'bogus', presetId: 'bogus', tagline: null });
+  ok('sanitize coerces types', clean.name === '' && clean.tagline === '');
+  ok('sanitize falls back on bad ids', clean.iconId === LOGO_ICONS[0].id && clean.shape === 'circle');
+  const rt = deserializeLogoSpec(serializeLogoSpec(spec));
+  ok('spec round trip', rt.name === spec.name && rt.shape === spec.shape && rt.presetId === spec.presetId);
+  ok('deserialize junk -> blank-ish', deserializeLogoSpec('{{{').name === '');
+}
+
+console.log('== og-core ==');
+{
+  ok('storage key versioned', OG_STORAGE_KEY === 'freekit.og-image-generator.v1' && OG_SCHEMA_VERSION === 1);
+  ok(
+    '4 presets with exact sizes',
+    OG_PRESETS.map((p) => `${p.width}x${p.height}`).join(',') === '1200x630,1080x1080,1600x900,1200x675'
+  );
+  ok('preset lookup', ogPresetById('og').width === 1200 && ogPresetById('bogus').id === 'og');
+  ok('5 patterns', OG_PATTERNS.length === 5);
+  ok('8 themes', OG_THEMES.length === 8);
+
+  const wrapped = wrapLines('one two three four five six seven eight', 200, 20);
+  ok('wrapLines breaks into lines', wrapped.length > 1 && wrapped.join(' ') === 'one two three four five six seven eight');
+  ok('wrapLines empty -> one empty line', JSON.stringify(wrapLines('', 200, 20)) === '[""]');
+  const hard = wrapLines('supercalifragilisticexpialidocious', 100, 20);
+  ok('wrapLines hard-breaks long words', hard.length > 1 && hard.join('') === 'supercalifragilisticexpialidocious');
+  ok('fitFontSize shrinks', ogFitFontSize('A really long headline that will not fit', 200, 120) < 120);
+  ok('fitFontSize keeps short text', ogFitFontSize('Hi', 1000, 120) === 120);
+  ok('fitFontSize never below min', ogFitFontSize('Supercalifragilisticexpialidocious '.repeat(20), 50, 120) >= 12);
+
+  const lay = layoutOg(exampleOgSpec());
+  ok('layout matches preset size', lay.preset.width === 1200 && lay.preset.height === 630);
+  ok('layout has headline lines', lay.headline.lines.length >= 1);
+  ok('headline text preserved', lay.headline.lines.join(' ').length > 0);
+  ok(
+    'headline lines fit the card',
+    lay.headline.lines.every((l) => l.length * lay.headline.px * 0.55 <= lay.preset.width)
+  );
+  ok('og filename', ogFileName('Acme Co', 'og') === 'acme-co-1200x630.png');
+  ok('og filename blank brand', ogFileName('', 'square') === 'card-1080x1080.png');
+
+  const clean = sanitizeOgSpec({ presetId: 'nope', themeId: 'nope', pattern: 'nope', headline: 42 });
+  ok('sanitize falls back on bad ids', clean.presetId === 'og');
+  ok('sanitize coerces headline', clean.headline === '');
+  const rt = deserializeOgSpec(serializeOgSpec(exampleOgSpec()));
+  ok('spec round trip', rt.headline === exampleOgSpec().headline && rt.presetId === exampleOgSpec().presetId);
+}
+
+console.log('== mockup-core ==');
+{
+  ok('storage key versioned', MOCKUP_STORAGE_KEY === 'freekit.device-mockup.v1' && MOCKUP_SCHEMA_VERSION === 1);
+  ok('3 frames', MOCKUP_FRAMES.map((f) => f.id).join(',') === 'browser,phone,laptop');
+  ok('7 backgrounds incl transparent', MOCKUP_BACKGROUNDS.length === 7);
+  ok('transparent bg has null color', mockupBackgroundById('transparent').color === null);
+  ok('bg lookup falls back', mockupBackgroundById('bogus').id === 'paper');
+
+  const fit = fitContain(1600, 900, { x: 0, y: 0, w: 800, h: 800 });
+  ok('contain-fit scales to box', fit.w === 800 && fit.h === 450, JSON.stringify(fit));
+  ok('contain-fit centers', fit.x === 0 && fit.y === 175, JSON.stringify(fit));
+  const fitTall = fitContain(900, 1600, { x: 0, y: 0, w: 800, h: 800 });
+  ok('contain-fit tall image', fitTall.h === 800 && fitTall.w === 450, JSON.stringify(fitTall));
+  expectThrow('zero image size throws', () => fitContain(0, 100, { x: 0, y: 0, w: 10, h: 10 }), 'Invalid image size');
+
+  const geo = frameGeometry('browser', 1600, 900);
+  ok('geometry canvas 1600 wide', geo.canvasW === 1600);
+  ok('screen inside frame', geo.screen.x >= geo.frame.x && geo.screen.y >= geo.frame.y);
+  ok('frame inside canvas', geo.frame.x >= 0 && geo.frame.y >= 0 && geo.frame.x + geo.frame.w <= geo.canvasW);
+  const phone = frameGeometry('phone', 900, 1600);
+  ok('phone frame is portrait-ish', phone.frame.h >= phone.frame.w);
+  const laptop = frameGeometry('laptop', 1600, 900);
+  ok('laptop wider than phone', laptop.frame.w >= phone.frame.w);
+  ok('mockup filename', mockupFileName('phone') === 'screenshot-mockup-phone.png');
+
+  const clamped = sanitizeMockupSettings({ padding: 999, shadow: -5, frame: 'nope', backgroundId: 'nope' });
+  ok('padding clamps to max', clamped.padding === 240, String(clamped.padding));
+  ok('shadow clamps to >= 0', clamped.shadow >= 0);
+  ok('bad frame falls back', clamped.frame === 'browser');
+  const rt = deserializeMockupSettings(serializeMockupSettings({ ...blankMockupSettings(), frame: 'laptop' }));
+  ok('settings round trip', rt.frame === 'laptop');
+  ok('deserialize junk -> defaults', deserializeMockupSettings('{{{').frame === 'browser');
+}
+
 console.log('== element-id cross-checks (glue ids exist in pages) ==');
+
 {
   /** Every el('...') id used by a glue module must exist as id="..." in its page
    *  or in the HTML the glue itself renders into the page. */
@@ -1201,6 +1600,14 @@ console.log('== element-id cross-checks (glue ids exist in pages) ==');
   checkGlueIds('src/tools/image-tracer.ts', 'src/pages/image-tracer.astro');
   checkGlueIds('src/tools/business-profile.ts', 'src/pages/business-profile.astro');
   checkGlueIds('src/tools/resume-import-ui.ts', 'src/pages/resume-builder.astro');
+  checkGlueIds('src/tools/budget-planner.ts', 'src/pages/budget-planner.astro');
+  checkGlueIds('src/tools/subscription-tracker.ts', 'src/pages/subscription-tracker.astro');
+  checkGlueIds('src/tools/logo-maker.ts', 'src/pages/logo-maker.astro');
+  checkGlueIds('src/tools/og-image-generator.ts', 'src/pages/og-image-generator.astro');
+  checkGlueIds('src/tools/device-mockup-generator.ts', 'src/pages/device-mockup-generator.astro');
+  checkGlueIds('src/tools/merge-pdf.ts', 'src/pages/merge-pdf.astro');
+  checkGlueIds('src/tools/split-pdf.ts', 'src/pages/split-pdf.astro');
+  checkGlueIds('src/tools/pdf-compressor.ts', 'src/pages/pdf-compressor.astro');
 }
 
 console.log('== glue module smoke import (no top-level DOM access) ==');
@@ -1239,6 +1646,11 @@ console.log('== glue module smoke import (no top-level DOM access) ==');
     '../src/tools/background-remover.ts',
     '../src/tools/image-ocr.ts',
     '../src/tools/image-tracer.ts',
+    '../src/tools/budget-planner.ts',
+    '../src/tools/subscription-tracker.ts',
+    '../src/tools/logo-maker.ts',
+    '../src/tools/og-image-generator.ts',
+    '../src/tools/device-mockup-generator.ts',
   ];
   for (const m of mods) {
     await import(m);
@@ -1268,6 +1680,11 @@ console.log('== built HTML: page scripts survived the build ==');
     ['background-remover', 'removeBackground'],
     ['image-ocr', 'createWorker'],
     ['image-tracer', 'imagedataToSVG'],
+    ['budget-planner', 'budget-month-label'],
+    ['subscription-tracker', 'subs-upcoming'],
+    ['logo-maker', 'logo-save-profile'],
+    ['og-image-generator', 'og-canvas'],
+    ['device-mockup-generator', 'mockup-dropzone'],
   ];
   const distAudio = join(ROOT, 'dist', 'audio-trimmer', 'index.html');
   if (!existsSync(distAudio)) {

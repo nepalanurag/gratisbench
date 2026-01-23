@@ -77,6 +77,19 @@ const lede = 'Pull pages out of a PDF by page number. One range per file, or sev
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <div id="error-box" class="error-box" hidden></div>
     <p id="file-info" class="count-label" hidden></p>
+    <div id="picker-wrap" hidden>
+      <p class="mono-label">Pick pages</p>
+      <p class="hint" style="margin-top:0">Tick the pages you want, or type ranges below. Both ways work.</p>
+      <div class="btn-row picker-tools">
+        <button id="pick-all" class="btn btn-secondary" type="button">Select all</button>
+        <button id="pick-none" class="btn btn-secondary" type="button">Clear</button>
+        <span id="pick-count" class="count-label" role="status"></span>
+      </div>
+      <div id="page-grid" class="page-grid" role="group" aria-label="Page previews"></div>
+      <div class="btn-row">
+        <button id="extract-btn" class="btn" type="button" disabled>Extract selected pages</button>
+      </div>
+    </div>
     <div class="field">
       <label for="range-input">Pages to extract</label>
       <input type="text" id="range-input" placeholder='e.g. 1-3, 5 — or 1-3; 4-6 for separate files' autocomplete="off" />

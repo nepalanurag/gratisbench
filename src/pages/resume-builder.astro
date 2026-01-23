@@ -92,7 +92,10 @@ const lede =
       <div id="rb-import-review" hidden>
         <p class="mono-label">Check what we found</p>
         <p>We read your file on this device. Look over the details, then use them or discard and start blank.</p>
-        <dl id="rb-import-fields"></dl>
+        <div class="rb-import-review-grid">
+          <img id="rb-import-preview" class="rb-import-preview" alt="First page of the uploaded resume" hidden />
+          <dl id="rb-import-fields"></dl>
+        </div>
         <div class="btn-row">
           <button id="rb-import-use" class="btn" type="button">Use these details</button>
           <button id="rb-import-discard" class="btn btn-secondary" type="button">Discard and start blank</button>

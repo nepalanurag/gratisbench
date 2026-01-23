@@ -99,7 +99,6 @@ export function initPdfRedactor(): void {
       const bytes = new Uint8Array(await file.arrayBuffer());
       sourceBytes = bytes.slice();
       const pdfjs = await loadPdfjs();
-      if (pdfDoc) await pdfDoc.destroy();
       pdfDoc = await pdfjs.getDocument({ data: bytes }).promise;
       fileName = file.name;
       pages = [];

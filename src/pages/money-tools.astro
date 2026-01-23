@@ -1,0 +1,98 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { basePath, siteUrl } from '../lib/site';
+
+const title = 'Money Tools - Free Budget Planner & Subscription Tracker | FreeKit';
+const description =
+  'Free money tools that run in your browser: a zero-based budget planner and a subscription tracker with renewal reminders. No signup, no sync, your data never leaves your device.';
+
+const tools = [
+  { href: '/budget-planner', icon: 'file', name: 'Budget planner', desc: 'Zero-based monthly budgeting: income, planned vs actual spending, remaining-to-assign. Saved in this browser only.' },
+  { href: '/subscription-tracker', icon: 'record', name: 'Subscription tracker', desc: 'List every subscription with its cost and billing cycle, see monthly and yearly spend, and get renewal reminders on the page.' },
+] as const;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'FreeKit money tools',
+  url: siteUrl(Astro.site) + basePath('/money-tools'),
+  description,
+};
+---
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <div class="wrap">
+    <div class="page-head">
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href={basePath("/")}>FreeKit</a><span><span class="sep">/</span><a href={basePath("/money-tools")}>Money tools</a></span>
+      </nav>
+      <h1>Money tools</h1>
+      <p class="lede">
+        Budgeting and subscription tracking without the $14.99-a-month app.
+        Free, private, and in your browser.
+      </p>
+      <div>
+        <span class="privacy-line"><Icon name="lock" size={15} /> Your data never leaves your device.</span>
+      </div>
+    </div>
+
+    <!-- Ad slot: hub top (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-top" aria-hidden="true"><span>Advertisement</span></div>
+
+    <div class="tool-index">
+      {tools.map((t) => (
+        <a class="tool-row" href={basePath(t.href)}>
+          <span class="tool-row-icon"><Icon name={t.icon} size={20} /></span>
+          <span>
+            <span class="tool-row-name">{t.name}</span>
+            <p class="tool-row-desc">{t.desc}</p>
+          </span>
+          <span class="arrow"><Icon name="arrow" size={18} /></span>
+        </a>
+      ))}
+    </div>
+
+    <div class="content">
+      <h2>What these tools do</h2>
+      <p>
+        YNAB charges $14.99 a month for zero-based budgeting, and Rocket Money charges for
+        showing you your own subscriptions. Both are arithmetic a browser does for free.
+        The budget planner covers the first job: give every dollar a month a job, track
+        planned spending against actual spending per category, and see what is left to
+        assign. The subscription tracker covers the second: list every subscription with
+        its billing cycle and date, see the true monthly and yearly totals, and get
+        renewal reminders computed on the page.
+      </p>
+      <p>
+        Both tools are honest about what they cannot do. There are no bank connections,
+        so you type your numbers in by hand, and there are no push notifications, so
+        renewal reminders live on the page where you can see them. In exchange there is
+        no account, no fee, and no server holding your financial life: everything is
+        saved in this browser only.
+      </p>
+
+      <h2>Common questions</h2>
+      <dl>
+        <div class="faq">
+          <dt>Are these money tools free?</dt>
+          <dd>Yes. Both are free with no limits and no account. There is no premium tier, no sync service, and no per-budget fee. The math, adding cents and counting days to a date, runs entirely in your browser.</dd>
+        </div>
+        <div class="faq">
+          <dt>Where is my financial data stored?</dt>
+          <dd>In your browser only, using local storage on your own device. Nothing is uploaded to a server, because there is no server. Clearing your browser data erases it, and it does not sync between devices. For money details, local-only is a privacy feature.</dd>
+        </div>
+        <div class="faq">
+          <dt>Do the tools connect to my bank?</dt>
+          <dd>No. Bank connections are what the paid apps charge for, and they are also the thing that makes your financial data live on someone else&rsquo;s server. You type your income and spending in by hand, which takes a few minutes a month and keeps everything local.</dd>
+        </div>
+        <div class="faq">
+          <dt>Will I get reminders before subscriptions renew?</dt>
+          <dd>On the page, yes: the subscription tracker shows an &ldquo;Upcoming renewals&rdquo; section computed from your saved dates every time you open it. It cannot send push notifications or emails in v1. For a renewal that would cost you real money to miss, put it in your calendar too.</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Ad slot: hub bottom (AdSense display unit goes here) -->
+    <div class="ad-slot" data-ad-slot="hub-bottom" aria-hidden="true"><span>Advertisement</span></div>
+  </div>
+</BaseLayout>

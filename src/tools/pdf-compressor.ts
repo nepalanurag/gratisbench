@@ -1,7 +1,7 @@
 // Compress PDF tool: DOM glue. Rebuild logic lives in ../lib/pdf-compress.ts
 import { rebuildImagePdf, jpegQualityFromSlider, type RenderedPage } from '../lib/pdf-compress.ts';
 import { getPageCount } from '../lib/pdf-core.ts';
-import { loadPdfjs, renderPageToCanvas, canvasToBytes, pdfJsLoadErrorMessage } from './pdf-render.ts';
+import { loadPdfjs, renderPageToCanvas, canvasToBytes, pdfJsLoadErrorMessage, renderPdfThumb } from './pdf-render.ts';
 import {
   el,
   formatBytes,
@@ -49,6 +49,21 @@ export function initPdfCompressor(): void {
       originalSize = file.size;
       pageCount = pages;
       el('file-info').textContent = `${file.name} · ${pages} page${pages === 1 ? '' : 's'} · ${formatBytes(file.size)}`;
+      const thumb = await renderPdfThumb(bytes);
+      if (thumb) {
+        const info = el('file-info');
+        info.innerHTML = '';
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.src = thumb;
+        img.alt = `First page of ${file.name}`;
+        const span = document.createElement('span');
+        span.textContent = `${file.name} · ${pages} page${pages === 1 ? '' : 's'} · ${formatBytes(file.size)}`;
+        info.append(img, span);
+        info.style.display = 'flex';
+        info.style.alignItems = 'center';
+        info.style.gap = '10px';
+      }
       compressBtn.disabled = false;
     } catch (err) {
       showError('error-box', `"${file.name}": ${pdfJsLoadErrorMessage(err)}`);
@@ -81,7 +96,6 @@ export function initPdfCompressor(): void {
         page.cleanup();
       }
       const out = await rebuildImagePdf(pages, dpi);
-      await doc.destroy();
 
       const saved = originalSize - out.length;
       const pct = originalSize > 0 ? Math.round((saved / originalSize) * 100) : 0;
