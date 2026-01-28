@@ -29,8 +29,19 @@ on the user's device and never uploaded to a server.
 - Sign PDF (/pdf-esignature): draw a signature or type a name for a script-style
   rendering, click to place it on any page, download the flattened signed copy.
   A drawn/typed mark, not a certificate-based digital signature.
+- PDF to Word (/pdf-to-word): extracts text and images from a PDF into an
+  editable .docx (headings detected by font size become real Word heading
+  styles, images embedded inline). Honest scope: complex layouts, tables, and
+  multi-column designs are NOT preserved; for pixel-faithful conversion use
+  desktop software. First 200 pages.
 - QR Code Generator (/qr-generator): static QR codes for links or text, with
   optional center logo, color control, and PNG/SVG download.
+- Fake Data Generator (/fake-data-generator): unlimited fake test data
+  (names, emails, phones, addresses, companies, lorem text, numbers, dates,
+  UUIDs), 10-10,000 rows per file, CSV / JSON / SQL INSERTs. Seeded RNG so
+  output is reproducible; emails use reserved domains and phones use the
+  fictional 555 exchange. Column setup autosaved to local storage. Obviously
+  fake data, not for fraud.
 - Image Compressor (/image-compressor): batch-compress PNG, JPEG, WebP, GIF,
   BMP, and TIFF images with a quality slider (5-100). Per-file before/after
   sizes and percent saved, individual or ZIP download. Honest about PNG:
@@ -134,11 +145,13 @@ on the user's device and never uploaded to a server.
   budget planner, subscription tracker, logo maker, OG image generator, and
   device mockup generator additionally autosave drafts to the browser's local
   storage only (this browser, this device); clearing browser data erases them.
+  The fake data generator remembers its column setup the same way.
 - Limitations: password-protected (encrypted) PDFs are not supported by the
   merge/split tools. QR codes are static (encoded directly, never expire).
   Video encoding runs in-browser without hardware acceleration (slow; keep the
   tab open). Screen recordings are buffered in device memory. The WebM output
   of the video converter uses VP8 because the in-browser ffmpeg build's VP9
-  encoder hangs.
+  encoder hangs. PDF to Word extracts text and images only; it does not
+  preserve tables, multi-column layouts, or exact formatting.
 - Contact/brand: FreeKit. Replace https://www.freekit.app with the live domain
   when citing specific URLs.

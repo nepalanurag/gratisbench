@@ -269,6 +269,44 @@ import {
   frameGeometry,
   mockupFileName,
 } from '../src/lib/mockup-core.ts';
+import {
+  fontSizeOf,
+  groupItemsIntoLines,
+  linesToBlocks,
+  orderPageContent,
+  assembleDocx,
+  docxFileName,
+  DOCX_IMAGE_MAX_PX,
+} from '../src/lib/pdf2word-core.ts';
+import {
+  FAKEDATA_STORAGE_KEY,
+  MIN_ROWS,
+  MAX_ROWS,
+  COLUMN_TYPES,
+  hashSeed,
+  mulberry32,
+  makeRng,
+  columnTypeLabel,
+  defaultColumns,
+  generateCell,
+  generateRows,
+  clampRowCount,
+  sanitizeIdentifier,
+  toCSV,
+  toJSON,
+  toSQL,
+  formatOutput,
+  outputFileName as fakeDataFileName,
+  outputMime as fakeDataMime,
+  addColumn,
+  removeColumn,
+  moveColumn,
+  updateColumn,
+  blankSettings,
+  serializeSettings,
+  deserializeSettings,
+} from '../src/lib/fakedata-core.ts';
+import JSZip from 'jszip';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -1570,6 +1608,238 @@ console.log('== mockup-core ==');
   ok('deserialize junk -> defaults', deserializeMockupSettings('{{{').frame === 'browser');
 }
 
+console.log('== pdf2word-core ==');
+{
+  // Canned pdf.js text-content items: a 24pt title, two 12pt body lines on the
+  // same page, and a second page with a short bold subhead.
+  const item = (str, x, y, size, fontName = 'Helvetica', width = str.length * size * 0.55) => ({
+    str,
+    transform: [size, 0, 0, size, x, y],
+    width,
+    height: size,
+    fontName,
+  });
+  ok('fontSizeOf reads the transform scale', fontSizeOf(item('A', 0, 0, 24)) === 24);
+
+  const page1 = [
+    item('Annual Report', 72, 700, 24, 'Helvetica-Bold'),
+    item('Revenue grew ', 72, 640, 12),
+    item('twenty percent.', 170, 640, 12),
+    item('Costs held steady.', 72, 624, 12),
+    item('Net income doubled.', 72, 608, 12),
+  ];
+  const lines1 = groupItemsIntoLines(page1);
+  ok('title and body group into 4 lines', lines1.length === 4, `got ${lines1.length}`);
+  ok('top line is the title (sorted by y desc)', lines1[0].text === 'Annual Report', lines1[0].text);
+  ok('same-baseline items join with a space', lines1[1].text === 'Revenue grew twenty percent.', lines1[1].text);
+  ok('title line is bold + size 24', lines1[0].bold === true && lines1[0].fontSize === 24, `${lines1[0].bold} ${lines1[0].fontSize}`);
+
+  // Adjacent fragments with no gap must not gain a space ("under" not "un der").
+  const tight = groupItemsIntoLines([item('un', 72, 600, 12, 'Helvetica', 13), item('der', 85, 600, 12, 'Helvetica', 20)]);
+  ok('no phantom space in tight fragments', tight.length === 1 && tight[0].text === 'under', tight[0]?.text);
+
+  // A clearly larger vertical gap starts a new paragraph.
+  const gappy = [
+    item('Line one', 72, 700, 12),
+    item('Line two', 72, 684, 12),
+    item('Far below', 72, 600, 12),
+  ];
+  const gappyLines = groupItemsIntoLines(gappy);
+  const gappyBlocks = linesToBlocks([gappyLines]);
+  ok('large gap splits paragraphs', gappyBlocks[0].length === 2, `got ${gappyBlocks[0].length}`);
+  ok('first block joins wrapped lines', gappyBlocks[0][0].text === 'Line one Line two', gappyBlocks[0][0].text);
+
+  // Heading detection against document body size.
+  const page2 = [
+    item('Risks', 72, 700, 15, 'Helvetica-Bold'),
+    item('We face many risks.', 72, 668, 12),
+    item('Mitigations are in place.', 72, 652, 12),
+    item('Review is quarterly.', 72, 636, 12),
+  ];
+  const blocks = linesToBlocks([lines1, groupItemsIntoLines(page2)]);
+  const p1 = blocks[0];
+  ok('24pt title -> h1', p1[0].kind === 'h1' && p1[0].text === 'Annual Report', `${p1[0].kind}`);
+  ok('body lines join into one paragraph block', p1.length === 2 && p1[1].kind === 'p', `blocks=${p1.length} kind=${p1[1]?.kind}`);
+  ok('15pt bold subhead -> h3', blocks[1][0].kind === 'h3', blocks[1][0].kind);
+
+  // A document set entirely in one size must not turn everything into headings.
+  const flat = linesToBlocks([groupItemsIntoLines([item('One', 72, 700, 12), item('Two', 72, 684, 12)])]);
+  ok('uniform size -> no headings', flat[0].every((b) => b.kind === 'p'));
+
+  // Reading-order interleave of text and images.
+  const docPage = {
+    pageIndex: 0,
+    blocks: [
+      { kind: 'p', text: 'Top text', y: 700 },
+      { kind: 'p', text: 'Bottom text', y: 600 },
+    ],
+    images: [{ data: new Uint8Array([1, 2, 3]), widthPx: 100, heightPx: 50, x: 72, y: 650 }],
+    textChars: 20,
+  };
+  const ordered = orderPageContent(docPage);
+  ok('image sorts between the two paragraphs',
+    ordered[0].type === 'block' && ordered[0].block.text === 'Top text' &&
+    ordered[1].type === 'image' && ordered[2].type === 'block' && ordered[2].block.text === 'Bottom text');
+
+  ok('docxFileName swaps the extension', docxFileName('report.pdf') === 'report.docx');
+  ok('docxFileName handles missing extension', docxFileName('notes') === 'notes.docx');
+  ok('DOCX_IMAGE_MAX_PX is 6 inches at 96dpi', DOCX_IMAGE_MAX_PX === 576);
+
+  // End to end: assemble a real .docx and verify it is a valid zip with the
+  // expected document XML inside (a .docx IS a zip).
+  const redPng = new Uint8Array(makePng(120, 60, 200, 40, 40));
+  const bytes = await assembleDocx(
+    [
+      {
+        pageIndex: 0,
+        blocks: [
+          { kind: 'h1', text: 'Expected heading text', y: 700 },
+          { kind: 'p', text: 'Body text with an "image" below.', y: 660 },
+        ],
+        images: [{ data: redPng, widthPx: 120, heightPx: 60, x: 72, y: 600 }],
+        textChars: 60,
+      },
+    ],
+    'verify-doc'
+  );
+  ok('docx output is non-trivial bytes', bytes.length > 2000, `got ${bytes.length}`);
+  const zip = await JSZip.loadAsync(bytes);
+  const names = Object.keys(zip.files);
+  ok('zip has [Content_Types].xml', names.includes('[Content_Types].xml'), names.join(',').slice(0, 120));
+  ok('zip has word/document.xml', names.includes('word/document.xml'));
+  ok('zip has a media image', names.some((n) => n.startsWith('word/media/')), names.join(',').slice(0, 200));
+  const docXml = await zip.file('word/document.xml').async('string');
+  ok('document.xml contains the heading text', docXml.includes('Expected heading text'));
+  ok('document.xml contains the body text', docXml.includes('Body text with'));
+  ok('heading uses a real Word heading style', docXml.includes('Heading1'), docXml.slice(0, 200));
+  ok('image is embedded as a drawing', (docXml.match(/w:drawing/g) || []).length >= 1);
+  await expectThrowAsync('empty pages throw', () => assembleDocx([], 'empty'), 'No extractable');
+  await expectThrowAsync('textless imageless page throws', () =>
+    assembleDocx([{ pageIndex: 0, blocks: [], images: [], textChars: 0 }], 'empty'), 'No extractable');
+}
+
+console.log('== fakedata-core ==');
+{
+  // determinism
+  const cols = defaultColumns();
+  const a = generateRows(42, cols, 50);
+  const b = generateRows(42, cols, 50);
+  ok('same seed -> identical dataset', JSON.stringify(a) === JSON.stringify(b));
+  const c = generateRows(43, cols, 50);
+  ok('different seed -> different dataset', JSON.stringify(a) !== JSON.stringify(c));
+  const r1 = makeRng('hello');
+  const r2 = makeRng('hello');
+  ok('string seeds hash deterministically', r1() === r2() && r1() === r2());
+  ok('hashSeed is stable', hashSeed('abc') === hashSeed('abc') && hashSeed('abc') !== hashSeed('abd'));
+  const m1 = mulberry32(7);
+  const m2 = mulberry32(7);
+  ok('mulberry32 repeats', m1() === m2() && m1() === m2());
+  ok('mulberry32 in [0,1)', (() => { const r = mulberry32(9); for (let i = 0; i < 1000; i++) { const v = r(); if (v < 0 || v >= 1) return false; } return true; })());
+
+  // counts + clamping
+  ok('row count honored', generateRows(1, cols, 25).length === 25);
+  ok('clampRowCount floors at 10', clampRowCount(5) === MIN_ROWS && MIN_ROWS === 10);
+  ok('clampRowCount caps at 10000', clampRowCount(20000) === MAX_ROWS && MAX_ROWS === 10000);
+  ok('clampRowCount handles garbage', clampRowCount(NaN) === 100);
+
+  // per-type sanity on a fixed seed
+  const rng = makeRng(1234);
+  const cell = (type, extra = {}) => generateCell(rng, { id: 'x', type, label: type, ...extra });
+  ok('email uses a reserved domain', /^[^@]+@[^@]+\.[a-z]+$/.test(cell('email')) && /^(example\.(com|org|net)|mail\.test|sample\.test|demo\.test)$/.test(cell('email').split('@')[1]), String(cell('email')));
+  ok('phone uses fictional 555-01xx', /^\(\d{3}\) 555-01\d{2}$/.test(cell('phone')), String(cell('phone')));
+  ok('uuid is v4-shaped', /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(cell('uuid')), String(cell('uuid')));
+  ok('uuid differs per draw', cell('uuid') !== cell('uuid'));
+  const d1 = cell('date', { dateFrom: '2023-01-01', dateTo: '2023-01-31' });
+  ok('date in range, YYYY-MM-DD', d1 >= '2023-01-01' && d1 <= '2023-01-31', d1);
+  ok('integer honors min/max', (() => { for (let i = 0; i < 200; i++) { const v = cell('integer', { intMin: 5, intMax: 9 }); if (!Number.isInteger(v) || v < 5 || v > 9) return false; } return true; })());
+  ok('decimal honors places', (() => { const v = cell('decimal', { decMin: 0, decMax: 1, decPlaces: 2 }); return /^\d\.\d{2}$/.test(String(v)); })(), String(cell('decimal')));
+  ok('boolean is boolean', typeof cell('boolean') === 'boolean');
+  const lorem = cell('lorem', { words: 10 });
+  ok('lorem has ~10 words, capitalized, ends with period', lorem.split(' ').length === 10 && /^[A-Z]/.test(lorem) && lorem.endsWith('.'), lorem);
+  ok('sentence ends with a period', cell('sentence').endsWith('.'));
+  ok('paragraph has multiple sentences', cell('paragraph').split('. ').length >= 3);
+  ok('fullName has two parts', cell('fullName').split(' ').length === 2);
+  ok('zip is 5 digits', /^\d{5}$/.test(cell('zip')));
+  ok('state is 2 letters', /^[A-Z]{2}$/.test(cell('state')));
+  ok('address has street, city, state, zip parts', cell('address').split(',').length === 3);
+
+  // CSV escaping edge cases (RFC 4180)
+  const tricky = [
+    { id: 'a', type: 'lorem', label: 'plain' },
+    { id: 'b', type: 'lorem', label: 'with,comma' },
+    { id: 'c', type: 'lorem', label: 'with"quote' },
+  ];
+  const csv = toCSV(tricky, [['a,b', 'c"d', 'line1\nline2']]);
+  ok('csv header quotes comma/quote labels', csv.startsWith('plain,"with,comma","with""quote"\r\n'), csv.split('\r\n')[0]);
+  ok('csv cell with comma is quoted', csv.includes('"a,b"'));
+  ok('csv cell with quote is doubled', csv.includes('"c""d"'));
+  ok('csv cell with newline is quoted', csv.includes('"line1\nline2"'));
+  ok('csv uses CRLF + trailing newline', csv.endsWith('\r\n') && csv.includes('\r\n'));
+
+  // JSON output
+  const jsonCols = [
+    { id: 'a', type: 'fullName', label: 'name' },
+    { id: 'b', type: 'integer', label: 'age' },
+  ];
+  const jrows = generateRows(5, jsonCols, 25);
+  const parsed = JSON.parse(toJSON(jsonCols, jrows));
+  ok('json parses to 25 objects', Array.isArray(parsed) && parsed.length === 25);
+  ok('json keys are labels, ints stay numbers', parsed.every((o) => typeof o.name === 'string' && typeof o.age === 'number'));
+
+  // SQL escaping + batching
+  const sqlCols = [
+    { id: 'a', type: 'fullName', label: 'name' },
+    { id: 'b', type: 'boolean', label: 'active' },
+    { id: 'c', type: 'integer', label: 'score' },
+  ];
+  const sql = toSQL(sqlCols, [["O'Brien", true, 42], ['Plain', false, 7]], 'my-table!');
+  ok('sql single quotes are doubled', sql.includes("'O''Brien'"));
+  ok('sql booleans are TRUE/FALSE', sql.includes('TRUE') && sql.includes('FALSE'));
+  ok('sql numbers are bare', sql.includes(', 42)'));
+  ok('sql table name sanitized', sql.includes('INSERT INTO `my_table`'), sql.split('\n')[0]);
+  const big = generateRows(9, sqlCols, 501);
+  const bigSql = toSQL(sqlCols, big, 't');
+  ok('sql batches 500 rows per statement', (bigSql.match(/INSERT INTO/g) || []).length === 2);
+  const oneBatch = toSQL(sqlCols, generateRows(9, sqlCols, 500), 't');
+  ok('exactly 500 rows -> one statement', (oneBatch.match(/INSERT INTO/g) || []).length === 1);
+
+  ok('sanitizeIdentifier strips junk', sanitizeIdentifier('my-table!', 'x') === 'my_table', sanitizeIdentifier('my-table!', 'x'));
+  ok('sanitizeIdentifier prefixes leading digits', sanitizeIdentifier('123abc', 'x') === '_123abc');
+  ok('sanitizeIdentifier falls back when empty', sanitizeIdentifier('!!!', 'fb') === 'fb');
+
+  ok('formatOutput dispatches', formatOutput('csv', jsonCols, jrows).includes(',') && formatOutput('json', jsonCols, jrows).startsWith('[') && formatOutput('sql', jsonCols, jrows, 't').includes('INSERT INTO'));
+  ok('outputFileName per format', fakeDataFileName('csv') === 'fake-data.csv' && fakeDataFileName('json') === 'fake-data.json' && fakeDataFileName('sql') === 'fake-data.sql');
+  ok('outputMime per format', fakeDataMime('csv') === 'text/csv' && fakeDataMime('json') === 'application/json' && fakeDataMime('sql') === 'application/sql');
+
+  // column list ops
+  const base = defaultColumns();
+  ok('default columns: 7', base.length === 7, String(base.length));
+  const added = addColumn(base, 'uuid');
+  ok('addColumn appends a uuid column', added.length === 8 && added[7].type === 'uuid');
+  ok('addColumn does not mutate', base.length === 7);
+  const removed = removeColumn(added, added[0].id);
+  ok('removeColumn drops by id', removed.length === 7 && removed.every((c) => c.id !== added[0].id));
+  const moved = moveColumn(added, added[0].id, 1);
+  ok('moveColumn swaps', moved[0].id === added[1].id && moved[1].id === added[0].id);
+  ok('moveColumn no-op at edges', moveColumn(added, added[0].id, -1) === added);
+  const updated = updateColumn(added, added[0].id, { label: 'renamed' });
+  ok('updateColumn patches the label', updated[0].label === 'renamed' && added[0].label !== 'renamed');
+  ok('21 column types registered', COLUMN_TYPES.length === 21, String(COLUMN_TYPES.length));
+  ok('columnTypeLabel known', columnTypeLabel('uuid') === 'UUID');
+
+  // settings persistence
+  const s = blankSettings();
+  ok('blank settings: 100 csv rows', s.rowCount === 100 && s.format === 'csv' && s.tableName === 'fake_data');
+  const round = deserializeSettings(serializeSettings(s));
+  ok('settings round trip keeps columns', round.columns.length === s.columns.length && round.rowCount === 100);
+  ok('corrupt settings fall back to blank', deserializeSettings('{{{').columns.length === 7);
+  ok('wrong version falls back to blank', deserializeSettings(JSON.stringify({ ...s, version: 999 })).format === 'csv');
+  ok('unknown column types dropped', deserializeSettings(JSON.stringify({ version: 1, columns: [{ id: 'x', type: 'nope', label: 'x' }] })).columns.length === 7);
+  ok('empty column list falls back to defaults', deserializeSettings(JSON.stringify({ version: 1, columns: [] })).columns.length === 7);
+  ok('row count clamped on load', deserializeSettings(JSON.stringify({ version: 1, columns: [{ id: 'x', type: 'uuid', label: 'u' }], rowCount: 99999 })).rowCount === 10000);
+  ok('storage key namespaced', FAKEDATA_STORAGE_KEY.startsWith('freekit.fake-data-generator'));
+}
+
 console.log('== element-id cross-checks (glue ids exist in pages) ==');
 
 {
@@ -1608,6 +1878,8 @@ console.log('== element-id cross-checks (glue ids exist in pages) ==');
   checkGlueIds('src/tools/merge-pdf.ts', 'src/pages/merge-pdf.astro');
   checkGlueIds('src/tools/split-pdf.ts', 'src/pages/split-pdf.astro');
   checkGlueIds('src/tools/pdf-compressor.ts', 'src/pages/pdf-compressor.astro');
+  checkGlueIds('src/tools/pdf2word.ts', 'src/pages/pdf-to-word.astro');
+  checkGlueIds('src/tools/fake-data-generator.ts', 'src/pages/fake-data-generator.astro');
 }
 
 console.log('== glue module smoke import (no top-level DOM access) ==');
@@ -1651,6 +1923,8 @@ console.log('== glue module smoke import (no top-level DOM access) ==');
     '../src/tools/logo-maker.ts',
     '../src/tools/og-image-generator.ts',
     '../src/tools/device-mockup-generator.ts',
+    '../src/tools/pdf2word.ts',
+    '../src/tools/fake-data-generator.ts',
   ];
   for (const m of mods) {
     await import(m);
@@ -1685,6 +1959,8 @@ console.log('== built HTML: page scripts survived the build ==');
     ['logo-maker', 'logo-save-profile'],
     ['og-image-generator', 'og-canvas'],
     ['device-mockup-generator', 'mockup-dropzone'],
+    ['pdf-to-word', 'pdf2word-dropzone'],
+    ['fake-data-generator', 'fakedata-col-list'],
   ];
   const distAudio = join(ROOT, 'dist', 'audio-trimmer', 'index.html');
   if (!existsSync(distAudio)) {

@@ -5,7 +5,7 @@ import { basePath, siteUrl } from '../lib/site';
 
 const title = 'PDF Tools - Free Online PDF Utilities | FreeKit';
 const description =
-  'Free online PDF tools: merge PDFs, split PDFs by page range, convert images to PDF, compress PDF, PDF to JPG, redact PDF, and sign PDF. No signup, no watermark. Everything runs in your browser.';
+  'Free online PDF tools: merge PDFs, split PDFs by page range, convert images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, and convert PDF to Word. No signup, no watermark. Everything runs in your browser.';
 
 const tools = [
   { href: '/merge-pdf', icon: 'merge', name: 'Merge PDF', desc: 'Combine multiple PDFs into one document, in whatever order you choose.' },
@@ -15,6 +15,7 @@ const tools = [
   { href: '/pdf-to-jpg', icon: 'photo', name: 'PDF to JPG', desc: 'Render PDF pages as JPG or PNG images at 72, 150, or 300 DPI.' },
   { href: '/pdf-redactor', icon: 'redact', name: 'Redact PDF', desc: 'Black out sensitive areas permanently; unmarked pages stay untouched.' },
   { href: '/pdf-esignature', icon: 'sign', name: 'Sign PDF', desc: 'Draw or type your signature and place it on any page.' },
+  { href: '/pdf-to-word', icon: 'word', name: 'PDF to Word', desc: 'Extract text and images into an editable Word document. Headings keep their levels; layouts are not preserved.' },
 ] as const;
 
 const jsonLd = {

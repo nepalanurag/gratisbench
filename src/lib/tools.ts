@@ -40,6 +40,7 @@ export const TOOL_GROUPS: { name: string; tools: ToolEntry[] }[] = [
       { href: '/pdf-to-jpg', name: 'PDF to JPG', desc: 'Convert PDF pages to JPG or PNG images.', group: 'PDF', tag: 'JPG · PNG' },
       { href: '/pdf-redactor', name: 'Redact PDF', desc: 'Permanently black out sensitive parts of a PDF.', group: 'PDF', tag: 'PDF' },
       { href: '/pdf-esignature', name: 'Sign PDF', desc: 'Draw or type a signature and place it on any page.', group: 'PDF', tag: 'PDF' },
+      { href: '/pdf-to-word', name: 'PDF to Word', desc: 'Extract text and images into an editable .docx. Headings get real Word styles; layouts are not preserved.', group: 'PDF', tag: 'DOCX' },
     ],
   },
   {
@@ -76,6 +77,7 @@ export const TOOL_GROUPS: { name: string; tools: ToolEntry[] }[] = [
     name: 'Generators',
     tools: [
       { href: '/qr-generator', name: 'QR generator', desc: 'QR codes for links and text, with optional logo.', group: 'Generators', tag: 'PNG · SVG' },
+      { href: '/fake-data-generator', name: 'Fake data generator', desc: 'Unlimited test data: names, emails, addresses, dates, UUIDs. CSV, JSON, or SQL. Seeded and reproducible.', group: 'Generators', tag: 'CSV · JSON · SQL' },
     ],
   },
 ];
