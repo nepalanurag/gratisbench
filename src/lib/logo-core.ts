@@ -235,8 +235,11 @@ export function logoSvg(spec: LogoSpec): string {
 
   const name = s.name.trim() || 'Your Name';
   const namePx = fitFontSize(name, 480, layout.nameStartPx);
+  // The SVG is also rasterized through <img> (strict XML): a double quote
+  // inside font-family="..." would terminate the attribute and break parsing.
+  const fontAttr = font.stack.replace(/"/g, "'");
   const nameSvg =
-    `<text x="300" y="${layout.nameY}" text-anchor="middle" font-family="${font.stack}" ` +
+    `<text x="300" y="${layout.nameY}" text-anchor="middle" font-family="${fontAttr}" ` +
     `font-size="${namePx}" font-weight="700" fill="${preset.fg}">${esc(name)}</text>`;
 
   const tagline = s.tagline.trim();
@@ -244,7 +247,7 @@ export function logoSvg(spec: LogoSpec): string {
   if (tagline) {
     const tagPx = fitFontSize(tagline, 440, layout.taglineStartPx);
     taglineSvg =
-      `<text x="300" y="${layout.taglineY}" text-anchor="middle" font-family="${font.stack}" ` +
+      `<text x="300" y="${layout.taglineY}" text-anchor="middle" font-family="${fontAttr}" ` +
       `font-size="${tagPx}" letter-spacing="2" opacity="0.72" fill="${preset.fg}">${esc(tagline)}</text>`;
   }
 

@@ -303,8 +303,11 @@ export async function assembleDocx(pages: DocPage[], title = 'Converted document
     creator: 'FreeKit PDF to Word',
     sections: [{ children }],
   });
-  const buf = await Packer.toBuffer(doc);
-  return new Uint8Array(buf);
+  // Packer.toBuffer() needs Node's Buffer and throws in browsers
+  // ("nodebuffer is not supported by this platform"); toBlob() works in
+  // browsers and in Node 18+, so the same code path runs in both.
+  const blob = await Packer.toBlob(doc);
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
 /** Friendly output file name: "report.pdf" -> "report.docx". */

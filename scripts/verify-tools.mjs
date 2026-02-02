@@ -1518,6 +1518,19 @@ console.log('== logo-core ==');
   ok('svg has viewBox', svg.includes('viewBox'));
   const evil = logoSvg({ ...spec, name: '<img src=x onerror=alert(1)>' });
   ok('name is HTML-escaped', !evil.includes('<img src=x') && evil.includes('&lt;img'));
+  // Regression: font stacks with quoted family names ("Segoe UI") broke the
+  // font-family="..." XML attribute, so PNG export via <img> failed to parse.
+  let fontsXmlOk = true;
+  for (const f of LOGO_FONTS) {
+    const s = logoSvg({ ...spec, fontId: f.id });
+    for (const m of s.matchAll(/font-family="/g)) {
+      const start = m.index + 'font-family="'.length;
+      const end = s.indexOf('"', start);
+      const after = s[end + 1];
+      if (end < 0 || !/[\s/>]/.test(after || '')) { fontsXmlOk = false; break; }
+    }
+  }
+  ok('font-family attributes are valid XML for every font', fontsXmlOk);
 
   ok('png size 512', JSON.stringify(logoPngSize(512)) === '{"width":512,"height":512}');
   ok('png size 1024', JSON.stringify(logoPngSize(1024)) === '{"width":1024,"height":1024}');
@@ -1997,6 +2010,43 @@ console.log('== coverage honesty note (not pass/fail) ==');
   console.log('  NOTE not covered in Node: @imgly/background-removal and tesseract.js inference');
   console.log('  NOTE (both need browser WASM + CDN model downloads at runtime). imagetracerjs IS');
   console.log('  NOTE exercised in Node above because it is dependency-free pure JS on ImageData.');
+}
+
+console.log('== responsive / mobile checks (static) ==');
+{
+  const css = readFileSync(join(ROOT, 'src/styles/global.css'), 'utf8');
+  const layout = readFileSync(join(ROOT, 'src/layouts/BaseLayout.astro'), 'utf8');
+  // Form controls must be >= 16px so iOS Safari does not auto-zoom on focus.
+  const formRule = css.match(/input\[type="text"\][\s\S]*?font-size:\s*([\d.]+)rem/);
+  ok('form controls are 1rem (16px, no iOS zoom)', !!formRule && Number(formRule[1]) >= 1, formRule ? formRule[1] : 'rule missing');
+  ok('resume builder fields are 1rem', /\.rb-field input, \.rb-field textarea\s*\{\s*font-size:\s*1rem/.test(css));
+  ok('fake-data option inputs are 1rem', /\.fd-opts \.opt input\s*\{[^}]*font-size:\s*1rem/.test(css));
+  // Header collapses to a hamburger on small screens.
+  ok('header has a nav toggle button', layout.includes('id="fk-nav-toggle"') && layout.includes('id="fk-nav"'));
+  ok('nav toggle has a menu script', layout.includes("classList.toggle('open')"));
+  ok('CSS hides inline nav under 760px', /@media\s*\(\s*max-width:\s*760px\s*\)[\s\S]*?\.site-nav\s*\{[^}]*display:\s*none/.test(css));
+  ok('CSS shows nav when toggled open', /\.site-nav\.open\s*\{\s*display:\s*flex/.test(css));
+  ok('search button goes icon-only on mobile', /\.kbtn \.kbtn-text, \.kbtn \.k\s*\{\s*display:\s*none/.test(css));
+  // Touch targets.
+  const iconBtn = css.match(/\.icon-btn\s*\{[^}]*width:\s*([\d.]+)rem/);
+  ok('icon buttons are >= 2.5rem touch targets', !!iconBtn && Number(iconBtn[1]) >= 2.5, iconBtn ? iconBtn[1] : 'rule missing');
+  ok('page-picker checks grow on coarse pointers', /@media\s*\(\s*pointer:\s*coarse\s*\)[\s\S]*?\.pick-check\s*\{\s*width:\s*32px/.test(css));
+  // Layouts stack instead of squeezing.
+  ok('primary buttons go full width under 560px', /\.btn-row \.btn\s*\{\s*flex:\s*1 1 100%/.test(css));
+  ok('spec tables stack as cards on mobile', /\.content tr\s*\{\s*border:\s*1px solid var\(--line\)/.test(css));
+  ok('resume modern template stacks its sidebar', /\.resume-modern \.rs-mod\s*\{\s*grid-template-columns:\s*1fr/.test(css));
+  ok('invoice header stacks on mobile', /\.inv-header\s*\{\s*flex-direction:\s*column/.test(css));
+  ok('footer stacks on mobile', /\.site-footer \.wrap\s*\{\s*flex-direction:\s*column/.test(css));
+  ok('two-column tool layouts collapse (split-2col)', /@media\s*\(\s*max-width:\s*860px\s*\)\s*\{\s*\.split-2col\s*\{\s*grid-template-columns:\s*1fr/.test(css));
+  ok('QR layout collapses (qr-layout)', /@media\s*\(\s*max-width:\s*760px\s*\)\s*\{\s*\.qr-layout\s*\{\s*grid-template-columns:\s*1fr/.test(css));
+  // Canvases and media never overflow the viewport.
+  ok('canvas previews are max-width 100%', /\.canvas-preview\s*\{[^}]*max-width:\s*100%/.test(css));
+  ok('preview video is max-width 100%', /\.preview-video\s*\{[^}]*max-width:\s*100%/.test(css));
+  ok('redact canvas is max-width 100%', /\.redact-stage canvas\s*\{[^}]*max-width:\s*100%/.test(css));
+  // Touch drawing surfaces do not scroll the page mid-stroke.
+  ok('redact overlay disables touch scrolling', /\.redact-overlay\s*\{[^}]*touch-action:\s*none/.test(css));
+  ok('signature pad disables touch scrolling', /\.sig-pad\s*\{[^}]*touch-action:\s*none/.test(css));
+  ok('waveform disables touch scrolling', /canvas\.waveform\s*\{[^}]*touch-action:\s*none/.test(css));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
