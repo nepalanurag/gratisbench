@@ -2047,6 +2047,12 @@ console.log('== responsive / mobile checks (static) ==');
   ok('redact overlay disables touch scrolling', /\.redact-overlay\s*\{[^}]*touch-action:\s*none/.test(css));
   ok('signature pad disables touch scrolling', /\.sig-pad\s*\{[^}]*touch-action:\s*none/.test(css));
   ok('waveform disables touch scrolling', /canvas\.waveform\s*\{[^}]*touch-action:\s*none/.test(css));
+  // The media engine load must never hang silently: it races a timeout.
+  const loader = readFileSync(join(ROOT, 'src/tools/ffmpeg-loader.ts'), 'utf8');
+  ok('ffmpeg load races a timeout', /Promise\.race\(\[load, timeout\]\)/.test(loader));
+  ok('ffmpeg load timeout clears its timer', /clearTimeout\(timer\)/.test(loader));
+  ok('ffmpeg timeout error matches the friendly load-error pattern', /load timed out/.test(loader) && /load\|fetch\|network/.test(loader));
+  ok('failed ffmpeg load clears the cached promise for retry', /ffmpegPromise\.catch\(\(\) => \{\s*ffmpegPromise = null;/.test(loader));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

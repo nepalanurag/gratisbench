@@ -7,10 +7,15 @@ import type { FFmpeg } from '@ffmpeg/ffmpeg';
 
 let ffmpegPromise: Promise<FFmpeg> | null = null;
 
+/** How long the ~31MB engine may take to download before we give up loudly. */
+const LOAD_TIMEOUT_MS = 120_000;
+
 /**
  * Load the ffmpeg.wasm engine on demand and return a shared instance.
  * onLog receives ffmpeg's own log lines (useful for the progress label).
  * A failed load clears the cached promise so the user can retry.
+ * The load races a timeout: a stalled download must surface an error,
+ * never leave the tool stuck on "Starting…" forever.
  */
 export function loadFFmpeg(onLog?: (message: string) => void): Promise<FFmpeg> {
   if (!ffmpegPromise) {
@@ -28,11 +33,23 @@ export function loadFFmpeg(onLog?: (message: string) => void): Promise<FFmpeg> {
       if (onLog) {
         ffmpeg.on('log', ({ message }) => onLog(message));
       }
-      await ffmpeg.load({
+      const load = ffmpeg.load({
         classWorkerURL: await toBlobURL(classWorkerURL, 'text/javascript'),
         coreURL: await toBlobURL(coreURL, 'text/javascript'),
         wasmURL: await toBlobURL(wasmURL, 'application/wasm'),
       });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('load timed out: the media engine download stalled — check your connection and try again')),
+          LOAD_TIMEOUT_MS,
+        );
+      });
+      try {
+        await Promise.race([load, timeout]);
+      } finally {
+        clearTimeout(timer);
+      }
       return ffmpeg;
     })();
     ffmpegPromise.catch(() => {
