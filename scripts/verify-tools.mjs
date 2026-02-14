@@ -2047,6 +2047,26 @@ console.log('== responsive / mobile checks (static) ==');
   ok('redact overlay disables touch scrolling', /\.redact-overlay\s*\{[^}]*touch-action:\s*none/.test(css));
   ok('signature pad disables touch scrolling', /\.sig-pad\s*\{[^}]*touch-action:\s*none/.test(css));
   ok('waveform disables touch scrolling', /canvas\.waveform\s*\{[^}]*touch-action:\s*none/.test(css));
+  // v3 design: human typography, dark theme, accessibility modes.
+  ok('headings use Fraunces, not Inter', /--font-head:\s*"Fraunces"/.test(css));
+  ok('body uses IBM Plex Sans', /--font-ui:\s*"IBM Plex Sans"/.test(css));
+  ok('mono labels use IBM Plex Mono', /--font-mono:\s*"IBM Plex Mono"/.test(css));
+  ok('no Inter in font stacks', !/Inter/.test(css));
+  ok('dark theme token block exists', /\[data-theme="dark"\]\s*\{[^}]*--paper:/.test(css));
+  ok('dark theme adapts content text color', /\[data-theme="dark"\] \.content p/.test(css));
+  ok('paper grain overlay exists', /body::after[\s\S]*?feTurbulence/.test(css));
+  ok('a11y larger-text mode exists', /html\[data-a11y-text="1"\]/.test(css));
+  ok('a11y contrast mode exists', /html\[data-a11y-contrast="1"\]/.test(css));
+  ok('a11y reduce-motion mode exists', /html\[data-a11y-motion="1"\]/.test(css));
+  ok('a11y underline-links mode exists', /html\[data-a11y-links="1"\]/.test(css));
+  ok('TOC dotted leaders exist', /\.tool-row-leader[\s\S]*?border-bottom:\s*2px dotted/.test(css));
+  ok('spec plate style exists', /\.page-head\.plate/.test(css));
+  ok('layout loads Fraunces + Plex fonts', /Fraunces/.test(layout) && /IBM\+Plex\+Sans/.test(layout));
+  ok('layout applies theme before first paint', layout.includes('fk-theme') && layout.includes('prefers-color-scheme'));
+  ok('layout has theme toggle', layout.includes('id="fk-theme-toggle"'));
+  ok('layout has a11y panel', layout.includes('id="fk-a11y"') && layout.includes('data-a11y="text"'));
+  ok('a11y prefs persist to localStorage', layout.includes("localStorage.setItem('fk-a11y'"));
+  ok('footer has colophon', layout.includes('colophon'));
   // The media engine load must never hang silently: it races a timeout.
   const loader = readFileSync(join(ROOT, 'src/tools/ffmpeg-loader.ts'), 'utf8');
   ok('ffmpeg load races a timeout', /Promise\.race\(\[load, timeout\]\)/.test(loader));

@@ -1,14 +1,14 @@
-/* FreeKit v2 — "workshop manual". Sharp hairlines, mono labels, one brick accent.
-   Paper background kept; floating-card SaaS look removed. */
+/* FreeKit v3 — "printed field manual". Fraunces + Plex, paper grain,
+   light/dark themes, accessibility modes. All tool internals untouched. */
 :root {
-  --paper: #faf6ee;
-  --paper-2: #f3ecdc;
-  --card: #fffdf7;
-  --ink: #201b14;
-  --muted: #6f665a;
-  --faint: #a29885;
-  --line: #ded3ba;
-  --rule: #201b14;          /* structural hairlines */
+  --paper: #f7f1e2;
+  --paper-2: #efe7d2;
+  --card: #fffdf6;
+  --ink: #211a12;
+  --muted: #6e6350;
+  --faint: #a0947a;
+  --line: #ddd0b4;
+  --rule: #211a12;          /* structural hairlines */
   --accent: #a63d21;        /* brick — reserved for the primary action per screen */
   --accent-dark: #7e2d17;
   --accent-tint: #f7e9e1;
@@ -19,9 +19,64 @@
   --radius: 3px;
   --max: 920px;
   --measure: 700px;
-  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-head: "Inter Tight", "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-ui: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-head: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ---------- dark theme: the night shift ---------- */
+[data-theme="dark"] {
+  --paper: #16120e;
+  --paper-2: #1e1712;
+  --card: #1f1813;
+  --ink: #ece1c9;
+  --muted: #b3a68b;
+  --faint: #7f7460;
+  --line: #3a322a;
+  --rule: #57503f;
+  --accent: #d9622e;
+  --accent-dark: #b34a20;
+  --accent-tint: #3a2413;
+  --ok: #6fae7d;
+  --ok-tint: #1c2b20;
+  --danger: #e0705f;
+  --danger-tint: #331d1a;
+}
+/* Hardcoded light colors that must adapt in dark mode. Document
+   surfaces (resume, invoice) stay paper-white on purpose: paper is paper. */
+[data-theme="dark"] .content p, [data-theme="dark"] .content li { color: #d9cdb2; }
+[data-theme="dark"] .content code { color: #d9cdb2; }
+[data-theme="dark"] .code-view code { color: #d9cdb2; }
+[data-theme="dark"] .chip.soon { background: #3a2b14; color: #e2ac5e; }
+[data-theme="dark"] .soon-note { border-color: #6b4a2a; }
+[data-theme="dark"] .error-box { border-color: #6e2f2a; }
+[data-theme="dark"] .site-header { box-shadow: 0 1px 0 rgba(0,0,0,.4); }
+
+/* ---------- accessibility modes (toggled from the header panel) ---------- */
+html[data-a11y-text="1"] { font-size: 118%; }
+html[data-a11y-text="1"] body { line-height: 1.75; }
+html[data-a11y-contrast="1"] {
+  --ink: #000; --muted: #3a332a; --faint: #57503f;
+  --line: #8a7c64; --rule: #000;
+}
+html[data-theme="dark"][data-a11y-contrast="1"] {
+  --ink: #fff; --muted: #ddd2b8; --faint: #b3a68b;
+  --line: #6b5f4c; --rule: #fff;
+}
+html[data-a11y-motion="1"] *,
+html[data-a11y-motion="1"] *::before,
+html[data-a11y-motion="1"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+html[data-a11y-links="1"] a:not(.btn):not(.tool-row):not(.brand):not(.icon-btn):not(.pill):not(.tab-btn):not(.nav-toggle):not(.kbtn):not(.swatch):not(.icon-pick) {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec-dot { animation: none; }
+  * { transition-duration: 0.01ms !important; }
 }
 
 * { box-sizing: border-box; }
@@ -35,7 +90,7 @@ body {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
 }
-h1, h2, h3 { font-family: var(--font-head); line-height: 1.2; letter-spacing: -0.02em; }
+h1, h2, h3 { font-family: var(--font-head); font-weight: 600; line-height: 1.08; letter-spacing: -0.005em; font-optical-sizing: auto; }
 img { max-width: 100%; height: auto; }
 a { color: var(--accent); }
 ::selection { background: var(--accent-tint); }
@@ -789,3 +844,127 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .file-meta { display: none; }
   .slider-line { grid-template-columns: 3.6rem 1fr 3.8rem; }
 }
+
+/* ================= v3: printed field manual ================= */
+
+/* Paper grain over everything. Subtle enough to miss, loud enough to kill the flat-digital look. */
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 400; pointer-events: none; opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] body::after { opacity: 0.08; }
+
+/* Visible, opinionated focus everywhere. */
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+::selection { background: var(--accent); color: #fff; }
+
+/* ---------- header: theme + accessibility tools ---------- */
+.hdr-tools { display: flex; gap: 0.35rem; align-items: center; }
+.hdr-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.5rem; height: 2.5rem; flex: 0 0 auto;
+  border: 1px solid var(--line); background: var(--card); color: var(--muted);
+  border-radius: var(--radius); cursor: pointer; font: inherit;
+}
+.hdr-btn:hover { border-color: var(--ink); color: var(--ink); }
+.hdr-btn .icon-sun { display: none; }
+[data-theme="dark"] .hdr-btn .icon-sun { display: block; }
+[data-theme="dark"] .hdr-btn .icon-moon { display: none; }
+.hdr-btn .a11y-glyph { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+
+/* Accessibility panel: fixed dropdown under the header. */
+.a11y-panel {
+  position: fixed; top: 64px; right: max(1rem, calc((100vw - var(--max)) / 2 + 1.25rem)); z-index: 300;
+  background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius);
+  box-shadow: 6px 6px 0 rgba(33, 26, 18, 0.18);
+  padding: 1rem 1.1rem 1.1rem; width: 240px;
+}
+.a11y-panel[hidden] { display: none; }
+.a11y-title { font-family: var(--font-head); font-size: 1.05rem; margin: 0 0 0.6rem; }
+.a11y-panel .checkline { margin: 0.5rem 0; cursor: pointer; }
+.a11y-panel .checkline input { width: 1.15rem; height: 1.15rem; }
+.a11y-note { font-size: 0.8rem; color: var(--faint); margin: 0.7rem 0 0; font-family: var(--font-mono); letter-spacing: 0.03em; }
+
+/* Mobile nav extras: theme + accessibility rows inside the dropdown menu. */
+.nav-extra { display: none; }
+@media (max-width: 760px) {
+  .hdr-tools { display: none; }
+  .site-nav.open .nav-extra { display: flex; }
+  .nav-extra {
+    flex-direction: column; align-items: stretch; gap: 0;
+    border-top: 1px solid var(--line); margin-top: 6px; padding-top: 4px;
+  }
+  .nav-extra button {
+    display: flex; align-items: center; gap: 0.6rem; width: 100%;
+    background: none; border: none; border-bottom: 1px solid var(--line);
+    padding: 11px 4px; font: inherit; font-size: 1rem; color: var(--muted);
+    cursor: pointer; text-align: left;
+  }
+  .nav-extra button:last-child { border-bottom: none; }
+  .nav-extra button:hover { color: var(--ink); }
+  .nav-extra .ne-state { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; }
+}
+
+/* ---------- tool pages: the spec plate ---------- */
+.page-head.plate {
+  border: 1px solid var(--rule); background: var(--card); border-radius: var(--radius);
+  padding: 1.35rem 1.5rem 1.25rem; margin-top: 1.5rem; position: relative;
+  box-shadow: 5px 5px 0 rgba(33, 26, 18, 0.10);
+}
+[data-theme="dark"] .page-head.plate { box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.35); }
+.plate-tag {
+  position: absolute; top: -10px; left: 16px;
+  background: var(--ink); color: var(--paper);
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 10px; border-radius: 2px;
+}
+.page-head.plate h1 { font-size: clamp(1.9rem, 5vw, 2.7rem); margin: 0.5rem 0 0.5rem; }
+.page-head.plate .privacy-line { margin-top: 1rem; }
+/* Hub pages keep the plain head but get a touch more presence. */
+.page-head:not(.plate) h1 { font-size: clamp(2rem, 5.5vw, 3rem); }
+
+/* ---------- homepage: the manual's contents page ---------- */
+.home-head { padding: 3rem 0 0.6rem; border-bottom: 1px solid var(--rule); padding-bottom: 1.8rem; }
+.home-head h1 {
+  font-size: clamp(2.6rem, 7.5vw, 4.4rem); font-weight: 600;
+  margin: 0.9rem 0 0.9rem; max-width: 14ch; line-height: 0.98;
+}
+.home-head h1 em { font-style: italic; color: var(--accent); }
+.home-head .lede { font-size: 1.12rem; max-width: 58ch; }
+.home-head .lede strong { color: var(--ink); }
+.manual-no {
+  display: inline-block; border: 1px solid var(--rule); border-radius: 2px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; padding: 5px 12px; color: var(--ink); background: var(--card);
+  transform: rotate(-1.2deg);
+}
+.tool-index { margin: 2.4rem 0 0; }
+.tool-group { margin-bottom: 2.6rem; }
+.tool-group-head .chap {
+  font-family: var(--font-mono); font-size: 11px; color: var(--faint);
+  letter-spacing: 0.1em; margin-right: 10px;
+}
+/* Dotted leaders, like a book's contents page. */
+.tool-row { grid-template-columns: 44px 1fr 20px; }
+.tool-row-top { display: flex; align-items: baseline; }
+.tool-row-leader {
+  flex: 1 1 auto; min-width: 1.5rem; margin: 0 0.8rem;
+  border-bottom: 2px dotted var(--faint); transform: translateY(-4px);
+}
+.tool-row:hover .tool-row-leader { border-bottom-color: var(--accent); }
+/* Fine print: the why, rewritten as numbered marginalia. */
+.fine-print { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.2rem; margin: 1.6rem 0 0; }
+.fine-print-item { border-top: 2px solid var(--rule); padding-top: 0.9rem; }
+.fine-print-item .fp-no { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; }
+.fine-print-item h3 { margin: 0.3rem 0 0.4rem; font-size: 1.15rem; }
+.fine-print-item p { margin: 0; color: var(--muted); font-size: 0.93rem; }
+/* Colophon. */
+.colophon {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em;
+  color: var(--faint); text-transform: uppercase;
+}
+
+/* TOC row internals (new markup). */
+.tool-row-body { display: block; min-width: 0; }
+.tool-row-desc { display: block; color: var(--muted); font-size: 0.88rem; margin: 1px 0 0; font-weight: 400; }
