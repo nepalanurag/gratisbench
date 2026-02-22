@@ -2067,6 +2067,7 @@ console.log('== responsive / mobile checks (static) ==');
   ok('layout has a11y panel', layout.includes('id="fk-a11y"') && layout.includes('data-a11y="text"'));
   ok('a11y prefs persist to localStorage', layout.includes("localStorage.setItem('fk-a11y'"));
   ok('footer has colophon', layout.includes('colophon'));
+  ok('empty ad slots stay hidden until ads are configured', /\.ad-slot\s*\{\s*display:\s*none/.test(css));
   // The media engine load must never hang silently: it races a timeout.
   const loader = readFileSync(join(ROOT, 'src/tools/ffmpeg-loader.ts'), 'utf8');
   ok('ffmpeg load races a timeout', /Promise\.race\(\[load, timeout\]\)/.test(loader));

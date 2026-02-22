@@ -968,3 +968,7 @@ body::after {
 /* TOC row internals (new markup). */
 .tool-row-body { display: block; min-width: 0; }
 .tool-row-desc { display: block; color: var(--muted); font-size: 0.88rem; margin: 1px 0 0; font-weight: 400; }
+
+/* No ad network is configured yet: keep the slot markup (so dropping in
+   ad code later is trivial) but don't show empty placeholder boxes. */
+.ad-slot { display: none; }
