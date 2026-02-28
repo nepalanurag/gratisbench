@@ -1,6 +1,5 @@
 ---
 import BaseLayout from './BaseLayout.astro';
-import Icon from '../components/Icon.astro';
 import SupportNotice from '../components/SupportNotice.astro';
 import { siteUrl, basePath } from '../lib/site';
 
@@ -52,8 +51,7 @@ const jsonLd = [
 ---
 <BaseLayout title={title} description={description} jsonLd={jsonLd}>
   <div class="wrap">
-    <div class="page-head plate">
-      <span class="plate-tag" aria-hidden="true">Tool file</span>
+    <div class="page-head">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
         <a href={basePath('/')}>FreeKit</a>
         {crumbs.map((c) => (
@@ -61,10 +59,8 @@ const jsonLd = [
         ))}
       </nav>
       <h1>{h1}</h1>
-      <p class="lede">{lede}</p>
-      <div>
-        <span class="privacy-line"><Icon name="lock" size={15} /> Your files never leave your device.</span>
-      </div>
+      <p class="tool-desc">{lede}</p>
+      <p class="privacy-line">Your files never leave your device. Everything runs in this tab.</p>
     </div>
 
     <!-- Ad slot: above the tool (AdSense display unit goes here) -->

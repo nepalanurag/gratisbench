@@ -1,67 +1,72 @@
-/* FreeKit v3 — "printed field manual". Fraunces + Plex, paper grain,
-   light/dark themes, accessibility modes. All tool internals untouched. */
+/* FreeKit v4 — "built by a person". No webfonts, no theme, no texture.
+   System type, black on white, blue links, one dark button.
+   Every choice has a reason; see the design brief. Tool internals untouched. */
 :root {
-  --paper: #f7f1e2;
-  --paper-2: #efe7d2;
-  --card: #fffdf6;
-  --ink: #211a12;
-  --muted: #6e6350;
-  --faint: #a0947a;
-  --line: #ddd0b4;
-  --rule: #211a12;          /* structural hairlines */
-  --accent: #a63d21;        /* brick — reserved for the primary action per screen */
-  --accent-dark: #7e2d17;
-  --accent-tint: #f7e9e1;
-  --ok: #2e7d46;
-  --ok-tint: #e9f4ec;
+  --paper: #ffffff;
+  --paper-2: #f5f5f5;
+  --card: #ffffff;
+  --ink: #161616;
+  --muted: #5c5c5c;
+  --faint: #8a8a8a;
+  --line: #e3e3e3;
+  --rule: #161616;
+  --link: #1a0dab;
+  --accent: #161616;        /* primary actions: solid, no gradients, no brand color */
+  --accent-dark: #000000;
+  --accent-tint: #e8f0fe;
+  --ok: #1e7e34;
+  --ok-tint: #e6f4ea;
   --danger: #b3261e;
   --danger-tint: #fbeae8;
   --radius: 3px;
   --max: 920px;
   --measure: 700px;
-  --font-ui: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-head: "Fraunces", Georgia, "Times New Roman", serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-head: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
-/* ---------- dark theme: the night shift ---------- */
+/* ---------- dark theme ---------- */
 [data-theme="dark"] {
-  --paper: #16120e;
-  --paper-2: #1e1712;
-  --card: #1f1813;
-  --ink: #ece1c9;
-  --muted: #b3a68b;
-  --faint: #7f7460;
-  --line: #3a322a;
-  --rule: #57503f;
-  --accent: #d9622e;
-  --accent-dark: #b34a20;
-  --accent-tint: #3a2413;
-  --ok: #6fae7d;
-  --ok-tint: #1c2b20;
+  --paper: #1b1b1b;
+  --paper-2: #232323;
+  --card: #222222;
+  --ink: #f0f0f0;
+  --muted: #b5b5b5;
+  --faint: #8a8a8a;
+  --line: #383838;
+  --rule: #e8e8e8;
+  --link: #8ab4f8;
+  --accent: #f0f0f0;
+  --accent-dark: #ffffff;
+  --accent-tint: #2c3a52;
+  --ok: #7bc98a;
+  --ok-tint: #1d2b21;
   --danger: #e0705f;
   --danger-tint: #331d1a;
 }
 /* Hardcoded light colors that must adapt in dark mode. Document
    surfaces (resume, invoice) stay paper-white on purpose: paper is paper. */
-[data-theme="dark"] .content p, [data-theme="dark"] .content li { color: #d9cdb2; }
-[data-theme="dark"] .content code { color: #d9cdb2; }
-[data-theme="dark"] .code-view code { color: #d9cdb2; }
-[data-theme="dark"] .chip.soon { background: #3a2b14; color: #e2ac5e; }
-[data-theme="dark"] .soon-note { border-color: #6b4a2a; }
+[data-theme="dark"] .content p, [data-theme="dark"] .content li { color: #d9d9d9; }
+[data-theme="dark"] .content code { color: #d9d9d9; }
+[data-theme="dark"] .code-view code { color: #d9d9d9; }
+[data-theme="dark"] .chip.soon { background: #33302a; color: #e2ac5e; }
+[data-theme="dark"] .soon-note { border-color: #6b5a3a; }
 [data-theme="dark"] .error-box { border-color: #6e2f2a; }
 [data-theme="dark"] .site-header { box-shadow: 0 1px 0 rgba(0,0,0,.4); }
+/* Primary buttons invert in dark mode: light button, dark text. */
+[data-theme="dark"] .btn.primary { color: #161616; }
 
 /* ---------- accessibility modes (toggled from the header panel) ---------- */
 html[data-a11y-text="1"] { font-size: 118%; }
 html[data-a11y-text="1"] body { line-height: 1.75; }
 html[data-a11y-contrast="1"] {
-  --ink: #000; --muted: #3a332a; --faint: #57503f;
-  --line: #8a7c64; --rule: #000;
+  --ink: #000; --muted: #333; --faint: #555;
+  --line: #767676; --rule: #000; --link: #0000c8;
 }
 html[data-theme="dark"][data-a11y-contrast="1"] {
-  --ink: #fff; --muted: #ddd2b8; --faint: #b3a68b;
-  --line: #6b5f4c; --rule: #fff;
+  --ink: #fff; --muted: #e0e0e0; --faint: #c2c2c2;
+  --line: #8a8a8a; --rule: #fff; --link: #a8c7fa;
 }
 html[data-a11y-motion="1"] *,
 html[data-a11y-motion="1"] *::before,
@@ -90,9 +95,11 @@ body {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
 }
-h1, h2, h3 { font-family: var(--font-head); font-weight: 600; line-height: 1.08; letter-spacing: -0.005em; font-optical-sizing: auto; }
+h1, h2, h3 { font-family: var(--font-ui); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
 img { max-width: 100%; height: auto; }
-a { color: var(--accent); }
+a { color: var(--link); }
+.content a, .site-footer a { text-underline-offset: 2px; }
+.content a:hover, .site-footer a:hover { text-decoration: underline; }
 ::selection { background: var(--accent-tint); }
 
 .wrap { max-width: var(--max); margin: 0 auto; padding: 0 1.25rem; }
@@ -161,7 +168,7 @@ a { color: var(--accent); }
 .page-head .lede { color: var(--muted); margin: 0; max-width: var(--measure); font-size: 1.02rem; }
 .breadcrumbs { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin: 0 0 0.8rem; }
 .breadcrumbs a { color: var(--faint); text-decoration: none; }
-.breadcrumbs a:hover { color: var(--accent); }
+.breadcrumbs a:hover { color: var(--link); }
 .breadcrumbs .sep { margin: 0 0.45rem; }
 .privacy-line { margin: 0.9rem 0 0; }
 /* legacy support: old pages may still use .privacy-line as a pill */
@@ -211,7 +218,7 @@ a { color: var(--accent); }
 .dropzone .dz-icon { color: var(--faint); margin-bottom: 0.5rem; }
 .dropzone.dragging .dz-icon, .dropzone:hover .dz-icon { color: var(--accent); }
 .dropzone .dz-title { font-weight: 600; font-size: 1rem; }
-.dropzone .dz-title u { text-decoration-color: var(--accent); text-underline-offset: 3px; }
+.dropzone .dz-title u { text-decoration-color: var(--link); text-underline-offset: 3px; }
 .dropzone .dz-sub { color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; font-family: var(--font-mono); letter-spacing: 0.04em; }
 
 /* ---------- file rows ---------- */
@@ -370,7 +377,7 @@ input[type="checkbox"] { width: 1.05rem; height: 1.05rem; accent-color: var(--ac
 .qr-placeholder { border: 1.5px dashed var(--faint); border-radius: var(--radius); padding: 2.6rem 1rem; text-align: center; color: var(--faint); font-size: 0.92rem; }
 .logo-pick { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
 .logo-pick .file-name-label { font-size: 0.9rem; color: var(--muted); }
-.link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; font-size: 0.9rem; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
+.link-btn { background: none; border: none; color: var(--link); cursor: pointer; font: inherit; font-size: 0.9rem; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------- pro page ---------- */
 .price-card { border: 1px solid var(--rule); border-radius: var(--radius); padding: 1.8rem; max-width: 520px; margin: 1.8rem 0; background: var(--card); }
@@ -455,7 +462,7 @@ canvas.waveform {
 .site-footer .fine { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
 .site-footer nav { display: flex; gap: 0.2rem 1rem; margin-left: auto; flex-wrap: wrap; }
 .site-footer a { color: var(--muted); text-decoration: none; font-size: 0.85rem; }
-.site-footer a:hover { color: var(--accent); }
+.site-footer a:hover { color: var(--link); }
 
 /* ---------- batch 7: background remover, OCR, tracer ---------- */
 .preview-frame { margin: 1rem 0 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--paper); max-height: 26rem; display: flex; align-items: center; justify-content: center; }
@@ -845,21 +852,16 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .slider-line { grid-template-columns: 3.6rem 1fr 3.8rem; }
 }
 
-/* ================= v3: printed field manual ================= */
+/* ================= v4: built by a person ================= */
+/* No webfonts, no texture, no theme. One system typeface, black on white,
+   blue links, one dark button. Nothing here is decoration. */
 
-/* Paper grain over everything. Subtle enough to miss, loud enough to kill the flat-digital look. */
-body::after {
-  content: ""; position: fixed; inset: 0; z-index: 400; pointer-events: none; opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
-}
-[data-theme="dark"] body::after { opacity: 0.08; }
+/* Visible focus, blue. */
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+::selection { background: #1a0dab; color: #fff; }
+[data-theme="dark"] ::selection { background: #8ab4f8; color: #161616; }
 
-/* Visible, opinionated focus everywhere. */
-:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
-
-::selection { background: var(--accent); color: #fff; }
-
-/* ---------- header: theme + accessibility tools ---------- */
+/* ---------- header: theme + reading-comfort tools ---------- */
 .hdr-tools { display: flex; gap: 0.35rem; align-items: center; }
 .hdr-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -873,20 +875,20 @@ body::after {
 [data-theme="dark"] .hdr-btn .icon-moon { display: none; }
 .hdr-btn .a11y-glyph { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
 
-/* Accessibility panel: fixed dropdown under the header. */
+/* Reading-comfort panel: plain dropdown under the header. */
 .a11y-panel {
   position: fixed; top: 64px; right: max(1rem, calc((100vw - var(--max)) / 2 + 1.25rem)); z-index: 300;
-  background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius);
-  box-shadow: 6px 6px 0 rgba(33, 26, 18, 0.18);
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
   padding: 1rem 1.1rem 1.1rem; width: 240px;
 }
 .a11y-panel[hidden] { display: none; }
-.a11y-title { font-family: var(--font-head); font-size: 1.05rem; margin: 0 0 0.6rem; }
+.a11y-title { font-size: 1.05rem; font-weight: 700; margin: 0 0 0.6rem; }
 .a11y-panel .checkline { margin: 0.5rem 0; cursor: pointer; }
 .a11y-panel .checkline input { width: 1.15rem; height: 1.15rem; }
-.a11y-note { font-size: 0.8rem; color: var(--faint); margin: 0.7rem 0 0; font-family: var(--font-mono); letter-spacing: 0.03em; }
+.a11y-note { font-size: 0.8rem; color: var(--faint); margin: 0.7rem 0 0; }
 
-/* Mobile nav extras: theme + accessibility rows inside the dropdown menu. */
+/* Mobile nav extras: theme + reading-comfort rows inside the dropdown menu. */
 .nav-extra { display: none; }
 @media (max-width: 760px) {
   .hdr-tools { display: none; }
@@ -906,69 +908,33 @@ body::after {
   .nav-extra .ne-state { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; }
 }
 
-/* ---------- tool pages: the spec plate ---------- */
-.page-head.plate {
-  border: 1px solid var(--rule); background: var(--card); border-radius: var(--radius);
-  padding: 1.35rem 1.5rem 1.25rem; margin-top: 1.5rem; position: relative;
-  box-shadow: 5px 5px 0 rgba(33, 26, 18, 0.10);
-}
-[data-theme="dark"] .page-head.plate { box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.35); }
-.plate-tag {
-  position: absolute; top: -10px; left: 16px;
-  background: var(--ink); color: var(--paper);
-  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 10px; border-radius: 2px;
-}
-.page-head.plate h1 { font-size: clamp(1.9rem, 5vw, 2.7rem); margin: 0.5rem 0 0.5rem; }
-.page-head.plate .privacy-line { margin-top: 1rem; }
-/* Hub pages keep the plain head but get a touch more presence. */
-.page-head:not(.plate) h1 { font-size: clamp(2rem, 5.5vw, 3rem); }
+/* ---------- tool pages: just the facts ---------- */
+.page-head h1 { font-size: 1.7rem; margin: 0.45rem 0 0.45rem; }
+.page-head .tool-desc { color: var(--muted); margin: 0; max-width: 62ch; }
+.privacy-line { font-size: 0.85rem; color: var(--faint); margin: 0.7rem 0 0; }
 
-/* ---------- homepage: the manual's contents page ---------- */
-.home-head { padding: 3rem 0 0.6rem; border-bottom: 1px solid var(--rule); padding-bottom: 1.8rem; }
-.home-head h1 {
-  font-size: clamp(2.6rem, 7.5vw, 4.4rem); font-weight: 600;
-  margin: 0.9rem 0 0.9rem; max-width: 14ch; line-height: 0.98;
+/* ---------- homepage: a plain index ---------- */
+.home-head { padding: 2.2rem 0 0.4rem; }
+.home-head h1 { font-size: 1.8rem; margin: 0 0 0.7rem; max-width: 640px; }
+.intro { font-size: 1.05rem; max-width: 62ch; margin: 0 0 0.5rem; }
+.intro + .intro { color: var(--muted); font-size: 0.98rem; }
+/* Group headings are plain headings, not stamped labels. */
+.tool-group-head h2 {
+  font-family: var(--font-ui); font-size: 1.05rem; font-weight: 700;
+  letter-spacing: 0; text-transform: none; color: var(--ink);
 }
-.home-head h1 em { font-style: italic; color: var(--accent); }
-.home-head .lede { font-size: 1.12rem; max-width: 58ch; }
-.home-head .lede strong { color: var(--ink); }
-.manual-no {
-  display: inline-block; border: 1px solid var(--rule); border-radius: 2px;
-  font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
-  text-transform: uppercase; padding: 5px 12px; color: var(--ink); background: var(--card);
-  transform: rotate(-1.2deg);
-}
-.tool-index { margin: 2.4rem 0 0; }
-.tool-group { margin-bottom: 2.6rem; }
-.tool-group-head .chap {
-  font-family: var(--font-mono); font-size: 11px; color: var(--faint);
-  letter-spacing: 0.1em; margin-right: 10px;
-}
-/* Dotted leaders, like a book's contents page. */
-.tool-row { grid-template-columns: 44px 1fr 20px; }
-.tool-row-top { display: flex; align-items: baseline; }
-.tool-row-leader {
-  flex: 1 1 auto; min-width: 1.5rem; margin: 0 0.8rem;
-  border-bottom: 2px dotted var(--faint); transform: translateY(-4px);
-}
-.tool-row:hover .tool-row-leader { border-bottom-color: var(--accent); }
-/* Fine print: the why, rewritten as numbered marginalia. */
-.fine-print { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.2rem; margin: 1.6rem 0 0; }
-.fine-print-item { border-top: 2px solid var(--rule); padding-top: 0.9rem; }
-.fine-print-item .fp-no { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; }
-.fine-print-item h3 { margin: 0.3rem 0 0.4rem; font-size: 1.15rem; }
-.fine-print-item p { margin: 0; color: var(--muted); font-size: 0.93rem; }
-/* Colophon. */
-.colophon {
-  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em;
-  color: var(--faint); text-transform: uppercase;
-}
-
-/* TOC row internals (new markup). */
-.tool-row-body { display: block; min-width: 0; }
-.tool-row-desc { display: block; color: var(--muted); font-size: 0.88rem; margin: 1px 0 0; font-weight: 400; }
+/* Tags are plain words, not pills. */
+.tool-row-tag { border: none; background: none; padding: 0; }
+.tool-row:hover .tool-row-name { color: var(--link); }
+.tool-row:hover .arrow { color: var(--link); }
+/* Plain facts list replaces the marketing cards. */
+.plain-facts { margin: 2.4rem 0 0; }
+.plain-facts h2 { font-size: 1.2rem; margin: 0 0 0.7rem; }
+.plain-facts ul { padding-left: 1.25rem; margin: 0; color: var(--muted); }
+.plain-facts li { margin-bottom: 0.55rem; max-width: 68ch; }
+.plain-facts li strong { color: var(--ink); font-weight: 600; }
 
 /* No ad network is configured yet: keep the slot markup (so dropping in
    ad code later is trivial) but don't show empty placeholder boxes. */
 .ad-slot { display: none; }
+

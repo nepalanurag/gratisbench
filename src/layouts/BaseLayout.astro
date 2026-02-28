@@ -27,12 +27,6 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={pageUrl} />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
     <script>
       // Apply saved theme + accessibility prefs before first paint (no flash).
       (function () {
@@ -115,8 +109,7 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
           <span class="brand-mark" aria-hidden="true"></span>
           FreeKit
         </a>
-        <span class="fine">Free tools that run in your browser</span>
-        <span class="colophon">Set in Fraunces &amp; Plex &middot; No cookies, no accounts, no tracking</span>
+        <span class="fine">Built by Anurag. No cookies, no accounts, no tracking.</span>
         <nav aria-label="Footer">
           <a href={basePath('/pdf-tools')}>PDF tools</a>
           <a href={basePath('/image-tools')}>Image tools</a>

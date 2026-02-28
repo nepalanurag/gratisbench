@@ -24,12 +24,16 @@ const jsonLd = {
 <BaseLayout title={title} description={description} jsonLd={jsonLd}>
   <div class="wrap">
     <div class="home-head">
-      <span class="manual-no">Field manual &middot; &#8470; 01</span>
-      <h1>Thirty tools that <em>mind their own business.</em></h1>
-      <p class="lede">
-        Merge a PDF, lift text off a photo, build a resume.
-        <strong>Everything runs on your machine.</strong> No uploads, no accounts,
-        no watermarks. Do the job, close the tab.
+      <h1>Free tools that run in your browser.</h1>
+      <p class="intro">
+        FreeKit is 31 small tools for everyday file work: PDFs, images, audio,
+        video, and a few business basics. They run entirely on your device,
+        so there is nothing to upload, no account to create, and no watermark
+        on the way out.
+      </p>
+      <p class="intro">
+        I built them because I kept needing them. If a tool breaks, tell me
+        and I will fix it.
       </p>
     </div>
 
@@ -37,24 +41,20 @@ const jsonLd = {
     <div class="ad-slot" data-ad-slot="home-top" aria-hidden="true"><span>Advertisement</span></div>
 
     <div class="tool-index">
-      {groups.map((g, gi) => (
+      {groups.map((g) => (
         <section class="tool-group" aria-label={g.name}>
           <div class="tool-group-head">
-            <span class="chap">Chapter {String(gi + 1).padStart(2, '0')}</span>
             <h2>{g.name}</h2>
-            <span class="count">{String(g.tools.length).padStart(2, '0')}</span>
+            <span class="count">{g.tools.length}</span>
           </div>
           {g.tools.map((t) => (
             <a class="tool-row" href={basePath(t.href)}>
               <span class="tool-row-num">{t.num}</span>
-              <span class="tool-row-body">
-                <span class="tool-row-top">
-                  <span class="tool-row-name">{t.name}</span>
-                  <span class="tool-row-leader" aria-hidden="true"></span>
-                  <span class="tool-row-tag">{t.tag}</span>
-                </span>
-                <span class="tool-row-desc">{t.desc}</span>
+              <span>
+                <span class="tool-row-name">{t.name}</span>
+                <p class="tool-row-desc">{t.desc}</p>
               </span>
+              <span class="tool-row-tag">{t.tag}</span>
               <span class="arrow" aria-hidden="true">&rarr;</span>
             </a>
           ))}
@@ -69,23 +69,13 @@ const jsonLd = {
     </div>
 
     <div class="content">
-      <h2>The fine print</h2>
-      <div class="fine-print">
-        <div class="fine-print-item">
-          <span class="fp-no">§ 1</span>
-          <h3>Private by construction</h3>
-          <p>Your files are read and processed on your device. Open the network tab while converting something: nothing leaves.</p>
-        </div>
-        <div class="fine-print-item">
-          <span class="fp-no">§ 2</span>
-          <h3>No accounts, no quotas</h3>
-          <p>No signup, no daily limits, no watermarks. The tools do the job and get out of the way.</p>
-        </div>
-        <div class="fine-print-item">
-          <span class="fp-no">§ 3</span>
-          <h3>Works offline</h3>
-          <p>Once a page has loaded, it keeps working without a connection. Airplane mode counts as a feature.</p>
-        </div>
+      <div class="plain-facts">
+        <h2>Worth knowing</h2>
+        <ul>
+          <li><strong>Private by construction.</strong> Your files are read and processed on your device. Open the network tab while converting something: nothing leaves.</li>
+          <li><strong>No accounts, no quotas.</strong> No signup, no daily limits, no watermarks.</li>
+          <li><strong>Works offline.</strong> Once a page has loaded, it keeps working without a connection.</li>
+        </ul>
       </div>
 
       <h2>Common questions</h2>
