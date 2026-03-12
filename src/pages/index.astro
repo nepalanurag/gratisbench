@@ -37,6 +37,33 @@ const jsonLd = {
       </p>
     </div>
 
+    <section class="try-it" aria-label="Try a tool right now">
+      <h2>Try one right now.</h2>
+      <p class="try-it-sub">A real tool, running on this page. Type something and watch it work.</p>
+      <div class="try-it-box">
+        <div class="try-it-controls">
+          <label for="demo-qr-text">Text or link</label>
+          <input
+            id="demo-qr-text"
+            type="text"
+            value="https://nepalanurag.github.io/freekit/"
+            maxlength="4000"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <p id="demo-qr-err" class="error-box" hidden></p>
+          <div class="try-it-actions">
+            <button id="demo-qr-dl" class="btn primary" type="button">Download PNG</button>
+            <a class="link-btn" href={basePath('/qr-generator')}>Full QR generator, with logo and colors</a>
+          </div>
+        </div>
+        <div class="demo-qr-preview">
+          <img id="demo-qr-img" alt="QR code for the text you typed" width="440" height="440" hidden />
+          <p id="demo-qr-empty" hidden>Type something to make a code.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Ad slot: homepage (AdSense display unit goes here) -->
     <div class="ad-slot" data-ad-slot="home-top" aria-hidden="true"><span>Advertisement</span></div>
 
@@ -97,4 +124,8 @@ const jsonLd = {
     <div class="ad-slot" data-ad-slot="home-bottom" aria-hidden="true"><span>Advertisement</span></div>
     </div>
   </div>
+  <script>
+    import { initHomeDemo } from '../tools/home-demo';
+    initHomeDemo();
+  </script>
 </BaseLayout>

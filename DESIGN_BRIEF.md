@@ -62,3 +62,18 @@ of a website. The answer:
 - SEO + LLM-citation structure: plain HTML, schema.org markup, real FAQ
   content, honest limitations
 - No cookies, no accounts, no tracking
+
+## v4.1 addendum (2026-09-24): the recommended mix
+
+From the "five web design styles" video Anurag shared, applied two:
+
+- Type-focused: a bigger, tighter homepage headline in system type only.
+  No webfont, just scale and weight used with intent.
+- Product front and center: a real working QR generator on the homepage.
+  Visitors use a tool before they read about the site.
+
+Neutral palette kept from v4. Deliberately skipped:
+
+- Glow effects: gradients and glow sit on the AI-tell list from the
+  research. Decoration without a job.
+- Bento grids: visual noise for 31 tools. The plain index scans faster.

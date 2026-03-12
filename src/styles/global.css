@@ -934,6 +934,45 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .plain-facts li { margin-bottom: 0.55rem; max-width: 68ch; }
 .plain-facts li strong { color: var(--ink); font-weight: 600; }
 
+/* ---------- homepage: type with confidence, product up front ---------- */
+/* Type-focused: one strong statement, big and tight, system type only. */
+.home-head h1 {
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.9rem;
+  max-width: 16ch;
+}
+/* Product front and center: a real working tool on the homepage. */
+.try-it { margin: 2.2rem 0 0; }
+.try-it h2 { font-size: 1.35rem; margin: 0 0 0.25rem; letter-spacing: -0.01em; }
+.try-it-sub { color: var(--muted); margin: 0 0 0.9rem; max-width: 60ch; }
+.try-it-box {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); padding: 1.2rem;
+  display: grid; grid-template-columns: 1fr 240px; gap: 1.2rem; align-items: start;
+}
+.try-it-controls label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
+.try-it-controls input[type="text"] {
+  width: 100%; font: inherit; font-size: 1rem; padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--paper); color: var(--ink);
+}
+.try-it-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.9rem; flex-wrap: wrap; }
+/* QR codes must stay black-on-white to scan, in both themes. */
+.demo-qr-preview {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  min-height: 240px; display: flex; align-items: center; justify-content: center;
+  padding: 0.8rem;
+}
+.demo-qr-preview img { width: 100%; max-width: 208px; height: auto; display: block; }
+.demo-qr-preview img[hidden] { display: none; }
+#demo-qr-empty { color: #6b6b6b; font-size: 0.9rem; text-align: center; margin: 0; }
+@media (max-width: 640px) {
+  .try-it-box { grid-template-columns: 1fr; }
+  .demo-qr-preview { min-height: 200px; }
+}
+
 /* No ad network is configured yet: keep the slot markup (so dropping in
    ad code later is trivial) but don't show empty placeholder boxes. */
 .ad-slot { display: none; }
