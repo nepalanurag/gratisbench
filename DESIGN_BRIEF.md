@@ -77,3 +77,21 @@ Neutral palette kept from v4. Deliberately skipped:
 - Glow effects: gradients and glow sit on the AI-tell list from the
   research. Decoration without a job.
 - Bento grids: visual noise for 31 tools. The plain index scans faster.
+
+## v4.2 (2026-09-24)
+
+- New tool: Unlock PDF. Removes password protection when the password is
+  known (pdf-lib opens with the password, saves without encryption; the
+  output is verified to open password-free). It cannot crack unknown
+  passwords, and says so. Listed on the PDF hub, in the sitemap, and the
+  homepage now counts 32 tools.
+- Result previews: Merge PDF, Images to PDF, and Compress PDF now show a
+  first-page preview of the file they made, rendered in the background so
+  the download never waits. Split PDF shows a thumbnail per output file.
+  Unlock PDF previews too.
+- Fixed: the reading-comfort panel opened and instantly closed when tapped
+  from the mobile menu. The outside-click closer only excluded the desktop
+  button; it now excludes the mobile row as well.
+- Contrast audit: every themed text color now clears WCAG AA 4.5:1 in both
+  themes. Light-mode `--faint` was #8a8a8a on white (3.4:1, fail); it is now
+  #767676 (4.5:1). The check runs in the verify script so it cannot regress.

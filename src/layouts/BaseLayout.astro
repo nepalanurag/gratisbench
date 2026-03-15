@@ -210,7 +210,8 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
       document.addEventListener('click', (e) => {
         const t = e.target;
         if (!(t instanceof Node) || !a11yPanel || a11yPanel.hidden) return;
-        if (!a11yPanel.contains(t) && t !== a11yBtn && !a11yBtn?.contains(t)) closeA11y();
+        const hit = (b) => !!b && (t === b || b.contains(t));
+        if (!a11yPanel.contains(t) && !hit(a11yBtn) && !hit(a11yBtnM)) closeA11y();
       });
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeA11y();

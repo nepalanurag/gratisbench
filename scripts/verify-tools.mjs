@@ -2082,6 +2082,56 @@ console.log('== responsive / mobile checks (static) ==');
   ok('demo input is 1rem (no iOS focus zoom)', /\.try-it-controls input\[type="text"\][\s\S]*?font-size:\s*1rem/.test(css));
   ok('no glow effects (kept off the AI-tell list)', !/radial-gradient/.test(css) && !/drop-shadow\(/.test(css) && !/glow/i.test(css));
   ok('no bento grid', !/bento/i.test(css + index));
+  // v4.2: unlock PDF, result previews, comfort fix, contrast audit.
+  const unlockPage = readFileSync(join(ROOT, 'src/pages/unlock-pdf.astro'), 'utf8');
+  const unlockTool = readFileSync(join(ROOT, 'src/tools/unlock-pdf.ts'), 'utf8');
+  ok('unlock PDF page exists with password field', /id="pass-input"/.test(unlockPage) && /type="password"/.test(unlockPage));
+  ok('unlock tool opens with password via pdf-lib', unlockTool.includes('PDFDocument.load') && unlockTool.includes('{ password:'));
+  ok('unlock tool verifies the output opens password-free', /PDFDocument\.load\(out\)/.test(unlockTool));
+  ok('unlock tool is listed on the PDF tools hub', readFileSync(join(ROOT, 'src/pages/pdf-tools.astro'), 'utf8').includes('/unlock-pdf'));
+  ok('unlock PDF is in the sitemap', readFileSync(join(ROOT, 'public/sitemap.xml'), 'utf8').includes('/unlock-pdf'));
+  ok('homepage counts 32 tools', /32 small tools/.test(index));
+  for (const [page, tool] of [['merge-pdf', 'merge-pdf'], ['images-to-pdf', 'images-to-pdf'], ['pdf-compressor', 'pdf-compressor']]) {
+    const p = readFileSync(join(ROOT, `src/pages/${page}.astro`), 'utf8');
+    const t = readFileSync(join(ROOT, `src/tools/${tool}.ts`), 'utf8');
+    ok(`${page} result has a preview slot`, /id="preview-wrap"/.test(p));
+    ok(`${page} renders a first-page preview`, /showPdfPreview\('preview-wrap'/.test(t));
+  }
+  ok('split PDF rows get a thumbnail preview', /renderPdfThumb\(data/.test(readFileSync(join(ROOT, 'src/tools/split-pdf.ts'), 'utf8')));
+  ok('preview styles exist', /\.pdf-preview-canvas/.test(css) && /\.file-row \.file-thumb/.test(css));
+  ok('comfort panel stays open when tapped from the mobile menu', /!hit\(a11yBtnM\)/.test(layout));
+  // Contrast: every themed text color must clear WCAG AA (4.5:1) on its background.
+  const lum = (hex) => {
+    const c = hex.replace('#', '');
+    const f = (i) => {
+      const v = parseInt(c.substr(i, 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(0) + 0.7152 * f(2) + 0.0722 * f(4);
+  };
+  const ratio = (a, b) => {
+    const x = lum(a), y = lum(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  const themeVars = (block) => {
+    const m = {};
+    for (const [, k, v] of block.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)) m[k] = v.toLowerCase();
+    return m;
+  };
+  const light = themeVars(css.match(/:root\s*\{[^}]*\}/)[0]);
+  const dark = themeVars(css.match(/\[data-theme="dark"\]\s*\{[^}]*\}/)[0]);
+  const pairs = [
+    ['ink', 'paper'], ['muted', 'paper'], ['faint', 'paper'], ['link', 'paper'],
+    ['danger', 'paper'], ['danger', 'danger-tint'], ['ok', 'paper'],
+  ];
+  for (const [t, name] of [[light, 'light'], [dark, 'dark']]) {
+    for (const [fg, bg] of pairs) {
+      const r = ratio(t[fg], t[bg]);
+      ok(`${name} mode: ${fg} on ${bg} clears 4.5:1 (${r.toFixed(2)})`, r >= 4.5);
+    }
+  }
+  ok('light mode: white text on accent button clears 4.5:1', ratio('#ffffff', light.accent) >= 4.5);
+  ok('dark mode: dark text on accent button clears 4.5:1', ratio('#161616', dark.accent) >= 4.5);
   // The media engine load must never hang silently: it races a timeout.
   const loader = readFileSync(join(ROOT, 'src/tools/ffmpeg-loader.ts'), 'utf8');
   ok('ffmpeg load races a timeout', /Promise\.race\(\[load, timeout\]\)/.test(loader));

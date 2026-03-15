@@ -1,6 +1,6 @@
 // Merge PDF tool: DOM glue. Core logic lives in ../lib/pdf-core.ts
 import { mergePdfs, getPageCount } from '../lib/pdf-core.ts';
-import { renderPdfThumb } from './pdf-render.ts';
+import { renderPdfThumb, showPdfPreview } from './pdf-render.ts';
 import {
   el,
   formatBytes,
@@ -98,6 +98,8 @@ export function initMergePdf(): void {
       el('result-info').textContent = `${formatBytes(out.length)} · ${items.reduce((a, b) => a + b.pages, 0)} pages`;
       const dl = el<HTMLButtonElement>('download-btn');
       dl.onclick = () => downloadBytes(name, out, 'application/pdf');
+      // Preview renders in the background; the download never waits for it.
+      void showPdfPreview('preview-wrap', out);
       el('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
       showError('error-box', err instanceof Error ? err.message : 'Merging failed.');

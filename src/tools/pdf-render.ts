@@ -61,6 +61,29 @@ export function canvasToBytes(
   });
 }
 
+/**
+ * Render the first page of a freshly created PDF into `wrapId`, for the
+ * "here is what you made" result preview. Never throws: the preview is a
+ * bonus and the download must always work.
+ */
+export async function showPdfPreview(wrapId: string, data: Uint8Array): Promise<void> {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  try {
+    const pdfjs = await loadPdfjs();
+    const doc = await pdfjs.getDocument({ data: data.slice() }).promise;
+    const page = await doc.getPage(1);
+    const canvas = await renderPageToCanvas(page, 72);
+    page.cleanup();
+    canvas.className = 'pdf-preview-canvas';
+    wrap.innerHTML = '';
+    wrap.appendChild(canvas);
+    wrap.hidden = false;
+  } catch {
+    wrap.hidden = true;
+  }
+}
+
 /** Friendly message for common pdf.js open failures. */
 export function pdfJsLoadErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);

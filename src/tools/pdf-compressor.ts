@@ -1,7 +1,7 @@
 // Compress PDF tool: DOM glue. Rebuild logic lives in ../lib/pdf-compress.ts
 import { rebuildImagePdf, jpegQualityFromSlider, type RenderedPage } from '../lib/pdf-compress.ts';
 import { getPageCount } from '../lib/pdf-core.ts';
-import { loadPdfjs, renderPageToCanvas, canvasToBytes, pdfJsLoadErrorMessage, renderPdfThumb } from './pdf-render.ts';
+import { loadPdfjs, renderPageToCanvas, canvasToBytes, pdfJsLoadErrorMessage, renderPdfThumb, showPdfPreview } from './pdf-render.ts';
 import {
   el,
   formatBytes,
@@ -107,6 +107,7 @@ export function initPdfCompressor(): void {
       const stem = fileName.replace(/\.[^.]+$/, '');
       el<HTMLButtonElement>('download-btn').onclick = () =>
         downloadBytes(`${stem}-compressed.pdf`, out, 'application/pdf');
+      void showPdfPreview('preview-wrap', out);
       el('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
       showError('error-box', err instanceof Error ? err.message : 'Compression failed.');

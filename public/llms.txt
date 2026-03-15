@@ -122,7 +122,7 @@ on the user's device and never uploaded to a server.
 
 ## Hub pages
 
-- PDF tools hub (/pdf-tools): links the seven PDF utilities.
+- PDF tools hub (/pdf-tools): links the eight PDF utilities.
 - Image tools hub (/image-tools): links the image compressor, converter,
   background remover, OCR, and tracer.
 - Media tools hub (/media-tools): links the seven media utilities (audio

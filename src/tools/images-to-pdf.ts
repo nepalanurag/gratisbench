@@ -1,5 +1,6 @@
 // Images to PDF tool: DOM glue. Core logic lives in ../lib/pdf-core.ts
 import { imagesToPdf, type PdfImage, type PageSizeOption } from '../lib/pdf-core.ts';
+import { showPdfPreview } from './pdf-render.ts';
 import {
   el,
   formatBytes,
@@ -127,6 +128,7 @@ export function initImagesToPdf(): void {
       el('result-info').textContent = `${formatBytes(out.length)} · ${items.length} page${items.length === 1 ? '' : 's'} · ${pageSizeLabel(pageSize)}`;
       el<HTMLButtonElement>('download-btn').onclick = () =>
         downloadBytes('images.pdf', out, 'application/pdf');
+      void showPdfPreview('preview-wrap', out);
       result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
       showError('error-box', err instanceof Error ? err.message : 'Conversion failed.');

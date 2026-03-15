@@ -1,6 +1,6 @@
 // Split PDF tool: DOM glue. Core logic lives in ../lib/pdf-core.ts
 import { splitPdf, getPageCount, extractPages } from '../lib/pdf-core.ts';
-import { loadPdfjs, renderPageToCanvas } from './pdf-render.ts';
+import { loadPdfjs, renderPageToCanvas, renderPdfThumb } from './pdf-render.ts';
 import {
   el,
   formatBytes,
@@ -139,6 +139,15 @@ export function initSplitPdf(): void {
     actions.appendChild(btn);
     li.append(nameEl, metaEl, actions);
     resultList.appendChild(li);
+    // First-page thumbnail, rendered in the background; the row works without it.
+    renderPdfThumb(data, 96).then((url) => {
+      if (!url) return;
+      const img = document.createElement('img');
+      img.className = 'file-thumb';
+      img.src = url;
+      img.alt = '';
+      li.prepend(img);
+    });
   }
 
   setupDropzone('dropzone', 'file-input', async (files) => {
