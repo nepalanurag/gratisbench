@@ -22,8 +22,8 @@ const lede = 'Remove the password from a PDF you own. You need to know the passw
   ]}
   steps={[
     'Drop your locked PDF onto the box above, or click it to browse.',
-    'Type the password you use to open the file.',
-    'Click "Unlock PDF". The unlocked file is built on your device.',
+    'Type the password you use to open the file (leave it blank if it never had one).',
+    'Click "Unlock PDF". The first run downloads a small unlock engine (one-time); the unlocking itself happens on your device.',
     'Download it. The new file opens with no password.',
   ]}
   specs={[
@@ -42,7 +42,7 @@ const lede = 'Remove the password from a PDF you own. You need to know the passw
     },
     {
       q: 'Is my file uploaded anywhere?',
-      a: 'No. The file is read into your browser memory, decrypted there, and the unlocked copy is generated there too. Nothing leaves your device.',
+      a: 'No. The first unlock downloads a small engine file (about 15 MB, cached afterwards), but your PDF is read into your browser memory, decrypted there, and the unlocked copy is generated there too. Nothing leaves your device.',
     },
     {
       q: 'Will the unlocked PDF look exactly the same?',
@@ -64,12 +64,13 @@ const lede = 'Remove the password from a PDF you own. You need to know the passw
     <p id="file-label" class="count-label" role="status"></p>
     <div class="field">
       <label for="pass-input">PDF password</label>
-      <input type="password" id="pass-input" autocomplete="off" placeholder="The password you use to open the file" />
+      <input type="password" id="pass-input" autocomplete="off" placeholder="The password you use to open the file (leave blank if it never had one)" />
     </div>
     <div id="error-box" class="error-box" hidden></div>
     <div class="btn-row">
       <button id="unlock-btn" class="btn" type="button" disabled>Unlock PDF</button>
     </div>
+    <p id="engine-status" class="hint" role="status" aria-live="polite"></p>
     <div id="result" class="result" hidden>
       <h3>Unlocked</h3>
       <p id="result-info"></p>

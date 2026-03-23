@@ -81,8 +81,10 @@ Neutral palette kept from v4. Deliberately skipped:
 ## v4.2 (2026-09-24)
 
 - New tool: Unlock PDF. Removes password protection when the password is
-  known (pdf-lib opens with the password, saves without encryption; the
-  output is verified to open password-free). It cannot crack unknown
+  known. pdf-lib cannot decrypt PDFs at all, so unlocking runs on a
+  Pyodide (Python in WebAssembly) + pypdf engine that lazy-loads on first
+  use; it handles RC4 and AES-256 and writes a true unlocked PDF, then the
+  output is verified to open with no password. It cannot crack unknown
   passwords, and says so. Listed on the PDF hub, in the sitemap, and the
   homepage now counts 32 tools.
 - Result previews: Merge PDF, Images to PDF, and Compress PDF now show a
