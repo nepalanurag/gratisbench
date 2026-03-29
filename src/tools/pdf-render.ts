@@ -61,10 +61,15 @@ export function canvasToBytes(
   });
 }
 
+/** Cap on result-preview pages so a 200-page document doesn't melt a phone. */
+export const PDF_PREVIEW_MAX_PAGES = 8;
+
 /**
- * Render the first page of a freshly created PDF into `wrapId`, for the
- * "here is what you made" result preview. Never throws: the preview is a
- * bonus and the download must always work.
+ * Render a multi-page preview of a freshly created PDF into `wrapId`, for the
+ * "here is what you made" result preview. Pages stack top to bottom; when the
+ * document has more than PDF_PREVIEW_MAX_PAGES pages a "+N more pages" note is
+ * appended. Never throws: the preview is a bonus and the download must always
+ * work.
  */
 export async function showPdfPreview(wrapId: string, data: Uint8Array): Promise<void> {
   const wrap = document.getElementById(wrapId);
@@ -72,12 +77,22 @@ export async function showPdfPreview(wrapId: string, data: Uint8Array): Promise<
   try {
     const pdfjs = await loadPdfjs();
     const doc = await pdfjs.getDocument({ data: data.slice() }).promise;
-    const page = await doc.getPage(1);
-    const canvas = await renderPageToCanvas(page, 72);
-    page.cleanup();
-    canvas.className = 'pdf-preview-canvas';
+    const total = doc.numPages;
+    const count = Math.min(total, PDF_PREVIEW_MAX_PAGES);
     wrap.innerHTML = '';
-    wrap.appendChild(canvas);
+    for (let i = 1; i <= count; i++) {
+      const page = await doc.getPage(i);
+      const canvas = await renderPageToCanvas(page, 72);
+      page.cleanup();
+      canvas.className = 'pdf-preview-canvas';
+      wrap.appendChild(canvas);
+    }
+    if (total > count) {
+      const more = document.createElement('p');
+      more.className = 'preview-more';
+      more.textContent = `+${total - count} more page${total - count === 1 ? '' : 's'}`;
+      wrap.appendChild(more);
+    }
     wrap.hidden = false;
   } catch {
     wrap.hidden = true;

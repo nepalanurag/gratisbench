@@ -55,7 +55,9 @@
 [data-theme="dark"] .error-box { border-color: #6e2f2a; }
 [data-theme="dark"] .site-header { box-shadow: 0 1px 0 rgba(0,0,0,.4); }
 /* Primary buttons invert in dark mode: light button, dark text. */
-[data-theme="dark"] .btn.primary { color: #161616; }
+[data-theme="dark"] .btn:not(.btn-secondary) { color: #161616; }
+[data-theme="dark"] .view-toggle .btn.active { color: #161616; }
+[data-theme="dark"] .page-pick input:checked ~ .pick-check { color: #161616; }
 
 /* ---------- accessibility modes (toggled from the header panel) ---------- */
 html[data-a11y-text="1"] { font-size: 118%; }
@@ -975,14 +977,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .demo-qr-preview { min-height: 200px; }
 }
 
-/* ---------- result PDF previews (first page of what the tool made) ---------- */
-.pdf-preview-wrap { margin: 1rem 0 0.2rem; }
+/* ---------- result PDF previews (pages of what the tool made) ---------- */
+.pdf-preview-wrap { margin: 1rem 0 0.2rem; display: flex; flex-direction: column; gap: 0.75rem; align-items: center; }
 .pdf-preview-wrap[hidden] { display: none; }
 .pdf-preview-canvas {
   display: block; max-width: 100%; height: auto; max-height: 320px; width: auto;
   margin: 0 auto; background: #fff;
   border: 1px solid var(--line); border-radius: var(--radius);
 }
+.preview-more { color: var(--muted); font-size: 0.9rem; margin: 0; }
 .file-row .file-thumb {
   width: 40px; height: 52px; object-fit: cover; flex: 0 0 auto;
   background: #fff; border: 1px solid var(--line); border-radius: 2px;
