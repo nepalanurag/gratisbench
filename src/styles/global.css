@@ -51,7 +51,6 @@
 [data-theme="dark"] .content code { color: #d9d9d9; }
 [data-theme="dark"] .code-view code { color: #d9d9d9; }
 [data-theme="dark"] .chip.soon { background: #33302a; color: #e2ac5e; }
-[data-theme="dark"] .soon-note { border-color: #6b5a3a; }
 [data-theme="dark"] .error-box { border-color: #6e2f2a; }
 [data-theme="dark"] .site-header { box-shadow: 0 1px 0 rgba(0,0,0,.4); }
 /* Primary buttons invert in dark mode: light button, dark text. */
@@ -139,7 +138,6 @@ a { color: var(--link); }
 .site-nav { display: flex; gap: 0.2rem; margin-left: 0.6rem; flex-wrap: wrap; }
 .site-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; padding: 6px 9px; border-radius: var(--radius); }
 .site-nav a:hover { color: var(--ink); background: var(--paper-2); }
-.site-nav a.pro-link { color: var(--accent); font-weight: 600; }
 .kbtn {
   margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
   border: 1px solid var(--line); background: var(--card); color: var(--muted);
@@ -366,12 +364,6 @@ input[type="checkbox"] { width: 1.05rem; height: 1.05rem; accent-color: var(--ac
 .why-item h3 { margin: 0 0 0.35rem; font-size: 0.98rem; display: flex; align-items: center; gap: 0.5rem; }
 .why-item h3 svg { color: var(--accent); }
 .why-item p { margin: 0; color: var(--muted); font-size: 0.92rem; }
-/* pro strip on homepage */
-.pro-strip { border: 1px solid var(--rule); background: var(--card); padding: 18px 20px; margin: 2rem 0 1rem; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; border-radius: var(--radius); }
-.pro-strip .pmark { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; background: var(--ink); color: var(--paper); padding: 4px 9px; border-radius: 2px; }
-.pro-strip p { font-size: 0.94rem; color: var(--muted); margin: 0; }
-.pro-strip p strong { color: var(--ink); }
-.pro-strip .btn { margin-left: auto; }
 
 /* ---------- QR ---------- */
 .qr-layout { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; align-items: start; }
@@ -382,15 +374,6 @@ input[type="checkbox"] { width: 1.05rem; height: 1.05rem; accent-color: var(--ac
 .logo-pick { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
 .logo-pick .file-name-label { font-size: 0.9rem; color: var(--muted); }
 .link-btn { background: none; border: none; color: var(--link); cursor: pointer; font: inherit; font-size: 0.9rem; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
-
-/* ---------- pro page ---------- */
-.price-card { border: 1px solid var(--rule); border-radius: var(--radius); padding: 1.8rem; max-width: 520px; margin: 1.8rem 0; background: var(--card); }
-.price { font-family: var(--font-head); font-size: 2.4rem; font-weight: 700; letter-spacing: -0.02em; }
-.price small { font-size: 1rem; font-family: var(--font-ui); color: var(--muted); font-weight: 400; }
-.perks { padding-left: 1.2rem; margin: 1.1rem 0; }
-.perks li { margin-bottom: 0.45rem; }
-.perks li::marker { color: var(--accent); }
-.soon-note { background: var(--accent-tint); border: 1px solid #e8cdbd; border-radius: var(--radius); padding: 0.8rem 1rem; font-size: 0.94rem; }
 
 /* ---------- pdf tool extras: progress, redact, signature ---------- */
 .tool-step { font-size: 1.02rem; margin: 1.6rem 0 0.4rem; }

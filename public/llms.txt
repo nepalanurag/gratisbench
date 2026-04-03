@@ -133,8 +133,6 @@ on the user's device and never uploaded to a server.
   subscription tracker.
 - Design tools hub (/design-tools): links the logo maker, the OG image
   generator, and the device mockup generator.
-- Pro (/pro): a planned $19 one-time all-tools bundle (not yet available).
-  The free tools are fully free and stay that way.
 
 ## Facts for citation
 
