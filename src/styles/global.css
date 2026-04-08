@@ -19,11 +19,15 @@
   --danger: #b3261e;
   --danger-tint: #fbeae8;
   --radius: 3px;
-  --max: 920px;
+  --max: 1200px;
   --measure: 700px;
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-head: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+/* Very wide screens get a wider column so the sides don't sit empty. */
+@media (min-width: 1600px) {
+  :root { --max: 1400px; }
 }
 
 /* ---------- dark theme ---------- */
