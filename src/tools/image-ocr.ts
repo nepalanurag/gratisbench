@@ -133,7 +133,7 @@ async function onFiles(files: File[]): Promise<void> {
   if (busy) return;
   const picked = files.find((f) => f.type.startsWith('image/'));
   if (!picked) {
-    showError('error-box', 'Please choose an image file (PNG, JPG, or WebP).');
+    showError('error-box', 'That is not an image file. PNG, JPG, or WebP only.');
     return;
   }
   hideError('error-box');

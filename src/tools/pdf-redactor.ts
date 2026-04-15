@@ -223,7 +223,7 @@ export function initPdfRedactor(): void {
         done++;
       }
       // Rebuild from our own copy of the source bytes (pdf.js got its own copy).
-      if (!sourceBytes) throw new Error('The PDF data was lost. Please add the file again.');
+      if (!sourceBytes) throw new Error('The PDF data was lost. Add the file again.');
       const out = await redactPdf(sourceBytes, bitmaps);
       const stem = fileName.replace(/\.[^.]+$/, '');
       el('result-info').textContent =

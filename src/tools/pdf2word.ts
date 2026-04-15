@@ -152,7 +152,7 @@ export function initPdfToWord(): void {
     el('pdf2word-result').hidden = true;
     lastResult = null;
     if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') {
-      showError('pdf2word-error', 'That does not look like a PDF. Please pick a .pdf file.');
+      showError('pdf2word-error', 'That does not look like a PDF.');
       return;
     }
     pickedFile = f;

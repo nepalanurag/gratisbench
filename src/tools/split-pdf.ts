@@ -160,7 +160,7 @@ export function initSplitPdf(): void {
     const file = files[0];
     if (!file) return;
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
-      showError('error-box', 'Please choose a PDF file.');
+      showError('error-box', 'Choose a PDF file first.');
       return;
     }
     try {

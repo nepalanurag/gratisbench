@@ -79,11 +79,11 @@ export function initResumeImport(): void {
       lower.endsWith('.docx') ||
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     if (!isPdf && !isDocx) {
-      fail('That file is not a PDF or Word document. Please choose a .pdf or .docx file and try again.');
+      fail('That file is not a PDF or Word document.');
       return;
     }
     if (file.size > MAX_BYTES) {
-      fail('That file is over 8 MB. Please use a smaller file and try again.');
+      fail('That file is over 8 MB. Keep it under 8 MB.');
       return;
     }
     working = true;
@@ -94,7 +94,7 @@ export function initResumeImport(): void {
       const asFile = new File([buf.buffer as ArrayBuffer], file.name, { type: file.type });
       const text = isPdf ? await extractTextFromPdf(asFile) : await extractTextFromDocx(asFile);
       if (!text.trim()) {
-        fail('We could not find any readable text in that file. Scanned images of resumes cannot be read; please use a file with selectable text.');
+        fail('No readable text in that file. Scanned images do not work here; use a file with selectable text.');
         return;
       }
       const parsed = parseResumeText(text);
@@ -116,7 +116,7 @@ export function initResumeImport(): void {
       review.scrollIntoView({ behavior: 'smooth', block: 'start' });
       showStatus(`Read ${file.name}. Check the details below, then use them or discard and start blank.`);
     } catch (err) {
-      fail(err instanceof Error ? err.message : 'Could not read that file. Please try a different file.');
+      fail(err instanceof Error ? err.message : 'Could not read that file.');
     } finally {
       working = false;
       drop.removeAttribute('aria-disabled');

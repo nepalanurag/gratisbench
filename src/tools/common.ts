@@ -102,7 +102,7 @@ export function pdfLoadErrorMessage(err: unknown): string {
     return 'This PDF is password-protected. Remove the password first, then try again.';
   }
   if (/invalid|parse|header/i.test(msg)) {
-    return 'That file does not look like a valid PDF. Please check the file and try again.';
+    return 'That file does not look like a valid PDF.';
   }
   return msg || 'Could not read that file.';
 }
