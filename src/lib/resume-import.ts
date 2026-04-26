@@ -262,8 +262,12 @@ const SECTION_DEFS: { re: RegExp; section: SectionKey }[] = [
 ];
 
 function detectSection(line: string): SectionKey | null {
-  const clean = line.replace(/[:\s]+$/, '').trim();
-  if (clean.length > 45) return null;
+  let clean = line.replace(/[:\s]+$/, '').trim();
+  // OCR and some PDFs space headers out: "P R O J E C T S" -> "PROJECTS".
+  if (/^([A-Z]\s+){2,}[A-Z]$/.test(clean)) clean = clean.replace(/\s+/g, '');
+  // Strip decorative rules some templates put around headers: "-- SKILLS --".
+  clean = clean.replace(/^[─━═\-–—_*#\s]+|[─━═\-–—_*#\s]+$/g, '').trim();
+  if (clean.length === 0 || clean.length > 45) return null;
   for (const def of SECTION_DEFS) {
     if (def.re.test(clean.toLowerCase())) return def.section;
   }
@@ -271,17 +275,46 @@ function detectSection(line: string): SectionKey | null {
 }
 
 const MONTH = 'Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
-const DATE = `(?:${MONTH})\\.?\\s+\\d{4}|\\d{4}`;
+const DATE = `(?:${MONTH})\\.?\\s+\\d{4}|\\d{1,2}[/.-]\\d{4}|\\d{4}[/.-]\\d{1,2}|\\d{4}`;
 const DATE_RANGE_RE = new RegExp(`(${DATE})\\s*[\\u2013\\u2014-]\\s*(${DATE}|present|current|now)\\b`, 'i');
-const BULLET_RE = /^[•·▪◦▸‣⁃*+>\\-–—]\s+/;
+
+/**
+ * Strip a leading bullet/list marker. Unicode bullets (• · ▪ …) often lose
+ * their trailing space in PDF text extraction and OCR ("•Developed"), so the
+ * space is optional for them; ASCII markers (- * + > 1.) still require one so
+ * hyphenated words and minus signs are not eaten. Returns null when the line
+ * is not a bullet.
+ */
+const UNICODE_BULLET_RE = /^[•·▪◦▸‣⁃]\s*/;
+const ASCII_BULLET_RE = /^(?:[*+>]|\d+[.)]|[-–—])\s+/;
+function stripBullet(line: string): string | null {
+  const u = line.match(UNICODE_BULLET_RE);
+  if (u) return line.slice(u[0].length);
+  const a = line.match(ASCII_BULLET_RE);
+  if (a) return line.slice(a[0].length);
+  return null;
+}
+function isBulletLine(line: string): boolean {
+  return stripBullet(line) !== null;
+}
+
+/** A bare year or year range on its own line: project/section metadata, not a title. */
+function isYearLike(text: string): boolean {
+  return /^(19|20)\d{2}$/.test(text) || /^\d{1,2}[/.-]\d{4}$/.test(text) || DATE_RANGE_RE.test(text);
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
 const PHONE_RE = /(\+?\d[\d\s().-]{6,}\d)/;
 const LINKEDIN_RE = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/[^\s,;)]*/i;
 const URL_RE = /https?:\/\/[^\s,;)]+/i;
+const URL_RE_G = new RegExp(URL_RE.source, 'gi');
 const DOMAIN_RE = /(?<![@\w])([\w-]+\.(?:com|io|dev|design|net|org|co|app|me|info)\b[^\s,;)]*)/i;
 const LOCATION_RE = /([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*,\s*[A-Z]{2})\b/;
-const LOCATION_RE2 = /,\s*([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,2})$/;
+const LOCATION_RE2 = /([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*,\s*[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,2})$/;
 const NAME_RE = /^([A-Z][a-z'’.-]+(?:\s+[A-Z][a-z'’.-]+){1,3})$/;
 const ALLCAPS_NAME_RE = /^([A-Z][A-Z'’.-]+(?:\s+[A-Z][A-Z'’.-]+){1,3})$/;
 
@@ -334,34 +367,59 @@ function parseContact(lines: string[], out: ParsedResume): void {
       out.linkedin = li[0];
       used.add(i);
     }
-    const url = line.match(URL_RE);
-    if (url && !/linkedin\.com/i.test(url[0]) && !out.website) {
-      out.website = url[0].replace(/\/$/, '');
-      used.add(i);
-    } else if (!out.website) {
+    // A contact line can hold several URLs ("linkedin.com/in/x https://github.com/x"):
+    // keep LinkedIn as linkedin and the first other URL as website.
+    const urls = [...line.matchAll(URL_RE_G)].map((m) => m[0]);
+    for (const u of urls) {
+      if (/linkedin\.com/i.test(u)) {
+        if (!out.linkedin) {
+          out.linkedin = u;
+          used.add(i);
+        }
+      } else if (!out.website) {
+        out.website = u.replace(/\/$/, '');
+        used.add(i);
+      }
+    }
+    if (!out.website) {
       const dom = line.match(DOMAIN_RE);
       if (dom && !/linkedin\.com/i.test(dom[0])) {
         out.website = dom[1].replace(/\/$/, '');
         used.add(i);
       }
     }
-    const loc = line.match(LOCATION_RE) ?? line.match(LOCATION_RE2);
+    // Some resumes write "City / Country"; treat the slash as a comma.
+    // Email/phone/URLs are stripped first so a location buried in a crowded
+    // contact line ("Bangalore/ Nepal name@mail.com 1234567890") is found.
+    const stripped = line
+      .replace(EMAIL_RE, ' ')
+      .replace(PHONE_RE, ' ')
+      .replace(LINKEDIN_RE, ' ')
+      .replace(URL_RE_G, ' ');
+    const locSrc = (/[,]/.test(stripped) ? stripped : stripped.replace(/\s*\/\s*/g, ', ')).trim();
+    const loc = locSrc.match(LOCATION_RE) ?? locSrc.match(LOCATION_RE2);
     if (loc && !out.location) {
-      out.location = (loc[1].includes(',') ? loc[1] : loc[0].replace(/^,\s*/, '')).trim();
+      out.location = loc[1].trim();
       // Only mark the line used if nothing else useful remains on it.
-      const rest = line.replace(EMAIL_RE, '').replace(PHONE_RE, '').replace(LINKEDIN_RE, '').replace(URL_RE, '').replace(loc[0], '').replace(/[·|]/g, '').trim();
+      const rest = locSrc.replace(loc[0], '').replace(/[·|]/g, '').trim();
       if (!rest) used.add(i);
     }
   }
 
   // Headline: the first leftover line that is short and not a sentence.
+  // The found location is stripped so "Bangalore / Nepal" never becomes a title.
+  const locStrip = out.location
+    ? new RegExp(out.location.split(/,\s*/).map(escapeRegExp).join('\\s*[,/]\\s*'), 'i')
+    : null;
   for (let i = 0; i < lines.length; i++) {
     if (used.has(i)) continue;
-    const line = lines[i]
+    let line = lines[i].replace(/\s*\/\s*/g, ', ');
+    if (locStrip) line = line.replace(locStrip, ' ');
+    line = line
       .replace(EMAIL_RE, '')
       .replace(PHONE_RE, '')
       .replace(LINKEDIN_RE, '')
-      .replace(URL_RE, '')
+      .replace(URL_RE_G, '')
       .replace(DOMAIN_RE, '')
       .replace(LOCATION_RE, '')
       .replace(/[·|]/g, ' ')
@@ -378,35 +436,118 @@ interface EntryBlock {
   headerLines: string[];
   dateLine: string;
   bodyLines: string[];
+  /** A "City, Country" line sitting right under the date line, if any. */
+  trailingLocation: string;
 }
 
-/** Split a section into entries on date-range lines. */
+/** A location-looking line right after a date line: "Lalitpur, Nepal". */
+function looksLikeLocation(s: string): boolean {
+  const t = s.trim();
+  return t.length > 0 && t.length <= 60 && /,/.test(t) && /[A-Za-z]/.test(t) && !/\d{4}/.test(t);
+}
+
+/**
+ * Split a section into entries on date-range lines.
+ *
+ * Real resumes order the pieces loosely: the title and company usually come
+ * first, but bullets can appear before the date line and the location after
+ * it. So for each date line we walk back over up to two non-bullet header
+ * lines, skipping bullet lines above the first header (they belong to this
+ * entry's body), and we lift a location-looking line right under the date.
+ */
 function splitEntries(lines: string[]): EntryBlock[] {
   const dateIdx: number[] = [];
   lines.forEach((line, i) => {
     if (DATE_RANGE_RE.test(line)) dateIdx.push(i);
   });
   if (dateIdx.length === 0) {
-    return lines.length > 0 ? [{ headerLines: [lines[0]], dateLine: '', bodyLines: lines.slice(1) }] : [];
+    return lines.length > 0
+      ? [{ headerLines: [lines[0]], dateLine: '', bodyLines: lines.slice(1), trailingLocation: '' }]
+      : [];
   }
-  // For each date line, the header is the up-to-2 non-bullet lines right above
-  // it (stopping at the previous entry's date line). The body runs from the
-  // date line to the next entry's header.
-  const headerStart: number[] = dateIdx.map((di, k) => {
-    const prevEnd = k === 0 ? 0 : dateIdx[k - 1] + 1;
+  interface Walk {
+    headers: string[];
+    skippedBullets: string[];
+    start: number;
+    trailingLocation: string;
+    consumed: number;
+  }
+  const walks: Walk[] = [];
+  let floor = 0;
+  for (const di of dateIdx) {
+    const headers: string[] = [];
+    const skippedBullets: string[] = [];
     let s = di;
-    let taken = 0;
-    while (s - 1 >= prevEnd && taken < 2 && !BULLET_RE.test(lines[s - 1])) {
+    let guard = 0;
+    while (s - 1 >= floor && guard++ < 8) {
+      const line = lines[s - 1];
+      if (detectSection(line) || DATE_RANGE_RE.test(line)) break;
+      if (isBulletLine(line)) {
+        if (headers.length === 0) {
+          skippedBullets.unshift(stripBullet(line)!.trim());
+          s -= 1;
+          continue;
+        }
+        break;
+      }
+      headers.unshift(line);
       s -= 1;
-      taken += 1;
+      if (headers.length === 2) break;
     }
-    return s;
+    // A location line right under the date ("Lalitpur, Nepal"), possibly
+    // wrapped across two lines ("Kavrepalanchowk," / "Nepal").
+    let trailingLocation = '';
+    let consumed = 0;
+    const after1 = lines[di + 1];
+    if (
+      after1 !== undefined &&
+      !isBulletLine(after1) &&
+      !detectSection(after1) &&
+      !DATE_RANGE_RE.test(after1)
+    ) {
+      let loc = after1;
+      const after2 = lines[di + 2];
+      if (
+        /,\s*$/.test(after1) &&
+        after2 !== undefined &&
+        !isBulletLine(after2) &&
+        !detectSection(after2) &&
+        !DATE_RANGE_RE.test(after2) &&
+        after2.length < 40
+      ) {
+        loc = `${after1} ${after2}`;
+        consumed = 2;
+      } else {
+        consumed = 1;
+      }
+      if (looksLikeLocation(loc)) trailingLocation = loc.trim();
+      else consumed = 0;
+    }
+    walks.push({ headers, skippedBullets, start: s, trailingLocation, consumed });
+    floor = di + 1 + consumed;
+  }
+  return dateIdx.map((di, k) => {
+    const w = walks[k];
+    const preDateBody: string[] = [];
+    for (let i = w.start + w.skippedBullets.length + w.headers.length; i < di; i++) {
+      const b = stripBullet(lines[i]);
+      const t = (b !== null ? b : lines[i]).trim();
+      if (t) preDateBody.push(t);
+    }
+    const bodyEnd = k + 1 < dateIdx.length ? walks[k + 1].start : lines.length;
+    const postDateBody: string[] = [];
+    for (let i = di + 1 + w.consumed; i < bodyEnd; i++) {
+      const b = stripBullet(lines[i]);
+      const t = (b !== null ? b : lines[i]).trim();
+      if (t) postDateBody.push(t);
+    }
+    return {
+      headerLines: w.headers,
+      dateLine: lines[di],
+      bodyLines: [...w.skippedBullets, ...preDateBody, ...postDateBody],
+      trailingLocation: w.trailingLocation,
+    };
   });
-  return dateIdx.map((di, k) => ({
-    headerLines: lines.slice(headerStart[k], di),
-    dateLine: lines[di],
-    bodyLines: lines.slice(di + 1, k + 1 < dateIdx.length ? headerStart[k + 1] : lines.length),
-  }));
 }
 
 function splitCompanyLocation(s: string): [string, string] {
@@ -455,8 +596,9 @@ function parseDateLine(dateLine: string): { start: string; end: string; current:
 function bodyToBullets(bodyLines: string[]): string[] {
   const bullets: string[] = [];
   for (const line of bodyLines) {
-    const b = line.replace(BULLET_RE, '').trim();
-    if (b) bullets.push(b);
+    const b = stripBullet(line);
+    const t = (b !== null ? b : line).trim();
+    if (t) bullets.push(t);
   }
   return bullets;
 }
@@ -466,7 +608,7 @@ function parseExperience(lines: string[]): ParsedWorkEntry[] {
     const { start, end, current, location: dateLoc } = parseDateLine(block.dateLine);
     let title = '';
     let company = '';
-    let location = dateLoc;
+    let location = dateLoc || block.trailingLocation;
     if (block.headerLines.length >= 2) {
       title = block.headerLines[0].trim();
       const [co, loc] = splitCompanyLocation(block.headerLines[1]);
@@ -487,7 +629,7 @@ function parseEducation(lines: string[]): ParsedEducationEntry[] {
     const { start, end, location: dateLoc } = parseDateLine(block.dateLine);
     let degree = '';
     let school = '';
-    let location = dateLoc;
+    let location = dateLoc || block.trailingLocation;
     if (block.headerLines.length >= 2) {
       degree = block.headerLines[0].trim();
       const [sc, loc] = splitCompanyLocation(block.headerLines[1]);
@@ -516,7 +658,13 @@ function parseEducation(lines: string[]): ParsedEducationEntry[] {
         }
       }
     }
-    const detail = block.bodyLines.map((l) => l.replace(BULLET_RE, '').trim()).filter(Boolean).join(' ');
+    const detail = block.bodyLines
+      .map((l) => {
+        const b = stripBullet(l);
+        return (b !== null ? b : l).trim();
+      })
+      .filter(Boolean)
+      .join(' ');
     return { degree, school, location, start, end, detail };
   }).filter((e) => e.degree || e.school);
 }
@@ -524,8 +672,13 @@ function parseEducation(lines: string[]): ParsedEducationEntry[] {
 function parseSkills(lines: string[]): ParsedSkillGroup[] {
   const groups: ParsedSkillGroup[] = [];
   let current: ParsedSkillGroup | null = null;
+  // "C/C++" splits into C and C++; single capital letters are kept so neither
+  // half (nor single-letter skills like R) is dropped.
   const splitItems = (s: string): string[] =>
-    s.split(/[,;•·|/]/).map((x) => x.trim()).filter((x) => x.length > 1);
+    s
+      .split(/[,;•·|/]/)
+      .map((x) => x.trim())
+      .filter((x) => x.length > 1 || /^[A-Za-z]$/.test(x));
   for (const line of lines) {
     const colon = line.indexOf(':');
     if (colon > 0 && colon <= 40) {
@@ -548,7 +701,16 @@ function parseProjects(lines: string[]): ParsedProjectEntry[] {
   const projects: ParsedProjectEntry[] = [];
   let current: ParsedProjectEntry | null = null;
   for (const line of lines) {
-    const isBullet = BULLET_RE.test(line);
+    const bullet = stripBullet(line);
+    const isBullet = bullet !== null;
+    const text = (isBullet ? bullet : line).trim();
+    if (!text) continue;
+    // A bare year under a project ("2021", "2021 – 2023") is metadata for the
+    // current project, not a new project.
+    if (!isBullet && isYearLike(text) && current) {
+      current.detail = current.detail ? `${current.detail} · ${text}` : text;
+      continue;
+    }
     if (!isBullet && (!current || current.detail || current.bullets.length > 0)) {
       const url = line.match(URL_RE);
       current = {
@@ -559,8 +721,6 @@ function parseProjects(lines: string[]): ParsedProjectEntry[] {
       };
       projects.push(current);
     } else if (current) {
-      const text = line.replace(BULLET_RE, '').trim();
-      if (!text) continue;
       if (isBullet) current.bullets.push(text);
       else current.detail = current.detail ? `${current.detail} ${text}` : text;
     }
@@ -568,9 +728,15 @@ function parseProjects(lines: string[]): ParsedProjectEntry[] {
   return projects.filter((p) => p.name);
 }
 
+/** Strip one leading bullet/list marker; plain lines come back trimmed. */
+function stripLineBullet(l: string): string {
+  const b = stripBullet(l);
+  return (b !== null ? b : l).trim();
+}
+
 function parseCertifications(lines: string[]): ParsedCertificationEntry[] {
   return lines.map((line) => {
-    const text = line.replace(BULLET_RE, '').trim();
+    const text = stripLineBullet(line);
     const parts = text.split(',').map((p) => p.trim()).filter(Boolean);
     if (parts.length >= 3) return { name: parts[0], issuer: parts.slice(1, -1).join(', '), year: parts[parts.length - 1] };
     if (parts.length === 2) {
@@ -583,7 +749,7 @@ function parseCertifications(lines: string[]): ParsedCertificationEntry[] {
 
 function parseLanguages(lines: string[]): ParsedLanguageEntry[] {
   return lines.map((line) => {
-    const text = line.replace(BULLET_RE, '').trim();
+    const text = stripLineBullet(line);
     const m = text.match(/^(.*?)[\s:–——(\[-]+(native|fluent|professional|conversational|intermediate|advanced|basic|bilingual)\b.*$/i);
     if (m) return { language: m[1].trim(), level: m[2].charAt(0).toUpperCase() + m[2].slice(1).toLowerCase() };
     return { language: text, level: '' };
@@ -593,10 +759,12 @@ function parseLanguages(lines: string[]): ParsedLanguageEntry[] {
 /** Parse plain resume text into structured fields using line-based heuristics. */
 export function parseResumeText(text: string): ParsedResume {
   const out = blankParsed();
-  const lines = text
+  // Repair words split across lines by hyphenation ("visualiza-\ntion").
+  const dehyphenated = text.replace(/([A-Za-z])-\r?\n([A-Za-z])/g, '$1$2');
+  const lines = dehyphenated
     .split(/\r?\n/)
     .map((l) => l.replace(/\s+/g, ' ').trim())
-    .filter((l) => l.length > 0 && !/^[-_=*#]{4,}$/.test(l));
+    .filter((l) => l.length > 0 && !/^[-_=*#]{4,}$/.test(l) && !/^pages?\s+\d+(\s+of\s+\d+)?$/i.test(l));
   if (lines.length === 0) return out;
 
   const sections = new Map<SectionKey, string[]>();
@@ -614,6 +782,17 @@ export function parseResumeText(text: string): ParsedResume {
   }
 
   parseContact(contactLines, out);
+
+  // Drop repeated page header/footer lines ("Anurag Nepal nepalanurag72@gmail.com")
+  // so they don't leak into the last section's details.
+  if (out.fullName && out.email) {
+    const footerRe = new RegExp(escapeRegExp(out.fullName), 'i');
+    for (const [key, arr] of sections) {
+      const kept = arr.filter((l) => !(footerRe.test(l) && l.includes(out.email)));
+      if (kept.length !== arr.length) sections.set(key, kept);
+    }
+  }
+
   const summary = sections.get('summary');
   if (summary) out.summary = summary.join(' ');
   const experience = sections.get('experience');

@@ -70,6 +70,10 @@ const lede =
       a: 'Clearing site data wipes the saved resume, and it does not follow you to another device, because it lives only in the browser where you typed it. Treat the downloaded PDF as the real copy: download it whenever you make meaningful changes. If you need the same draft on two devices, download the PDF on one and retype or paste on the other.',
     },
     {
+      q: 'Can I import my existing resume instead of retyping it?',
+      a: 'Yes. Drop a PDF or Word file on the upload box at the top of the builder and it reads the contact details, experience, education, skills, and projects into the editor on this device. Check the review list before using it: parsing is heuristic, so odd layouts may need a touch-up. Scanned PDFs are read with on-device text recognition; your file never leaves your browser.',
+    },
+    {
       q: 'Do I need an account to use this?',
       a: 'No, and there is no way to create one. Accounts exist so a service can store your data and charge you later; since your resume never leaves your browser, there is nothing an account would do. Open the page, write, download the PDF, close the tab.',
     },
@@ -81,7 +85,7 @@ const lede =
       <div id="rb-import-drop" class="dropzone" tabindex="0" role="button" aria-label="Upload an existing resume as a PDF or Word file">
         <div class="dz-icon"><Icon name="upload" size={30} /></div>
         <div class="dz-title">Upload an existing resume</div>
-        <div class="dz-sub">Drop a PDF or Word file here, or click to browse</div>
+        <div class="dz-sub">Drop a PDF or Word file here, or click to browse. Scanned PDFs are read on this device too.</div>
       </div>
       <input type="file" id="rb-import-file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
       <p id="rb-import-status" role="status" hidden></p>
@@ -133,6 +137,7 @@ const lede =
         <button id="rb-download" class="btn" type="button">Download PDF</button>
         <button id="rb-example" class="btn btn-secondary" type="button">Load example</button>
         <button id="rb-clear" class="btn btn-secondary" type="button">Clear</button>
+        <button id="rb-import-again" class="btn btn-secondary" type="button" hidden>Import a resume</button>
       </div>
       <p class="autosave-note"><Icon name="check" size={14} /> Your resume is saved automatically in this browser only.</p>
     </div>

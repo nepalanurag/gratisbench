@@ -3,6 +3,8 @@
 // ResumeData; the builder listens for it and fills the editor.
 import { el, showError, hideError, setupDropzone } from './common.ts';
 import { renderPdfThumb } from './pdf-render.ts';
+import { ocrPdfPages } from './resume-pdf-ocr.ts';
+import { tesseractLoadErrorMessage } from './tesseract-loader.ts';
 import {
   extractTextFromPdf,
   extractTextFromDocx,
@@ -92,9 +94,23 @@ export function initResumeImport(): void {
     try {
       const buf = new Uint8Array(await file.arrayBuffer());
       const asFile = new File([buf.buffer as ArrayBuffer], file.name, { type: file.type });
-      const text = isPdf ? await extractTextFromPdf(asFile) : await extractTextFromDocx(asFile);
+      let text = isPdf ? await extractTextFromPdf(asFile) : await extractTextFromDocx(asFile);
+      if (!text.trim() && isPdf) {
+        // A scan or photo of a resume: read the pages with on-device OCR.
+        showStatus('No selectable text found. Reading the scanned pages on this device…');
+        try {
+          text = await ocrPdfPages(buf, (label) => showStatus(label));
+        } catch (err) {
+          fail(tesseractLoadErrorMessage(err));
+          return;
+        }
+      }
       if (!text.trim()) {
-        fail('No readable text in that file. Scanned images do not work here; use a file with selectable text.');
+        fail(
+          isPdf
+            ? 'Could not read any text in that file, even as a scan. If it is a photo of a resume, try a sharper, higher-contrast scan.'
+            : 'No readable text in that Word file.'
+        );
         return;
       }
       const parsed = parseResumeText(text);
@@ -132,6 +148,7 @@ export function initResumeImport(): void {
     window.dispatchEvent(new CustomEvent('freekit:resume-import', { detail: imported }));
     review.hidden = true;
     el('rb-import-panel').hidden = true;
+    el('rb-import-again')?.removeAttribute('hidden');
     el('rb-editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
@@ -144,6 +161,16 @@ export function initResumeImport(): void {
 
   el('rb-start-blank').addEventListener('click', () => {
     el('rb-import-panel').hidden = true;
+    el('rb-import-again')?.removeAttribute('hidden');
     el('rb-editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // Reopen the import panel after it was dismissed (the dropzone used to be
+  // gone until reload).
+  el('rb-import-again')?.addEventListener('click', () => {
+    el('rb-import-panel').hidden = false;
+    review.hidden = true;
+    status.hidden = true;
+    el('rb-import-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }

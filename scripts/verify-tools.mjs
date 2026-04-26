@@ -847,6 +847,90 @@ console.log('== resume-import ==');
   ok('Y-grouping fallback joins same-line items', yLines.length === 3 && yLines[1].includes('San Francisco, CA'), JSON.stringify(yLines));
 }
 
+console.log('== resume-import messy resumes ==');
+{
+  // Structurally mirrors a real-world messy resume: numeric dates, bullets
+  // without a space after the marker, a bullet before the date line, the
+  // location on its own line after the date, a "City / Country" contact line,
+  // two URLs on one line, a bare year under a project, details before the
+  // education date line, a wrapped location, and a repeated name/email footer.
+  const messy = [
+    'Arjun Mehta',
+    'Pokhara/ Nepal arjun.mehta@example.com 9812345678',
+    'https://www.linkedin.com/in/arjun-mehta-1234567/ https://github.com/arjunmehta',
+    'PROFESSIONAL EXPERIENCE',
+    'Software Development Intern',
+    'HimalTech Pvt. Ltd.',
+    '•Built internal tools(node, express)',
+    '06/2021 – 12/2021',
+    'Pokhara, Nepal',
+    '•Automated weekly reporting',
+    '•Wrote unit tests for core modules',
+    'SKILLS',
+    'Python',
+    'C/C++',
+    'R',
+    'PROJECTS',
+    'Traffic Sign Classifier',
+    '•Trained a CNN on 40k images',
+    '2022',
+    '•Reached 97% validation accuracy',
+    'EDUCATION',
+    "Bachelors' in Computer Engineering",
+    'Gandaki College of Engineering',
+    '•8.9 CGPA (aggregate till 6th Semester)',
+    '08/2018 – 07/2022',
+    'Pokhara, Nepal',
+    '•Graduated with honors',
+    'Higher Secondary Level',
+    'SOS Hermann Gmeiner School',
+    '•91.2%',
+    '2016 – 2018',
+    'Kathmandu,',
+    'Nepal',
+    'Arjun Mehta arjun.mehta@example.com',
+  ].join('\n');
+
+  const m = parseResumeText(messy);
+  ok('messy: name', m.fullName === 'Arjun Mehta', m.fullName);
+  ok('messy: slash location normalized', m.location === 'Pokhara, Nepal', m.location);
+  ok('messy: no invented headline', m.title === '', m.title);
+  ok('messy: github becomes website', m.website === 'https://github.com/arjunmehta', m.website);
+  ok('messy: linkedin kept', m.linkedin === 'https://www.linkedin.com/in/arjun-mehta-1234567/', m.linkedin);
+  ok('messy: one job', m.experience.length === 1, String(m.experience.length));
+  const mj = m.experience[0];
+  ok('messy: job title/company', mj.title === 'Software Development Intern' && mj.company === 'HimalTech Pvt. Ltd.', `${mj.title} @ ${mj.company}`);
+  ok('messy: numeric dates', mj.start === '06/2021' && mj.end === '12/2021', `${mj.start}-${mj.end}`);
+  ok('messy: trailing location line', mj.location === 'Pokhara, Nepal', mj.location);
+  ok('messy: spaceless bullets kept', mj.bullets.length === 3 && mj.bullets[0] === 'Built internal tools(node, express)', mj.bullets.join(' | '));
+  ok('messy: year is project metadata', m.projects.length === 1 && m.projects[0].detail === '2022', JSON.stringify(m.projects.map((p) => [p.name, p.detail])));
+  ok('messy: project bullets kept', m.projects[0].bullets.length === 2, m.projects[0].bullets.join(' | '));
+  ok('messy: two education entries', m.education.length === 2, String(m.education.length));
+  const me1 = m.education[0];
+  ok('messy: degree/school', me1.degree === "Bachelors' in Computer Engineering" && me1.school === 'Gandaki College of Engineering', `${me1.degree} / ${me1.school}`);
+  ok('messy: edu dates/location', me1.start === '08/2018' && me1.end === '07/2022' && me1.location === 'Pokhara, Nepal', `${me1.start}-${me1.end} ${me1.location}`);
+  ok('messy: edu detail from pre-date bullets', me1.detail.includes('8.9 CGPA') && me1.detail.includes('Graduated with honors'), me1.detail);
+  const me2 = m.education[1];
+  ok('messy: wrapped location joined', me2.location === 'Kathmandu, Nepal', me2.location);
+  ok('messy: footer line dropped', !me2.detail.includes('arjun.mehta@example.com'), me2.detail);
+  ok('messy: C/C++ splits, R kept', (() => {
+    const items = m.skills.flatMap((g) => g.items);
+    return items.includes('C') && items.includes('C++') && items.includes('R');
+  })(), JSON.stringify(m.skills));
+
+  // spaced-out section header (OCR artifact)
+  const spaced = parseResumeText(['Jane Doe', 'E D U C A T I O N', 'BSc Physics, State University', '2010 – 2014'].join('\n'));
+  ok('spaced header detected', spaced.education.length === 1 && spaced.education[0].school === 'State University', JSON.stringify(spaced.education));
+
+  // hyphenated line-break repair
+  const hyph = parseResumeText(['Jane Doe', 'Summary', 'Built visualiza-', 'tion dashboards.'].join('\n'));
+  ok('hyphenation repaired', hyph.summary.includes('visualization'), hyph.summary);
+
+  // a bullet line is never taken as a job title
+  const bulTitle = parseResumeText(['Jane Doe', 'Experience', '•Shipped the v2 API', 'Jan 2020 - Mar 2021'].join('\n'));
+  ok('bullet not used as title', bulTitle.experience.length === 1 && !bulTitle.experience[0].title.startsWith('•'), JSON.stringify(bulTitle.experience[0]));
+}
+
 console.log('== invoice-core ==');
 {
   // money parsing
