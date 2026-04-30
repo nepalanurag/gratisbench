@@ -185,7 +185,7 @@ export function initResumeBuilder(): void {
   // ---------- editor ----------
 
   function fieldHtml(sec: SectionDef, id: string, f: FieldDef, value: unknown): string {
-    const val = typeof value === 'string' ? value : '';
+    const val = Array.isArray(value) ? value.join('\n') : typeof value === 'string' ? value : '';
     const attrs = `data-sec="${sec.key}" data-id="${id}" data-field="${f.field}"`;
     const cls = f.span ? 'rb-field rb-span2' : 'rb-field';
     if (f.kind === 'checkbox') {
