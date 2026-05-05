@@ -26,11 +26,15 @@ import {
   removeCategory,
   blankIncomeEntry,
   blankCategory,
+  monthSpendingTrend,
+  copyPlanFromPrevious,
+  monthToCsv,
   type BudgetMonth,
   type BudgetStore,
   type BudgetCategory,
 } from '../lib/budget-core.ts';
-import { el, showError, hideError } from './common.ts';
+import { hbarChart, trendSvg, trendLegend, categoryLegend, shortMonthLabel } from '../lib/money-charts.ts';
+import { el, showError, hideError, downloadText, copyText } from './common.ts';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -44,6 +48,7 @@ export function initBudgetPlanner(): void {
     store = blankStore();
   }
   let key = currentMonthKey();
+  let editingIncomeId: string | null = null;
 
   function save(): void {
     try {
@@ -92,6 +97,7 @@ export function initBudgetPlanner(): void {
       row.innerHTML =
         `<span class="grow"><strong>${escapeHtml(e.label.trim() || 'Untitled')}</strong></span>` +
         `<span class="entry-amount">${formatMoney(e.cents, 'USD')}</span>` +
+        `<button type="button" class="icon-btn" data-act="edit-income" data-id="${e.id}" aria-label="Edit income entry">Edit</button>` +
         `<button type="button" class="icon-btn" data-act="del-income" data-id="${e.id}" aria-label="Remove income entry">×</button>`;
       incomeList.appendChild(row);
     }
@@ -113,11 +119,46 @@ export function initBudgetPlanner(): void {
         `<button type="button" class="icon-btn" data-act="del-cat" data-id="${c.id}" aria-label="Remove category">×</button>`;
       catList.appendChild(row);
     }
+
+    renderCharts(m);
   }
 
   function commit(): void {
     save();
     render();
+  }
+
+  function renderCharts(m: BudgetMonth): void {
+    const box = el('budget-charts');
+    const panels: string[] = [];
+    if (m.categories.length > 0) {
+      const scale = Math.max(1, ...m.categories.map((c) => Math.max(c.plannedCents, c.actualCents)));
+      const rows = m.categories.map((c) => ({
+        label: c.name.trim() || 'Untitled',
+        caption: `${formatMoney(c.actualCents, 'USD')} of ${formatMoney(c.plannedCents, 'USD')}`,
+        pct: (c.actualCents / scale) * 100,
+        markerPct: (c.plannedCents / scale) * 100,
+        over: c.actualCents > c.plannedCents,
+      }));
+      panels.push(
+        `<div class="chart-box"><h3 class="chart-title">Planned vs actual</h3>${hbarChart(rows)}${categoryLegend()}</div>`
+      );
+    }
+    const trend = monthSpendingTrend(store, 12);
+    if (trend.length >= 2) {
+      const pts = trend.map((p) => ({
+        label: shortMonthLabel(p.key),
+        incomeCents: p.incomeCents,
+        spentCents: p.spentCents,
+      }));
+      const compact = (cents: number) =>
+        cents >= 100000 ? `$${(cents / 100000).toFixed(1)}k` : formatMoney(cents, 'USD');
+      panels.push(
+        `<div class="chart-box"><h3 class="chart-title">Income vs spending, last ${trend.length} months</h3>` +
+          `${trendSvg(pts, compact)}${trendLegend()}</div>`
+      );
+    }
+    box.innerHTML = panels.length > 0 ? `<div class="charts">${panels.join('')}</div>` : '';
   }
 
   el('budget-prev').addEventListener('click', () => {
@@ -133,7 +174,15 @@ export function initBudgetPlanner(): void {
     render();
   });
 
-  el('budget-add-income').addEventListener('click', () => {
+  function clearIncomeForm(): void {
+    el<HTMLInputElement>('budget-income-label').value = '';
+    el<HTMLInputElement>('budget-income-amount').value = '';
+    editingIncomeId = null;
+    el<HTMLButtonElement>('budget-add-income').textContent = 'Add income';
+    el('budget-cancel-income').hidden = true;
+  }
+
+  function addOrSaveIncome(): void {
     hideError('budget-error');
     const labelInput = el<HTMLInputElement>('budget-income-label');
     const amountInput = el<HTMLInputElement>('budget-income-amount');
@@ -150,12 +199,40 @@ export function initBudgetPlanner(): void {
       return;
     }
     const m = month();
-    m.income = addIncomeEntry(m.income, { ...blankIncomeEntry(), label, cents });
-    labelInput.value = '';
-    amountInput.value = '';
+    if (editingIncomeId) {
+      const e = m.income.find((x) => x.id === editingIncomeId);
+      if (e) {
+        e.label = label;
+        e.cents = cents;
+      }
+    } else {
+      m.income = addIncomeEntry(m.income, { ...blankIncomeEntry(), label, cents });
+    }
+    clearIncomeForm();
     labelInput.focus();
     commit();
+  }
+
+  el('budget-add-income').addEventListener('click', addOrSaveIncome);
+  el('budget-cancel-income').addEventListener('click', () => {
+    hideError('budget-error');
+    clearIncomeForm();
   });
+
+  // Enter adds the entry instead of doing nothing.
+  for (const [inputId, action] of [
+    ['budget-income-label', addOrSaveIncome],
+    ['budget-income-amount', addOrSaveIncome],
+    ['budget-cat-name', () => el('budget-add-cat').click()],
+    ['budget-cat-planned', () => el('budget-add-cat').click()],
+  ] as const) {
+    el<HTMLInputElement>(inputId).addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        action();
+      }
+    });
+  }
 
   el('budget-add-cat').addEventListener('click', () => {
     hideError('budget-error');
@@ -181,13 +258,27 @@ export function initBudgetPlanner(): void {
     commit();
   });
 
-  // delegated: delete buttons and inline amount edits
+  // delegated: edit and delete buttons on income rows
   el('budget-income-list').addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('button[data-act]');
     if (!btn) return;
+    const id = btn.getAttribute('data-id') || '';
+    const act = btn.getAttribute('data-act');
     const m = month();
-    m.income = removeIncomeEntry(m.income, btn.getAttribute('data-id') || '');
-    commit();
+    if (act === 'edit-income') {
+      const entry = m.income.find((x) => x.id === id);
+      if (!entry) return;
+      editingIncomeId = id;
+      el<HTMLInputElement>('budget-income-label').value = entry.label;
+      el<HTMLInputElement>('budget-income-amount').value = (entry.cents / 100).toFixed(2);
+      el<HTMLButtonElement>('budget-add-income').textContent = 'Save changes';
+      el('budget-cancel-income').hidden = false;
+      el<HTMLInputElement>('budget-income-label').focus();
+    } else if (act === 'del-income') {
+      if (editingIncomeId === id) clearIncomeForm();
+      m.income = removeIncomeEntry(m.income, id);
+      commit();
+    }
   });
 
   const catList = el('budget-cat-list');
@@ -217,9 +308,54 @@ export function initBudgetPlanner(): void {
     commit();
   });
 
+  el('budget-copy-plan').addEventListener('click', () => {
+    hideError('budget-error');
+    const { source, month } = copyPlanFromPrevious(store, key);
+    if (!source) {
+      showError(
+        'budget-error',
+        "No earlier month has anything to copy. Plan this month by hand, or load the example."
+      );
+      return;
+    }
+    const current = month();
+    if (
+      (current.income.length > 0 || current.categories.length > 0) &&
+      !window.confirm(`Replace this month's plan with a copy of ${monthLabel(source.monthKey)}? This cannot be undone.`)
+    ) {
+      return;
+    }
+    store.months[key] = month;
+    commit();
+  });
+
+  el('budget-export').addEventListener('click', () => {
+    downloadText(`budget-${key}.csv`, monthToCsv(month()), 'text/csv');
+  });
+
+  el('budget-copy-summary').addEventListener('click', () => {
+    const m = month();
+    const text = [
+      `Budget - ${monthLabel(key)}`,
+      `Income: ${formatMoney(totalIncomeCents(m), 'USD')}`,
+      `Planned: ${formatMoney(totalPlannedCents(m), 'USD')}`,
+      `Spent: ${formatMoney(totalActualCents(m), 'USD')}`,
+      `Remaining to assign: ${formatMoney(remainingToAssignCents(m), 'USD')}`,
+      `Left to spend: ${formatMoney(actualLeftCents(m), 'USD')}`,
+    ].join('\n');
+    const btn = el<HTMLButtonElement>('budget-copy-summary');
+    void copyText(text).then((ok) => {
+      btn.textContent = ok ? 'Copied' : 'Copy failed';
+      setTimeout(() => {
+        btn.textContent = 'Copy summary';
+      }, 1500);
+    });
+  });
+
   el('budget-clear').addEventListener('click', () => {
     if (!window.confirm(`Clear everything for ${monthLabel(key)}? This cannot be undone.`)) return;
     store.months[key] = blankMonth(key);
+    clearIncomeForm();
     commit();
   });
 

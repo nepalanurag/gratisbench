@@ -11,6 +11,8 @@ import {
   totals,
   sortedByRenewal,
   upcomingRenewals,
+  categoryTotals,
+  subscriptionsToCsv,
   parseCents,
   formatMoney,
   validateSubscription,
@@ -23,7 +25,8 @@ import {
   type Subscription,
   type SubscriptionStore,
 } from '../lib/subs-core.ts';
-import { el, showError, hideError } from './common.ts';
+import { hbarChart } from '../lib/money-charts.ts';
+import { el, showError, hideError, downloadText } from './common.ts';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -39,6 +42,7 @@ export function initSubscriptionTracker(): void {
     store = blankStore();
   }
   let editingId: string | null = null;
+  let sortMode: 'renewal' | 'cost' = 'renewal';
   const today = todayLocalISO();
 
   function save(): void {
@@ -82,29 +86,74 @@ export function initSubscriptionTracker(): void {
     const list = el('subs-list');
     if (store.subscriptions.length === 0) {
       list.innerHTML = '<p class="empty-state">No subscriptions tracked. Add your first one above.</p>';
+      renderCharts();
       return;
     }
     list.innerHTML = '';
-    for (const r of sortedByRenewal(store.subscriptions, today)) {
+    let infos = sortedByRenewal(store.subscriptions, today);
+    if (sortMode === 'cost') {
+      infos = [...infos].sort(
+        (a, b) => monthlyEquivalentCents(b.sub.costCents, b.sub.cycle) - monthlyEquivalentCents(a.sub.costCents, a.sub.cycle)
+      );
+    }
+    for (const r of infos) {
       const s = r.sub;
       const row = document.createElement('div');
       row.className = 'entry-row';
       const cat = s.category.trim() ? ` · ${escapeHtml(s.category.trim())}` : '';
+      const monthly = monthlyEquivalentCents(s.costCents, s.cycle);
+      const share = t.monthlyCents > 0 ? (monthly / t.monthlyCents) * 100 : 0;
       row.innerHTML =
         `<span class="grow"><strong>${escapeHtml(s.name)}</strong>` +
-        `<span class="entry-meta">${formatMoney(s.costCents, 'USD')} ${CYCLE_LABEL[s.cycle].toLowerCase()} (~${formatMoney(monthlyEquivalentCents(s.costCents, s.cycle), 'USD')}/mo)${cat}</span></span>` +
+        `<span class="entry-meta">${formatMoney(s.costCents, 'USD')} ${CYCLE_LABEL[s.cycle].toLowerCase()} (~${formatMoney(monthly, 'USD')}/mo)${cat}</span>` +
+        `<span class="share-bar" role="img" aria-label="${escapeHtml(s.name)} is ${share.toFixed(0)} percent of monthly total"><span style="width:${share.toFixed(1)}%"></span></span></span>` +
         `<span class="chip${r.days <= 1 ? ' soon' : ''}" title="Next billing date">${renewalLabel(r.days)} · ${formatISODate(r.renewal)}</span>` +
         `<span class="file-actions">` +
         `<button type="button" class="icon-btn" data-act="edit" data-id="${s.id}" aria-label="Edit ${escapeHtml(s.name)}">Edit</button>` +
+        `<button type="button" class="icon-btn" data-act="pause" data-id="${s.id}" aria-label="Pause ${escapeHtml(s.name)}">Pause</button>` +
         `<button type="button" class="icon-btn" data-act="del" data-id="${s.id}" aria-label="Delete ${escapeHtml(s.name)}">×</button>` +
         `</span>`;
       list.appendChild(row);
     }
+    const paused = store.subscriptions.filter((s) => s.paused);
+    for (const s of paused) {
+      const row = document.createElement('div');
+      row.className = 'entry-row paused';
+      const cat = s.category.trim() ? ` · ${escapeHtml(s.category.trim())}` : '';
+      row.innerHTML =
+        `<span class="grow"><strong>${escapeHtml(s.name)}</strong>` +
+        `<span class="entry-meta">${formatMoney(s.costCents, 'USD')} ${CYCLE_LABEL[s.cycle].toLowerCase()}${cat}</span></span>` +
+        `<span class="chip" title="Paused subscriptions are excluded from totals">Paused</span>` +
+        `<span class="file-actions">` +
+        `<button type="button" class="icon-btn" data-act="resume" data-id="${s.id}" aria-label="Resume ${escapeHtml(s.name)}">Resume</button>` +
+        `<button type="button" class="icon-btn" data-act="del" data-id="${s.id}" aria-label="Delete ${escapeHtml(s.name)}">×</button>` +
+        `</span>`;
+      list.appendChild(row);
+    }
+    renderCharts();
+  }
+
+  function renderCharts(): void {
+    const box = el('subs-charts');
+    const cats = categoryTotals(store.subscriptions);
+    if (cats.length === 0) {
+      box.innerHTML = '';
+      return;
+    }
+    const scale = Math.max(1, ...cats.map((c) => c.monthlyCents));
+    const rows = cats.map((c) => ({
+      label: c.category,
+      caption: `${formatMoney(c.monthlyCents, 'USD')}/mo · ${c.count} sub${c.count === 1 ? '' : 's'}`,
+      pct: (c.monthlyCents / scale) * 100,
+    }));
+    box.innerHTML =
+      `<div class="charts"><div class="chart-box"><h3 class="chart-title">Monthly cost by category</h3>${hbarChart(rows)}</div></div>`;
   }
 
   function readForm(): Subscription {
     const sel = el<HTMLSelectElement>('subs-cycle');
     const cycle = isCycle(sel.value) ? sel.value : 'monthly';
+    const existing = editingId ? store.subscriptions.find((s) => s.id === editingId) : undefined;
     return {
       id: editingId ?? blankSubscription().id,
       name: el<HTMLInputElement>('subs-name').value.trim(),
@@ -112,6 +161,7 @@ export function initSubscriptionTracker(): void {
       cycle,
       startDate: el<HTMLInputElement>('subs-date').value,
       category: el<HTMLInputElement>('subs-category').value.trim(),
+      paused: existing?.paused ?? false,
     };
   }
 
@@ -183,8 +233,33 @@ export function initSubscriptionTracker(): void {
       el('subs-cancel-edit').hidden = false;
       el('subs-name').focus();
       el('subs-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (act === 'pause' || act === 'resume') {
+      const s = store.subscriptions.find((x) => x.id === id);
+      if (!s) return;
+      store.subscriptions = updateSubscription(store.subscriptions, { ...s, paused: act === 'pause' });
+      if (editingId === id) clearForm();
+      commit();
     }
   });
+
+  el<HTMLSelectElement>('subs-sort').addEventListener('change', (e) => {
+    sortMode = (e.target as HTMLSelectElement).value === 'cost' ? 'cost' : 'renewal';
+    render();
+  });
+
+  el('subs-export').addEventListener('click', () => {
+    downloadText('subscriptions.csv', subscriptionsToCsv(store.subscriptions), 'text/csv');
+  });
+
+  // Enter in the name or cost field adds the subscription.
+  for (const inputId of ['subs-name', 'subs-cost', 'subs-category']) {
+    el<HTMLInputElement>(inputId).addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        el('subs-add').click();
+      }
+    });
+  }
 
   el('subs-example').addEventListener('click', () => {
     hideError('subs-error');

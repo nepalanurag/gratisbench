@@ -36,6 +36,29 @@ export function downloadText(name: string, text: string, mime: string): void {
   downloadBytes(name, new TextEncoder().encode(text), mime);
 }
 
+/** Copy text to the clipboard; falls back to a hidden textarea where needed. */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    /* fall through to the legacy path */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 export function showError(boxId: string, message: string): void {
   const box = el(boxId);
   box.textContent = message;

@@ -709,6 +709,45 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
 .stat.hero .v { font-size: 1.7rem; color: var(--accent); }
 .stat.hero.zero .v { color: var(--ok); }
 
+/* money charts: flat bars and hairline line charts */
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 0.9rem; margin: 1rem 0; }
+.chart-box { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem 1rem; }
+.chart-title { font-size: 0.95rem; font-weight: 700; margin: 0 0 0.7rem; }
+.hbars { display: grid; gap: 0.65rem; }
+.hbar-top { display: flex; justify-content: space-between; gap: 0.7rem; font-size: 0.83rem; margin-bottom: 0.25rem; }
+.hbar-label { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hbar-cap { color: var(--muted); white-space: nowrap; }
+.hbar-track { position: relative; height: 12px; background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--radius); }
+.hbar-fill { display: block; height: 100%; background: var(--ink); border-radius: var(--radius); }
+.hbar-fill.over { background: var(--danger); }
+.hbar-marker { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--muted); }
+.hbar-planned-track { position: relative; height: 8px; background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--radius); margin-top: 3px; }
+.hbar-planned { display: block; height: 100%; background: var(--faint); }
+.chart-legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); margin-top: 0.7rem; }
+.swatch { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 0.35em; vertical-align: -0.1em; border: 1px solid var(--line); background: var(--paper-2); }
+.swatch-planned { background: var(--faint); }
+.swatch-actual { background: var(--ink); border-color: var(--ink); }
+.swatch-solid { background: var(--ink); border-color: var(--ink); }
+.swatch-dashed { background: repeating-linear-gradient(90deg, var(--ink) 0 4px, transparent 4px 7px); }
+.swatch-tick { width: 2px; height: 0.9em; background: var(--muted); border: none; }
+.swatch-over { background: var(--danger); border-color: var(--danger); }
+.trend-svg { width: 100%; height: auto; display: block; }
+.trend-grid { stroke: var(--line); stroke-width: 1; }
+.trend-axis { font-size: 11px; fill: var(--muted); font-family: var(--font-ui); }
+.trend-income { stroke: var(--ink); stroke-width: 2; }
+.trend-spent { stroke: var(--faint); stroke-width: 2; stroke-dasharray: 6 4; }
+.trend-income-dot { fill: var(--ink); }
+.trend-spent-dot { fill: var(--faint); }
+.share-bar { height: 5px; background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--radius); margin-top: 0.35rem; }
+.share-bar > span { display: block; height: 100%; background: var(--ink); }
+.entry-row.paused { opacity: 0.55; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.75rem 1rem; }
+.stat .k { font-size: 0.76rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.15rem; }
+.stat .v { font-family: var(--font-head); font-weight: 700; font-size: 1.3rem; }
+.stat .stat-sub { font-size: 0.82rem; color: var(--muted); margin-top: 0.15rem; }
+.stat.hero .v { font-size: 1.7rem; color: var(--accent); }
+.stat.hero.zero .v { color: var(--ok); }
+
 .month-nav { display: flex; align-items: center; gap: 0.8rem; margin: 1rem 0; flex-wrap: wrap; }
 .month-label { font-size: 1.25rem; margin: 0; flex: 1 1 auto; min-width: 10rem; }
 

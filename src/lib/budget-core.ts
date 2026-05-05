@@ -193,6 +193,92 @@ export function removeCategory(categories: BudgetCategory[], id: string): Budget
   return removeEntry(categories, id);
 }
 
+// ---------- month trend & plan copying ----------
+
+export interface MonthPoint {
+  key: string;
+  label: string;
+  incomeCents: number;
+  plannedCents: number;
+  spentCents: number;
+}
+
+/**
+ * Up to `limit` most recent months that have any data, oldest first.
+ * Months that were never touched are skipped, so the chart has no gaps.
+ */
+export function monthSpendingTrend(store: BudgetStore, limit = 12): MonthPoint[] {
+  const keys = Object.keys(store.months)
+    .filter((k) => parseMonthKey(k) && store.months[k] && (store.months[k].income.length > 0 || store.months[k].categories.length > 0))
+    .sort();
+  return keys.slice(-Math.max(1, Math.trunc(limit))).map((k) => {
+    const m = store.months[k];
+    return {
+      key: k,
+      label: monthLabel(k),
+      incomeCents: totalIncomeCents(m),
+      plannedCents: totalPlannedCents(m),
+      spentCents: totalActualCents(m),
+    };
+  });
+}
+
+/**
+ * Copy the nearest earlier month that has data into `targetKey`: income
+ * entries and categories come over with planned amounts, actuals reset to
+ * zero, all with fresh ids. Returns the source month, or null when there is
+ * nothing to copy.
+ */
+export function copyPlanFromPrevious(
+  store: BudgetStore,
+  targetKey: string
+): { source: BudgetMonth | null; month: BudgetMonth } {
+  let source: BudgetMonth | null = null;
+  const earlier = Object.keys(store.months)
+    .filter((k) => parseMonthKey(k) && k < targetKey)
+    .sort();
+  for (let i = earlier.length - 1; i >= 0; i--) {
+    const m = store.months[earlier[i]];
+    if (m.income.length > 0 || m.categories.length > 0) {
+      source = m;
+      break;
+    }
+  }
+  if (!source) return { source: null, month: blankMonth(targetKey) };
+  const month = blankMonth(targetKey);
+  month.income = source.income.map((e) => ({ id: newId(), label: e.label, cents: e.cents }));
+  month.categories = source.categories.map((c) => ({
+    id: newId(),
+    name: c.name,
+    plannedCents: c.plannedCents,
+    actualCents: 0,
+  }));
+  return { source, month };
+}
+
+// ---------- CSV export ----------
+
+function csvCell(s: string): string {
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** The whole month as CSV: income rows, then one row per category. Amounts in dollars. */
+export function monthToCsv(m: BudgetMonth): string {
+  const lines = ['Type,Label,Planned,Actual'];
+  for (const e of m.income) {
+    const amt = (e.cents / 100).toFixed(2);
+    lines.push(['Income', e.label, amt, amt].map(csvCell).join(','));
+  }
+  for (const c of m.categories) {
+    lines.push(
+      ['Category', c.name, (c.plannedCents / 100).toFixed(2), (c.actualCents / 100).toFixed(2)]
+        .map(csvCell)
+        .join(',')
+    );
+  }
+  return lines.join('\n') + '\n';
+}
+
 // ---------- serialization with schema versioning ----------
 
 export function serializeStore(store: BudgetStore): string {

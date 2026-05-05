@@ -25,7 +25,9 @@ const lede =
     'Add your income entries: a label like "Paycheck" and the amount. Amounts accept $ signs and commas.',
     'Add expense categories with a planned amount for each: Rent, Groceries, Transport, whatever your month looks like.',
     'As you spend, type the actual amounts into the "Spent" box on each category. The planner shows what is left in each one and flags overspending.',
+    'The charts update as you type: planned vs actual per category, and an income-vs-spending trend across your saved months once there are two.',
     'Watch the "Remaining to assign" figure. Move planned amounts between categories until it reads $0.00: every dollar assigned.',
+    'Starting a new month? "Copy last month\'s plan" brings your categories and planned amounts forward with spending reset to zero. "Export CSV" downloads the month for your own records.',
     'Click "Load example" any time to see a filled-in month, or "Clear month" to start the current month over.',
   ]}
   specs={[
@@ -36,9 +38,20 @@ const lede =
     ['Months', 'Unlimited; each month keeps separate income and categories'],
     ['Money math', 'All amounts stored and computed in integer cents, no floating-point errors'],
     ['Planned vs actual', 'Every category tracks both, with per-category remaining and overspend flags'],
+    ['Charts', 'Planned vs actual bars per category; 12-month income vs spending trend'],
+    ['Reusing a plan', '"Copy last month\'s plan" brings categories and planned amounts forward; spending resets to zero'],
+    ['Export', 'Download the month as CSV; copy a plain-text summary to the clipboard'],
     ['Works offline', 'Yes, once the page has loaded'],
   ]}
   faqs={[
+    {
+      q: 'Can I reuse last month\'s plan or export my budget?',
+      a: 'Yes to both. "Copy last month\'s plan" copies the nearest earlier month\'s income and category plan into the current month with all spending reset to zero, so a new month starts planned but unspent. "Export CSV" downloads the current month as a spreadsheet-ready file, and "Copy summary" puts the headline figures on your clipboard. Nothing leaves your browser in any of these: the CSV downloads straight from this page.',
+    },
+    {
+      q: 'What do the charts show?',
+      a: 'Two things. "Planned vs actual" is one bar per category: the tick marks what you planned, the bar shows what you actually spent, and it turns red when you overspend. The trend chart plots income against spending across your saved months (up to 12) once you have two months of data, so you can see whether the gap is widening or closing.',
+    },
     {
       q: 'Is this budget planner really free? What is the catch?',
       a: 'Yes, it is free, and the catch is that there is no sync between devices. The planner runs entirely in your browser and stores your budgets in local storage on your own device, so there is no server cost to recover and nothing to charge for. Paid budgeting apps charge a subscription because they sync your data and connect to your bank; this tool does neither, on purpose.',
@@ -82,6 +95,7 @@ const lede =
       <button id="budget-today" class="btn btn-secondary" type="button">This month</button>
     </div>
     <div id="budget-summary" class="stat-grid" aria-live="polite"></div>
+    <div id="budget-charts"></div>
     <div id="budget-error" class="error-box" hidden></div>
     <h3 class="tool-step">Income</h3>
     <div id="budget-income-list"></div>
@@ -89,6 +103,7 @@ const lede =
       <input type="text" id="budget-income-label" placeholder="Paycheck" aria-label="Income label" />
       <input type="text" id="budget-income-amount" class="money-input" inputmode="decimal" placeholder="$3,200.00" aria-label="Income amount" />
       <button id="budget-add-income" class="btn btn-secondary" type="button">Add income</button>
+      <button id="budget-cancel-income" class="btn btn-secondary" type="button" hidden>Cancel</button>
     </div>
     <h3 class="tool-step">Expense categories</h3>
     <div id="budget-cat-list"></div>
@@ -98,6 +113,9 @@ const lede =
       <button id="budget-add-cat" class="btn btn-secondary" type="button">Add category</button>
     </div>
     <div class="btn-row">
+      <button id="budget-copy-plan" class="btn btn-secondary" type="button">Copy last month's plan</button>
+      <button id="budget-export" class="btn btn-secondary" type="button">Export CSV</button>
+      <button id="budget-copy-summary" class="btn btn-secondary" type="button">Copy summary</button>
       <button id="budget-example" class="btn btn-secondary" type="button">Load example</button>
       <button id="budget-clear" class="btn btn-secondary" type="button">Clear month</button>
     </div>

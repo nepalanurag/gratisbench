@@ -18,6 +18,8 @@ export interface Subscription {
   /** First (or any known) billing date, YYYY-MM-DD. Renewals anchor to it. */
   startDate: string;
   category: string;
+  /** Paused subscriptions stay in the list but are excluded from totals and renewals. */
+  paused: boolean;
 }
 
 export interface SubscriptionStore {
@@ -30,7 +32,7 @@ export function isCycle(v: unknown): v is BillingCycle {
 }
 
 export function blankSubscription(): Subscription {
-  return { id: newId(), name: '', costCents: 0, cycle: 'monthly', startDate: '', category: '' };
+  return { id: newId(), name: '', costCents: 0, cycle: 'monthly', startDate: '', category: '', paused: false };
 }
 
 export function blankStore(): SubscriptionStore {
@@ -40,9 +42,9 @@ export function blankStore(): SubscriptionStore {
 /** Sample subscriptions so the dashboard is alive before typing a word. */
 export function exampleSubscriptions(): Subscription[] {
   return [
-    { id: newId(), name: 'StreamFlix', costCents: 1549, cycle: 'monthly', startDate: '2026-09-05', category: 'Streaming' },
-    { id: newId(), name: 'CloudDrive Pro', costCents: 11999, cycle: 'yearly', startDate: '2026-03-14', category: 'Storage' },
-    { id: newId(), name: 'MealBox', costCents: 2999, cycle: 'weekly', startDate: '2026-09-21', category: 'Food' },
+    { id: newId(), name: 'StreamFlix', costCents: 1549, cycle: 'monthly', startDate: '2026-09-05', category: 'Streaming', paused: false },
+    { id: newId(), name: 'CloudDrive Pro', costCents: 11999, cycle: 'yearly', startDate: '2026-03-14', category: 'Storage', paused: false },
+    { id: newId(), name: 'MealBox', costCents: 2999, cycle: 'weekly', startDate: '2026-09-21', category: 'Food', paused: false },
   ];
 }
 
@@ -181,13 +183,14 @@ export interface SubscriptionTotals {
 }
 
 export function totals(subs: Subscription[]): SubscriptionTotals {
-  const monthlyCents = subs.reduce((sum, s) => sum + monthlyEquivalentCents(s.costCents, s.cycle), 0);
+  const active = subs.filter((s) => !s.paused);
+  const monthlyCents = active.reduce((sum, s) => sum + monthlyEquivalentCents(s.costCents, s.cycle), 0);
   const yearlyCents = Math.round(monthlyCents * 12);
   return {
     monthlyCents,
     yearlyCents,
     perDayCents: Math.round(yearlyCents / 365),
-    count: subs.length,
+    count: active.length,
   };
 }
 
@@ -197,9 +200,10 @@ export interface RenewalInfo {
   days: number;
 }
 
-/** Subscriptions sorted by next renewal, soonest first. */
+/** Subscriptions sorted by next renewal, soonest first. Paused ones are excluded. */
 export function sortedByRenewal(subs: Subscription[], todayISO: string): RenewalInfo[] {
   return subs
+    .filter((s) => !s.paused)
     .map((sub) => {
       const renewal = nextRenewalDate(sub.startDate, sub.cycle, todayISO);
       return { sub, renewal, days: daysUntil(todayISO, renewal) };
@@ -210,6 +214,47 @@ export function sortedByRenewal(subs: Subscription[], todayISO: string): Renewal
 /** Renewals due within the next `withinDays` days (default 7), soonest first. */
 export function upcomingRenewals(subs: Subscription[], todayISO: string, withinDays = 7): RenewalInfo[] {
   return sortedByRenewal(subs, todayISO).filter((r) => r.days <= withinDays);
+}
+
+// ---------- category breakdown & CSV export ----------
+
+export interface CategoryTotal {
+  category: string;
+  monthlyCents: number;
+  count: number;
+}
+
+/** Active subscriptions grouped by category, costliest first. Empty categories land under "Uncategorized". */
+export function categoryTotals(subs: Subscription[]): CategoryTotal[] {
+  const map = new Map<string, { monthlyCents: number; count: number }>();
+  for (const s of subs) {
+    if (s.paused) continue;
+    const key = s.category.trim() || 'Uncategorized';
+    const e = map.get(key) ?? { monthlyCents: 0, count: 0 };
+    e.monthlyCents += monthlyEquivalentCents(s.costCents, s.cycle);
+    e.count += 1;
+    map.set(key, e);
+  }
+  return [...map.entries()]
+    .map(([category, v]) => ({ category, ...v }))
+    .sort((a, b) => b.monthlyCents - a.monthlyCents);
+}
+
+function csvCell(s: string): string {
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** All subscriptions (including paused) as CSV. Amounts in dollars per billing period. */
+export function subscriptionsToCsv(subs: Subscription[]): string {
+  const lines = ['Name,Cost,Cycle,Billing date,Category,Status'];
+  for (const s of subs) {
+    lines.push(
+      [s.name, (s.costCents / 100).toFixed(2), s.cycle, s.startDate, s.category, s.paused ? 'paused' : 'active']
+        .map(csvCell)
+        .join(',')
+    );
+  }
+  return lines.join('\n') + '\n';
 }
 
 export { parseCents, formatMoney };
@@ -288,6 +333,7 @@ export function deserializeStore(raw: string | null | undefined): SubscriptionSt
       cycle: isCycle(o.cycle) ? o.cycle : 'monthly',
       startDate: asString(o.startDate),
       category: asString(o.category),
+      paused: o.paused === true,
     };
     if (validateSubscription(sub).length === 0) subscriptions.push(sub);
   }

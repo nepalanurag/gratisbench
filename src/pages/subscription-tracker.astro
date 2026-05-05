@@ -23,9 +23,9 @@ const lede =
   steps={[
     'Add a subscription: its name, what it costs, whether it bills weekly, monthly, or yearly, and a billing date (any past bill date works). A category like "Streaming" is optional.',
     'Check the dashboard at the top: your total monthly and yearly spend, the cost per day, and how many subscriptions you track.',
-    'Look at "Upcoming renewals" for anything billing in the next 7 days. The full list below is sorted by next renewal, soonest first.',
-    'Edit a subscription any time with the Edit button when a price changes or a billing date moves. Delete cancels the tracking, not the subscription itself.',
-    'Click "Load example" to see a filled-in tracker, or "Clear all" to start over.',
+    'Look at "Upcoming renewals" for anything billing in the next 7 days. The full list below is sorted by next renewal, soonest first; switch the sort to see your most expensive subscriptions instead.',
+    'Edit a subscription any time with the Edit button when a price changes or a billing date moves. Pause a subscription you are keeping but not currently paying for: it stays in the list but is excluded from totals and renewals. Delete cancels the tracking, not the subscription itself.',
+    'Click "Load example" to see a filled-in tracker, or "Clear all" to start over. "Export CSV" downloads the whole list for your own records.',
     'For the renewals that would hurt to miss, put them in your calendar too: this page shows reminders but cannot notify you in v1.',
   ]}
   specs={[
@@ -34,12 +34,19 @@ const lede =
     ['Billing cycles', 'Weekly, monthly, yearly; monthly-equivalent cost computed for each'],
     ['Renewal math', 'Next renewal computed from the billing date; Jan 31 bills Feb 28, then Mar 31'],
     ['Dashboard', 'Total monthly spend, total yearly spend, cost per day, subscription count'],
+    ['Charts', 'Monthly cost by category; each subscription shows its share of the total'],
+    ['Pause', 'Paused subscriptions stay in the list but are excluded from totals and renewals'],
+    ['Export', 'Download the whole list as CSV'],
     ['Reminders', 'On-page "Upcoming renewals" (next 7 days). No push notifications in v1.'],
     ['Where data is stored', 'In this browser only (local storage). No sync in v1.'],
     ['Money math', 'All amounts stored and computed in integer cents'],
     ['Works offline', 'Yes, once the page has loaded'],
   ]}
   faqs={[
+    {
+      q: 'What does pausing a subscription do?',
+      a: 'It keeps the subscription in your list but excludes it from the totals, the charts, and the renewal reminders. Use it for subscriptions you are keeping but not currently paying for: a seasonal service, a free-trial holdover, or something you cancelled but might restart. Resume it with one click when billing starts again.',
+    },
     {
       q: 'Is this subscription tracker really free?',
       a: 'Yes. There is no account, no premium tier, and no limit on how many subscriptions you track. The math behind it, adding costs and counting days to a date, runs entirely in your browser, so there is no server cost to recover. Paid alternatives charge a monthly fee for the same arithmetic plus bank connections; this tool skips the bank connection and the fee together.',
@@ -77,6 +84,7 @@ const lede =
   <section class="tool-card" slot="tool" aria-label="Subscription tracker">
     <p class="autosave-note">Your subscriptions are saved automatically in this browser only. No account, no sync in v1.</p>
     <div id="subs-summary" class="stat-grid" aria-live="polite"></div>
+    <div id="subs-charts"></div>
     <div id="subs-error" class="error-box" hidden></div>
     <h3 class="tool-step">Add a subscription</h3>
     <div class="field-row">
@@ -95,6 +103,7 @@ const lede =
     <div class="btn-row">
       <button id="subs-add" class="btn" type="button">Add subscription</button>
       <button id="subs-cancel-edit" class="btn btn-secondary" type="button" hidden>Cancel edit</button>
+      <button id="subs-export" class="btn btn-secondary" type="button">Export CSV</button>
       <button id="subs-example" class="btn btn-secondary" type="button">Load example</button>
       <button id="subs-clear" class="btn btn-secondary" type="button">Clear all</button>
     </div>
@@ -102,6 +111,12 @@ const lede =
     <p class="rb-hint">Computed from your saved dates and shown here. No push notifications in v1: for renewals that matter, add them to your calendar too.</p>
     <div id="subs-upcoming"></div>
     <h3 class="tool-step">All subscriptions</h3>
+    <div class="field-row">
+      <select id="subs-sort" aria-label="Sort subscriptions">
+        <option value="renewal">Sort: soonest renewal</option>
+        <option value="cost">Sort: highest cost</option>
+      </select>
+    </div>
     <div id="subs-list"></div>
   </section>
   <script>

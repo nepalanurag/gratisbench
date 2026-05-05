@@ -191,6 +191,9 @@ import {
   removeIncomeEntry,
   addCategory,
   removeCategory,
+  monthSpendingTrend,
+  copyPlanFromPrevious,
+  monthToCsv,
   serializeStore as serializeBudgetStore,
   deserializeStore as deserializeBudgetStore,
 } from '../src/lib/budget-core.ts';
@@ -202,6 +205,7 @@ import {
   blankStore as blankSubsStore,
   exampleSubscriptions,
   isValidISODate,
+  addDays,
   addMonthsClamped,
   addYearsClamped,
   nextRenewalDate,
@@ -212,6 +216,8 @@ import {
   totals as subsTotals,
   sortedByRenewal,
   upcomingRenewals,
+  categoryTotals,
+  subscriptionsToCsv,
   validateSubscription,
   addSubscription,
   removeSubscription,
@@ -219,6 +225,13 @@ import {
   serializeStore as serializeSubsStore,
   deserializeStore as deserializeSubsStore,
 } from '../src/lib/subs-core.ts';
+import {
+  hbarChart,
+  trendSvg,
+  shortMonthLabel,
+  categoryLegend,
+  trendLegend,
+} from '../src/lib/money-charts.ts';
 import {
   LOGO_SCHEMA_VERSION,
   LOGO_STORAGE_KEY,
@@ -1492,6 +1505,51 @@ console.log('== budget-core ==');
   ok('deserialize null -> blank', Object.keys(deserializeBudgetStore(null).months).length === 0);
   ok('deserialize junk -> blank', Object.keys(deserializeBudgetStore('{{{').months).length === 0);
   ok('blankBudgetStore has no months', Object.keys(blankBudgetStore().months).length === 0);
+
+  // trend: skips untouched months, oldest first, respects limit
+  const store3 = {
+    months: { '2026-07': exampleMonth('2026-07'), '2026-08': blankMonth('2026-08'), '2026-09': exampleMonth('2026-09') },
+    version: BUDGET_SCHEMA_VERSION,
+  };
+  const trend = monthSpendingTrend(store3, 12);
+  ok('trend skips empty months', trend.length === 2 && trend[0].key === '2026-07' && trend[1].key === '2026-09');
+  ok('trend values', trend[0].incomeCents === 365000 && trend[0].spentCents === totalActualCents(store3.months['2026-07']));
+  ok('trend limit', monthSpendingTrend(store3, 1).length === 1 && monthSpendingTrend(store3, 1)[0].key === '2026-09');
+  ok('trend single month no chart needed', monthSpendingTrend({ months: { '2026-09': exampleMonth('2026-09') }, version: BUDGET_SCHEMA_VERSION }, 12).length === 1);
+
+  // plan copying: nearest earlier month, fresh ids, actuals reset
+  const { source, month: copied } = copyPlanFromPrevious(store3, '2026-10');
+  ok('copy finds nearest earlier month', source !== null && source.monthKey === '2026-09');
+  ok('copy keeps planned amounts', copied.categories.length > 0 && copied.categories.every((c, i) => c.plannedCents === store3.months['2026-09'].categories[i].plannedCents));
+  ok('copy resets actuals', copied.categories.every((c) => c.actualCents === 0));
+  ok('copy keeps income', copied.income.length === store3.months['2026-09'].income.length);
+  ok(
+    'copy gives fresh ids',
+    !copied.categories.some((c) => store3.months['2026-09'].categories.some((o) => o.id === c.id)) &&
+    !copied.income.some((e) => store3.months['2026-09'].income.some((o) => o.id === e.id))
+  );
+  ok('copy targets blank month', copyPlanFromPrevious({ months: {}, version: BUDGET_SCHEMA_VERSION }, '2026-10').source === null);
+
+  // CSV export: header, quoting, two-decimal amounts
+  const csv = monthToCsv(exampleMonth('2026-09'));
+  ok('csv header', csv.startsWith('Type,Label,Planned,Actual\n'));
+  ok('csv amounts two decimals', csv.includes('3200.00') && csv.includes('236.50'));
+  const quoted = monthToCsv({ ...exampleMonth('2026-09'), income: [{ id: 'x', label: 'Job, "Inc"', cents: 100 }] });
+  ok('csv quotes commas and quotes', quoted.includes('"Job, ""Inc"""'));
+
+  // chart builders
+  const bars = hbarChart([{ label: 'Rent', caption: '$5 of $10', pct: 50, markerPct: 100, over: false }]);
+  ok('hbar renders label and width', bars.includes('Rent') && bars.includes('width:50.00%') && bars.includes('left:100.00%'));
+  ok('hbar clamps pct', hbarChart([{ label: 'X', caption: '', pct: 150 }]).includes('width:100.00%'));
+  ok('hbar escapes html', hbarChart([{ label: '<b>', caption: '', pct: 0 }]).includes('&lt;b&gt;'));
+  const svg2 = trendSvg(
+    [{ label: 'Jul', incomeCents: 100000, spentCents: 50000 }, { label: 'Aug', incomeCents: 120000, spentCents: 60000 }],
+    (c) => `$${(c / 100).toFixed(0)}`
+  );
+  ok('trendSvg draws two lines', (svg2.match(/<path /g) || []).length === 2 && svg2.includes('trend-spent'));
+  ok('trendSvg needs two points', trendSvg([{ label: 'Jul', incomeCents: 1, spentCents: 1 }], (c) => String(c)) === '');
+  ok('shortMonthLabel', shortMonthLabel('2026-09') === 'Sep 26' && shortMonthLabel('junk') === 'junk');
+  ok('legends render', categoryLegend().includes('Planned') && trendLegend().includes('Income'));
 }
 
 console.log('== subs-core ==');
@@ -1576,6 +1634,33 @@ console.log('== subs-core ==');
   const updated = updateSubscription(added, { ...good, costCents: 1999 });
   ok('updateSubscription changes', updated[0].costCents === 1999 && updated.length === 1);
   ok('removeSubscription removes', removeSubscription(updated, good.id).length === 0);
+
+  // paused subscriptions: excluded from totals, renewals, categories
+  const pausedSub = { ...good, id: 'paused-1', name: 'Paused', paused: true };
+  const withPaused = [...subs, pausedSub];
+  const pt = subsTotals(withPaused);
+  ok('paused excluded from totals', pt.count === 3 && pt.monthlyCents === t.monthlyCents);
+  ok('paused excluded from renewals', sortedByRenewal(withPaused, '2026-09-23').every((r) => !r.sub.paused));
+  ok('paused excluded from upcoming', upcomingRenewals(withPaused, '2026-09-23').every((r) => !r.sub.paused));
+  ok('paused survives round trip', deserializeSubsStore(serializeSubsStore({ subscriptions: withPaused, version: SUBS_SCHEMA_VERSION })).subscriptions.find((s) => s.id === 'paused-1')?.paused === true);
+  ok('paused defaults false', deserializeSubsStore(JSON.stringify({ version: SUBS_SCHEMA_VERSION, subscriptions: [{ id: 'x', name: 'Y', costCents: 100, cycle: 'monthly', startDate: '2026-09-01', category: '' }] })).subscriptions[0].paused === false);
+
+  // category totals
+  const cats = categoryTotals(subs);
+  ok('categoryTotals groups', cats.length === 3);
+  ok('categoryTotals sorted desc', cats.every((c, i, a) => i === 0 || a[i - 1].monthlyCents >= c.monthlyCents));
+  ok('uncategorized fallback', categoryTotals([{ ...good, category: '  ' }])[0].category === 'Uncategorized');
+
+  // CSV export
+  const scsv = subscriptionsToCsv(subs);
+  ok('subs csv header', scsv.startsWith('Name,Cost,Cycle,Billing date,Category,Status\n'));
+  ok('subs csv paused status', subscriptionsToCsv(withPaused).includes('paused'));
+
+  // edge cases
+  ok('monthlyEquivalent rounds half up', monthlyEquivalentCents(1, 'yearly') === 0 && monthlyEquivalentCents(6, 'yearly') === 1);
+  ok('daysInMonth leap', addDays('2024-02-28', 1) === '2024-02-29');
+  ok('daysUntil negative', daysUntil('2026-09-29', '2026-09-23') === -6);
+  ok('formatISODate junk passes through', formatISODate('nope') === 'nope');
 
   const rt = deserializeSubsStore(serializeSubsStore({ subscriptions: subs, version: SUBS_SCHEMA_VERSION }));
   ok('store round trip', rt.subscriptions.length === subs.length);
