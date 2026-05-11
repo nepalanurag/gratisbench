@@ -310,7 +310,8 @@ export function initBudgetPlanner(): void {
 
   el('budget-copy-plan').addEventListener('click', () => {
     hideError('budget-error');
-    const { source, month } = copyPlanFromPrevious(store, key);
+    const current = month();
+    const { source, month: copied } = copyPlanFromPrevious(store, key);
     if (!source) {
       showError(
         'budget-error',
@@ -318,14 +319,13 @@ export function initBudgetPlanner(): void {
       );
       return;
     }
-    const current = month();
     if (
       (current.income.length > 0 || current.categories.length > 0) &&
       !window.confirm(`Replace this month's plan with a copy of ${monthLabel(source.monthKey)}? This cannot be undone.`)
     ) {
       return;
     }
-    store.months[key] = month;
+    store.months[key] = copied;
     commit();
   });
 

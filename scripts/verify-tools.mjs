@@ -1530,6 +1530,14 @@ console.log('== budget-core ==');
   );
   ok('copy targets blank month', copyPlanFromPrevious({ months: {}, version: BUDGET_SCHEMA_VERSION }, '2026-10').source === null);
 
+  // regression: the copy-plan click handler must not destructure `month`
+  // (it shadows the local month() accessor and makes `month()` throw,
+  // leaving the button silently dead)
+  ok(
+    'copy handler renames destructured month',
+    !/const \{ source, month \} = copyPlanFromPrevious/.test(readFileSync(join(ROOT, 'src/tools/budget-planner.ts'), 'utf8'))
+  );
+
   // CSV export: header, quoting, two-decimal amounts
   const csv = monthToCsv(exampleMonth('2026-09'));
   ok('csv header', csv.startsWith('Type,Label,Planned,Actual\n'));
