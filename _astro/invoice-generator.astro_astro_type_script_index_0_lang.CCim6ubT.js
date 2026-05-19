@@ -1,0 +1,59 @@
+import{d as g,I as T,b as k,a as D,n as Y,c as x,e as _,g as q,r as F,m as S,v as C,u as J,h as K,s as $,i as Q,j as z,k as W,l as X,f as Z,C as ee}from"./invoice-core.CPCTMA8P.js";import{e as s,a as v,h as w,j as te,I as f}from"./common.C1JoWam1.js";import{l as ae,a as ne,s as ie}from"./business-profile.B6eBFSNw.js";function r(n){return n.replace(/[&<>"']/g,l=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[l])}function se(){let n=U();P();let l=O(),y=null;const b=s("inv-editor"),A=s("inv-preview"),H=document.title;function U(){let e;try{e=g(localStorage.getItem(T))}catch{e=k()}if(!e.number.trim())try{const t=localStorage.getItem(D);e.number=t?Y(t):"INV-0001"}catch{e.number="INV-0001"}return e}function O(){try{const e=localStorage.getItem(x);if(!e)return[];const t=JSON.parse(e);return Array.isArray(t)?t.map(a=>g(typeof a=="string"?a:JSON.stringify(a))).filter(a=>a.number.trim()):[]}catch{return[]}}function P(){const e=n.business,t=[e.name,e.address,e.email,e.phone,e.logoDataUrl].some(i=>i.trim()!==""),a=ae();if(!ne(a)){t||(e.name=a.name,e.address=a.address,e.email=a.email,e.phone=a.phone,e.logoDataUrl=a.logoDataUrl);return}t&&e.name.trim()!=="Rivera Design Studio"&&ie({name:e.name,tagline:"",address:e.address,email:e.email,phone:e.phone,website:"",color:"",logoDataUrl:e.logoDataUrl})}function R(){try{localStorage.setItem(T,$(n))}catch{}}function I(){try{localStorage.setItem(x,JSON.stringify(l.map($)))}catch{}}function d(){y&&clearTimeout(y),y=setTimeout(R,400)}function c(){A.innerHTML=W(n)}function m(e,t,a,i,o="",p=!1){return`<label class="rb-field${p?" rb-span2":""}"><span>${r(a)}</span><input type="text" data-sec="${e}" data-field="${t}" value="${r(i)}" placeholder="${r(o)}" /></label>`}function M(){const e=n.business,t=e.logoDataUrl?`<div class="logo-pick"><img class="thumb" src="${r(e.logoDataUrl)}" alt="Logo" /><span class="file-name-label">Logo added</span><button type="button" class="link-btn" id="inv-logo-clear">Remove</button></div>`:'<div class="logo-pick"><label class="btn btn-secondary btn-small" for="inv-logo-input" style="cursor:pointer;">Upload logo</label><input type="file" id="inv-logo-input" accept="image/*" hidden /><span class="file-name-label">Optional. JPG or PNG, shows on the invoice.</span></div>';return`<section class="rb-section" aria-label="Your business">
+      <div class="rb-section-head"><h3>Your business</h3></div>
+      <div class="rb-grid">
+        ${m("business","name","Business name",e.name,"Rivera Design Studio",!0)}
+        ${m("business","email","Email",e.email,"billing@example.com")}
+        ${m("business","phone","Phone",e.phone,"(415) 555-0132")}
+      </div>
+      <label class="rb-field" style="margin-top:0.65rem;"><span>Address</span><textarea data-sec="business" data-field="address" rows="2" placeholder="418 Harbor Ave, Suite 12&#10;San Francisco, CA 94123">${r(e.address)}</textarea></label>
+      <div style="margin-top:0.65rem;">${t}</div>
+    </section>`}function V(){const e=n.client;return`<section class="rb-section" aria-label="Client">
+      <div class="rb-section-head"><h3>Client</h3></div>
+      <div class="rb-grid">
+        ${m("client","name","Client name",e.name,"Northwind Mobile, Inc.",!0)}
+        ${m("client","email","Client email",e.email,"accounts@client.com")}
+      </div>
+      <label class="rb-field" style="margin-top:0.65rem;"><span>Client address</span><textarea data-sec="client" data-field="address" rows="2" placeholder="900 Market Street&#10;San Francisco, CA 94103">${r(e.address)}</textarea></label>
+    </section>`}function N(){const e=ee.map(t=>`<option value="${t.code}" ${n.currency===t.code?"selected":""}>${t.code}: ${r(t.name)}</option>`).join("");return`<section class="rb-section" aria-label="Invoice details">
+      <div class="rb-section-head"><h3>Invoice details</h3></div>
+      <div class="rb-grid">
+        <label class="rb-field"><span>Invoice number</span><input type="text" data-sec="meta" data-field="number" value="${r(n.number)}" /></label>
+        <label class="rb-field"><span>Currency</span><select data-sec="meta" data-field="currency">${e}</select></label>
+        <label class="rb-field"><span>Issue date</span><input type="date" data-sec="meta" data-field="issueDate" value="${r(n.issueDate)}" /></label>
+        <label class="rb-field"><span>Due date</span><input type="date" data-sec="meta" data-field="dueDate" value="${r(n.dueDate)}" /></label>
+      </div>
+    </section>`}function L(e,t,a){return`<div class="rb-entry">
+      <div class="rb-entry-bar">
+        <span class="rb-entry-title">${r(e.description||`Line item ${t+1}`)}</span>
+        <button type="button" class="icon-btn" data-act="up" data-id="${e.id}" ${t===0?"disabled":""} aria-label="Move up">${f.up}</button>
+        <button type="button" class="icon-btn" data-act="down" data-id="${e.id}" ${t===a-1?"disabled":""} aria-label="Move down">${f.down}</button>
+        <button type="button" class="icon-btn" data-act="remove" data-id="${e.id}" aria-label="Remove">${f.x}</button>
+      </div>
+      <div class="inv-item-grid">
+        <label class="rb-field rb-span2"><span>Description</span><input type="text" data-sec="item" data-id="${e.id}" data-field="description" value="${r(e.description)}" placeholder="What was delivered" /></label>
+        <label class="rb-field"><span>Qty</span><input type="number" min="0" step="any" data-sec="item" data-id="${e.id}" data-field="qty" value="${e.qty}" /></label>
+        <label class="rb-field"><span>Rate</span><input type="text" inputmode="decimal" data-sec="item" data-id="${e.id}" data-field="rate" value="${r(e.rate)}" placeholder="95.00" /></label>
+      </div>
+    </div>`}function j(){return`<section class="rb-section" aria-label="Line items">
+      <div class="rb-section-head"><h3>Line items</h3><button type="button" class="btn btn-secondary btn-small" id="inv-add-item">Add line item</button></div>
+      <p class="hint">One row per deliverable. Qty can be hours or units; the rate is per unit in your currency.</p>
+      <div id="inv-items">${n.items.map((e,t)=>L(e,t,n.items.length)).join("")}</div>
+    </section>`}function B(){return`<section class="rb-section" aria-label="Tax, discount, and notes">
+      <div class="rb-section-head"><h3>Tax, discount, notes</h3></div>
+      <div class="rb-grid">
+        <label class="rb-field"><span>Tax %</span><input type="text" inputmode="decimal" data-sec="meta" data-field="taxPct" value="${r(n.taxPct)}" placeholder="8.5" /></label>
+        <label class="rb-field"><span>Discount type</span><select data-sec="meta" data-field="discountType">
+          <option value="percent" ${n.discountType==="percent"?"selected":""}>Percent (%)</option>
+          <option value="flat" ${n.discountType==="flat"?"selected":""}>Flat amount</option>
+        </select></label>
+      </div>
+      <label class="rb-field" style="margin-top:0.65rem;"><span>Discount value${n.discountType==="percent"?" (%)":" (in your currency)"}</span><input type="text" inputmode="decimal" data-sec="meta" data-field="discountValue" value="${r(n.discountValue)}" placeholder="${n.discountType==="percent"?"10":"50.00"}" /></label>
+      <label class="rb-field" style="margin-top:0.65rem;"><span>Notes (payment terms, thanks, bank details)</span><textarea data-sec="meta" data-field="notes" rows="3" placeholder="Payment due within 14 days.">${r(n.notes)}</textarea></label>
+    </section>`}function u(){b.innerHTML=M()+V()+N()+j()+B()}function E(){s("inv-items").innerHTML=n.items.map((e,t)=>L(e,t,n.items.length)).join("")}function h(){const e=s("inv-history");if(l.length===0){e.innerHTML='<p class="empty-state">No saved invoices yet. Click "Save to history" to keep a copy here.</p>';return}e.innerHTML=l.map(t=>{const a=X(t),i=t.client.name.trim()||"Unnamed client";return`<div class="file-row">
+          <span class="file-name">${r(t.number)} · ${r(i)}</span>
+          <span class="file-meta">${Z(a.totalCents,t.currency)}</span>
+          <span class="file-actions">
+            <button type="button" class="btn btn-secondary btn-small" data-hact="open" data-num="${r(t.number)}">Open</button>
+            <button type="button" class="icon-btn" data-hact="delete" data-num="${r(t.number)}" aria-label="Delete">${f.x}</button>
+          </span>
+        </div>`}).join("")}function G(e,t,a,i){if(e==="business"){a==="logoDataUrl"?n.business.logoDataUrl=i:n.business[a]=i;return}if(e==="client"){n.client[a]=i;return}if(e==="meta"){a==="discountType"?n.discountType=i==="flat"?"flat":"percent":n[a]=i;return}if(e==="item"){const o=n.items.find(p=>p.id===t);if(!o)return;a==="qty"?o.qty=z(i):(a==="description"||a==="rate")&&(o[a]=i)}}b.addEventListener("input",e=>{const a=e.target.closest("[data-sec]");if(!a)return;const i=a.getAttribute("data-sec"),o=a.getAttribute("data-id")??"",p=a.getAttribute("data-field");p&&(G(i,o,p,a.value),d(),c())}),b.addEventListener("change",e=>{const a=e.target.closest('select[data-sec], input[type="date"][data-sec]');a&&(d(),c(),a.getAttribute("data-field")==="discountType"&&u())}),b.addEventListener("click",e=>{const t=e.target;if(t.closest("#inv-logo-clear")){n.business.logoDataUrl="",d(),u(),c();return}if(t.closest("#inv-add-item")){n.items=_(n.items,q()),d(),E(),c();return}const a=t.closest("button[data-act]");if(!a||a.hasAttribute("disabled"))return;const i=a.getAttribute("data-act"),o=a.getAttribute("data-id")??"";i==="remove"?n.items=F(n.items,o):i==="up"?n.items=S(n.items,o,-1):i==="down"&&(n.items=S(n.items,o,1)),d(),E(),c()}),b.addEventListener("change",async e=>{const t=e.target.closest("#inv-logo-input");if(!t||!t.files||t.files.length===0)return;const a=t.files[0];if(!a.type.startsWith("image/")){v("inv-error","That file is not an image. Choose a JPG or PNG logo.");return}w("inv-error");try{const i=await te(a);n.business.logoDataUrl=i,d(),u(),c()}catch{v("inv-error","Could not read that image. Try a different file.")}}),s("inv-print").addEventListener("click",()=>{w("inv-error");const e=C(n);if(e.length>0){v("inv-error","Before downloading: "+e.join(" ")),s("inv-error").scrollIntoView({behavior:"smooth",block:"nearest"});return}document.title=`Invoice ${n.number.trim()}`,document.body.classList.add("invoice-print"),window.print()}),window.addEventListener("afterprint",()=>{document.body.classList.remove("invoice-print"),document.title=H}),s("inv-save").addEventListener("click",()=>{w("inv-error");const e=C(n);if(e.length>0){v("inv-error","Before saving: "+e.join(" ")),s("inv-error").scrollIntoView({behavior:"smooth",block:"nearest"});return}l=J(l,n);try{localStorage.setItem(D,n.number.trim())}catch{}I(),h(),s("inv-saved-note").hidden=!1,window.setTimeout(()=>{s("inv-saved-note").hidden=!0},2500)}),s("inv-example").addEventListener("click",()=>{window.confirm("Replace your current invoice with the example content?")&&(n=K(),d(),u(),c())}),s("inv-clear").addEventListener("click",()=>{window.confirm("Clear everything and start over? This cannot be undone.")&&(n=k(),d(),u(),c())}),s("inv-history").addEventListener("click",e=>{const t=e.target.closest("button[data-hact]");if(!t)return;const a=t.getAttribute("data-num")??"";if(t.getAttribute("data-hact")==="open"){const i=l.find(o=>o.number===a);i&&(n=g($(i)),d(),u(),c(),s("inv-editor").scrollIntoView({behavior:"smooth",block:"start"}))}else if(t.getAttribute("data-hact")==="delete"){if(!window.confirm(`Delete saved invoice ${a}?`))return;l=Q(l,a),I(),h()}}),s("inv-tab-edit").addEventListener("click",()=>{s("inv-workspace").classList.remove("show-preview"),s("inv-tab-edit").classList.add("tab-active"),s("inv-tab-preview").classList.remove("tab-active")}),s("inv-tab-preview").addEventListener("click",()=>{s("inv-workspace").classList.add("show-preview"),s("inv-tab-preview").classList.add("tab-active"),s("inv-tab-edit").classList.remove("tab-active")}),u(),c(),h()}se();

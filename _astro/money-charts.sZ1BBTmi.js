@@ -1,0 +1,13 @@
+function r(e){return e.replace(/[&<>"']/g,a=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[a])}function C(e){return`<div class="hbars">${e.map(t=>{const o=Math.max(0,Math.min(100,t.pct)),l=t.markerPct===void 0?"":`<span class="hbar-marker" style="left:${Math.max(0,Math.min(100,t.markerPct)).toFixed(2)}%"></span>`;return`<div class="hbar-row">
+        <div class="hbar-top"><span class="hbar-label">${r(t.label)}</span><span class="hbar-cap">${r(t.caption)}</span></div>
+        <div class="hbar-track" role="img" aria-label="${r(`${t.label}: ${t.caption}`)}">
+          <span class="hbar-fill${t.over?" over":""}" style="width:${o.toFixed(2)}%"></span>${l}
+        </div>
+      </div>`}).join("")}</div>`}const f=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];function F(e){const a=/^(\d{4})-(0[1-9]|1[0-2])$/.exec(e);return a?`${f[parseInt(a[2],10)-1]} ${a[1].slice(2)}`:e}function A(e,a){if(e.length<2)return"";const t=560,o=220,l=52,h=12,p=14,b=30,$=t-l-h,g=o-p-b,m=Math.max(1,...e.map(n=>Math.max(n.incomeCents,n.spentCents))),d=n=>l+(e.length===1?$/2:n/(e.length-1)*$),i=n=>p+g-n/m*g,x=n=>e.map((s,c)=>`${c===0?"M":"L"}${d(c).toFixed(1)},${i(n(s)).toFixed(1)}`).join(" ");let u="";for(let n=0;n<=2;n++){const s=m*n/2,c=i(s).toFixed(1);u+=`<line x1="${l}" y1="${c}" x2="${t-h}" y2="${c}" class="trend-grid"/><text x="${l-6}" y="${Number(c)+4}" text-anchor="end" class="trend-axis">${r(a(Math.round(s)))}</text>`}const v=(n,s)=>e.map((c,y)=>`<circle cx="${d(y).toFixed(1)}" cy="${i(n(c)).toFixed(1)}" r="3.5" class="${s}"/>`).join(""),w=e.map((n,s)=>{const c=s===0?"start":s===e.length-1?"end":"middle";return`<text x="${d(s).toFixed(1)}" y="${o-10}" text-anchor="${c}" class="trend-axis">${r(n.label)}</text>`}).join(""),M=e.map(n=>`${n.label}: income ${a(n.incomeCents)}, spent ${a(n.spentCents)}`).join("; ");return`<svg class="trend-svg" viewBox="0 0 ${t} ${o}" role="img" aria-label="Monthly trend. ${r(M)}">
+    ${u}
+    <path d="${x(n=>n.incomeCents)}" class="trend-income" fill="none"/>
+    <path d="${x(n=>n.spentCents)}" class="trend-spent" fill="none"/>
+    ${v(n=>n.incomeCents,"trend-income-dot")}
+    ${v(n=>n.spentCents,"trend-spent-dot")}
+    ${w}
+  </svg>`}function P(){return'<div class="chart-legend"><span><span class="legend-swatch legend-swatch-solid"></span>Income</span><span><span class="legend-swatch legend-swatch-dashed"></span>Spent</span></div>'}function j(){return'<div class="chart-legend"><span><span class="legend-swatch legend-swatch-tick"></span>Planned</span><span><span class="legend-swatch legend-swatch-actual"></span>Actual</span><span><span class="legend-swatch legend-swatch-over"></span>Over budget</span></div>'}export{P as a,j as c,C as h,F as s,A as t};
