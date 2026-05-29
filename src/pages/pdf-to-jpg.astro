@@ -1,0 +1,123 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'PDF to JPG - Free Online PDF to Image Converter';
+const description =
+  'Convert PDF pages to JPG or PNG images for free, in your browser. Choose the resolution, download pages one by one or as a ZIP. No signup, no watermark.';
+const h1 = 'Convert PDF to JPG';
+const lede = 'Turn every page of a PDF into a JPG or PNG image, at the resolution you pick. Free, no account, no watermark.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'PDF to JPG', href: '/pdf-to-jpg' }]}
+  toolName="FreeKit PDF to JPG"
+  intro={[
+    'Sometimes a PDF is the wrong shape for the job. A form that only accepts image uploads, a page you want to drop into a slide deck, a diagram to share in a chat app that previews images but not documents. Converting the pages to JPG or PNG images solves it, and it is the kind of one-off task that should not require installing software.',
+    'This converter renders each page of your PDF as an image right in your browser. You pick the resolution: 72 DPI for quick small files, 150 DPI for a good balance, or 300 DPI when the image needs to stay sharp, for example for printing or zooming into fine detail. JPG keeps file sizes small; PNG keeps edges and text crisp at the cost of larger files.',
+    'When the conversion finishes you get a list of every page with a thumbnail, so you can check the result before downloading. Grab a single page on its own, or take them all as one ZIP file. As with every FreeKit tool, your PDF never leaves your device.',
+  ]}
+  steps={[
+    'Drop your PDF onto the box above, or click it to browse.',
+    'Pick a resolution: 72, 150, or 300 DPI. Higher numbers mean sharper, larger images.',
+    'Choose JPG for small files or PNG for maximum sharpness.',
+    'Click "Convert to images". Each page is rendered in turn.',
+    'Download individual pages from the list, or use "Download all" to get everything as one ZIP file.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None. The images are your pages, nothing added.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Output formats', 'JPG or PNG'],
+    ['Resolutions', '72, 150, or 300 DPI'],
+    ['Filenames', 'Your document name with "-page-N" added, e.g. report-page-3.jpg'],
+    ['Bulk download', 'All pages together as a single ZIP file'],
+    ['Password-protected PDFs', 'Not supported. Remove the password first, then convert.'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Which resolution should I pick?',
+      a: 'It depends on what the images are for. 72 DPI is fine for quick sharing and small files. 150 DPI is the sweet spot for most uses: sharp enough on screen without huge files. 300 DPI is for printing or for zooming into fine detail like small print or diagrams. When unsure, start with 150 and re-run at 300 if you need more.',
+    },
+    {
+      q: 'Should I choose JPG or PNG?',
+      a: 'JPG for photographs and scans, where its compression keeps files small with little visible loss. PNG for pages with sharp text, line art, or diagrams, where JPG compression can blur fine edges. PNG files are larger, so for a long document the difference adds up.',
+    },
+    {
+      q: 'How do I download all pages at once?',
+      a: 'After converting, click "Download all" to get every page bundled into a single ZIP file. Each image inside is named after your document with the page number, like report-page-1.jpg, so they stay in order when you unzip them.',
+    },
+    {
+      q: 'Will the images contain selectable text?',
+      a: 'No. An image of a page is just pixels; the text layer of the PDF does not carry over. If you need the text itself, copy it from the PDF directly rather than converting to images.',
+    },
+    {
+      q: 'Is there a limit on the number of pages?',
+      a: 'No built-in limit. Very long documents at 300 DPI can use a lot of memory, since each page is rendered as a large image before download. If a huge file struggles, convert at 150 DPI instead, which is far lighter.',
+    },
+    {
+      q: 'Are my PDFs uploaded to a server?',
+      a: 'No. The rendering runs entirely in your browser. Your files never leave your device, which is why this tool is safe for sensitive documents and keeps working offline once the page has loaded.',
+    },
+    {
+      q: 'Can I convert only some pages?',
+      a: 'This tool converts the whole document. To convert a subset, extract the pages you want first with the split tool, then convert the smaller file here.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="PDF to JPG tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to convert">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop a PDF here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <div id="error-box" class="error-box" hidden></div>
+    <p id="file-info" class="count-label"></p>
+
+    <div class="row-2">
+      <div class="field">
+        <label for="dpi-select">Resolution</label>
+        <select id="dpi-select">
+          <option value="72">72 DPI, small files</option>
+          <option value="150" selected>150 DPI, balanced</option>
+          <option value="300">300 DPI, print sharp</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="format-select">Image format</label>
+        <select id="format-select">
+          <option value="jpg" selected>JPG, smaller files</option>
+          <option value="png">PNG, sharper text</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="progress-wrap" class="progress-wrap" hidden>
+      <div id="progress-label" class="progress-label"></div>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+
+    <div class="btn-row">
+      <button id="convert-btn" class="btn" disabled>Convert to images</button>
+      <span id="count-label" class="count-label"></span>
+    </div>
+
+    <div id="result">
+      <ul id="page-list" class="file-list"></ul>
+      <p id="empty-state" class="empty-state">No pages yet. Add a PDF and convert it to see the pages here.</p>
+      <div class="btn-row">
+        <button id="download-all-btn" class="btn btn-secondary" hidden>Download all (.zip)</button>
+      </div>
+    </div>
+  </section>
+  <script>
+    import { initPdfToJpg } from '../tools/pdf-to-jpg';
+    initPdfToJpg();
+  </script>
+</ToolPage>

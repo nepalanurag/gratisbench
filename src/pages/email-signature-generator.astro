@@ -1,0 +1,111 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import { basePath } from '../lib/site';
+
+const title = 'Free Email Signature Generator - No Branding, No Signup';
+const description =
+  'Create a professional email signature in your browser: 3 layouts, 6 accent colors, photo, social links, live preview. Copy the HTML or paste as rich text into Gmail and Outlook. Free, no branding, no signup.';
+const h1 = 'Free email signature generator';
+const lede =
+  'Build a professional email signature with live preview and copy it into Gmail or Outlook. Free, no account, and no "created with" badge riding under your name.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Business tools', href: '/business-tools' }, { label: 'Email signature generator', href: '/email-signature-generator' }]}
+  toolName="FreeKit Email Signature Generator"
+  intro={[
+    'WiseStamp\u2019s free tier puts their branding on your signature: a small "created with WiseStamp" line under your name in every email you send. It is a clever trade, because your professional correspondence becomes their billboard, and the paid tier removes it, which is the point. You are not buying signature features. You are buying back your own name, one monthly payment at a time.',
+    'This generator has no branding to remove, because there is no company renting you the signature. It builds the HTML in your browser, you copy it, you paste it into Gmail or Outlook, and that is the entire transaction. No account, no badge, no upsell, and nothing contacting a server when your signature renders.',
+    'The HTML it produces is the boring kind that actually works in email: tables for layout, inline styles on everything, no classes, no external stylesheets. That is the format email clients have rendered reliably for twenty years, because Gmail and Outlook strip anything fancier. You get three layouts (stacked, two-column, minimal), six tasteful accent colors instead of a garish color wheel, optional photo and social links, and every character you type is escaped so a stray angle bracket can never break the markup.',
+  ]}
+  steps={[
+    'Fill in your details: name, title, company, phone, email, website, and address. Only the name is required; everything else appears only if you fill it in.',
+    'Pick a layout: Stacked for a formal look, Two-column for the classic business-card style, or Minimal for a small, subtle block.',
+    'Choose one of the six accent colors and optionally upload a photo or logo.',
+    'Add social links with the "Add link" button: LinkedIn, a portfolio, a company site, whatever belongs in a signature.',
+    'Check the live preview. Click "View HTML" under it if you want to inspect or hand-edit the source.',
+    'Click "Copy rich text" and paste directly into your email client\u2019s signature box, or use "Copy HTML" if you prefer to work with the source.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Branding', 'None. No "created with" badge, no upsell.'],
+    ['HTML style', 'Inline styles only, tables for layout. No classes, no <style> block, so it survives Gmail and Outlook.'],
+    ['Layouts', 'Stacked (formal), Two-column (business card), Minimal (compact)'],
+    ['Accent colors', 'Six tasteful presets: Brick, Navy, Forest, Plum, Slate, Gold'],
+    ['Photo', 'Optional JPG/PNG upload, shrunk before saving'],
+    ['Where your signature is stored', 'In this browser only (local storage). Nothing is uploaded.'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this signature generator really free? What is the catch?',
+      a: 'Yes, and there is no catch to find. The usual catch with signature tools is a branding badge on the free tier that you pay to remove, or a subscription for "premium" templates. This tool has no branding to remove and no premium tier, because it runs entirely in your browser and produces a file you paste yourself. There is no service being metered, so there is nothing to charge for.',
+    },
+    {
+      q: 'How do I add the signature to Gmail?',
+      a: 'Click "Copy rich text" above, then in Gmail open Settings, "See all settings", scroll to the Signature section, and create a new signature. Click inside the signature box and paste. Gmail accepts the formatted content directly, so your name, accent color, and links arrive intact. Give the signature a name, set it as the default for new emails and replies, and scroll down to save.',
+    },
+    {
+      q: 'How do I add the signature to Outlook?',
+      a: 'Click "Copy rich text", then in Outlook on the web open Settings, "Mail", "Compose and reply", and paste into the email signature box. In classic desktop Outlook, go to File, Options, Mail, Signatures, create a new signature, and paste into the editor. Set it as the default for new messages. Outlook\u2019s editor is finicky with complex HTML, which is why this tool keeps the markup deliberately simple.',
+    },
+    {
+      q: 'Why does the HTML look so old-fashioned? Tables and inline styles?',
+      a: 'Because email clients are stuck in 2005. Gmail strips <style> blocks and class attributes, and Outlook uses Word\u2019s rendering engine for HTML. Tables with inline styles are the one format every major client renders consistently. A modern-looking signature built with flexbox and CSS classes would look great in your browser and fall apart in your recipient\u2019s inbox. Boring markup is a feature here.',
+    },
+    {
+      q: 'What is the difference between "Copy HTML" and "Copy rich text"?',
+      a: '"Copy HTML" copies the raw source code, useful if you want to inspect it, hand-edit it, or paste it into a system that takes HTML directly. "Copy rich text" copies the rendered signature, which is what you want for Gmail and Outlook: their signature boxes are rich-text editors, so pasting the rendered version keeps the formatting, colors, and links without you touching any code.',
+    },
+    {
+      q: 'Will my signature work on phones?',
+      a: 'Yes. The layouts are narrow by design: the two-column version is a photo beside a short text block, and everything stacks gracefully at small widths because email clients scale table content. Keep the text short and the photo small for the best results on mobile, and send yourself a test email to check it in your own client before relying on it.',
+    },
+    {
+      q: 'Is my information private?',
+      a: 'Yes. Everything you type is saved to your browser\u2019s local storage on your own device so the form survives a refresh, and it is stated in the tool: saved in this browser only. Nothing is uploaded anywhere, because there is no server involved. Clearing your browser data erases it, so keep a copy of the HTML somewhere safe if you need it on another device.',
+    },
+    {
+      q: 'Can I use my company logo instead of a photo?',
+      a: 'Yes. The photo upload accepts any JPG or PNG, and it is shrunk to a small size before saving so it stays light in every email. For the two-column layout it renders as a round avatar, which suits a headshot; for a logo, the stacked layout shows it as a small rectangle and usually looks better. Keep logos simple and high-contrast, since they render small.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Email signature generator">
+    <div class="btn-row btn-row-spaced no-print">
+      <button id="es-copy-rich" class="btn" type="button">Copy rich text</button>
+      <button id="es-copy" class="btn btn-secondary" type="button">Copy HTML</button>
+      <button id="es-example" class="btn btn-secondary" type="button">Load example</button>
+      <button id="es-clear" class="btn btn-secondary" type="button">Clear</button>
+    </div>
+    <p class="autosave-note no-print">Your signature is saved automatically in this browser only.</p>
+    <p class="autosave-note no-print">Company details are pulled from your <a href={basePath('/business-profile')}>business profile</a>.</p>
+    <div id="es-error" class="error-box no-print" hidden></div>
+    <p id="es-copied" class="copied-note no-print" hidden></p>
+    <div class="tab-bar tab-mobile no-print" role="tablist" aria-label="Editor or preview">
+      <button type="button" id="es-tab-edit" class="tab-btn tab-active" role="tab" aria-selected="true">Edit</button>
+      <button type="button" id="es-tab-preview" class="tab-btn" role="tab" aria-selected="false">Preview</button>
+    </div>
+    <div id="es-workspace" class="es-workspace">
+      <div id="es-editor" class="es-editor no-print" aria-label="Signature editor"></div>
+      <div class="es-preview-pane">
+        <div class="es-preview-card">
+          <p class="es-preview-label">Live preview</p>
+          <div id="es-preview" aria-label="Signature preview"></div>
+        </div>
+        <details class="code-view no-print">
+          <summary>View the HTML</summary>
+          <pre><code id="es-code"></code></pre>
+        </details>
+      </div>
+    </div>
+  </section>
+  <script>
+    import { initSignatureGenerator } from '../tools/email-signature-generator';
+    initSignatureGenerator();
+  </script>
+</ToolPage>

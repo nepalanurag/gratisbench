@@ -1,0 +1,92 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Merge PDF - Free Online PDF Merger';
+const description =
+  'Combine multiple PDF files into one document for free. No signup, no watermark, no daily limits. Your files never leave your browser.';
+const h1 = 'Merge PDF files';
+const lede = 'Combine several PDFs into a single document, in whatever order you like. Free, no account, no watermark.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Merge PDF', href: '/merge-pdf' }]}
+  toolName="FreeKit Merge PDF"
+  intro={[
+    'Merging PDFs is one of those small jobs that always arrives at the wrong moment: a contract split across three scans, receipts scattered through your downloads folder, a report that needs its appendix attached before a deadline. Most online mergers handle it, but they cap you at two merges a day, stamp a watermark on the result, or quietly upload your documents to a server you will never see.',
+    'This merger does the whole job inside your browser. Your files are read locally, the pages are stitched together locally, and the merged PDF is generated locally. Nothing is uploaded, nothing is stored, and there is no account standing between you and the download button. When the tab closes, your files are gone from everywhere except your own computer.',
+    'Merging here is lossless in the practical sense: pages are copied from your originals as-is rather than re-rendered, so text stays selectable, links keep working, and quality does not drop. What you put in is what you get out, just in one file instead of several.',
+  ]}
+  steps={[
+    'Drop your PDF files onto the box above, or click it to browse. They appear in a list in the order you added them.',
+    'Reorder the files with the up and down arrows until the sequence is right. Remove any file you added by mistake.',
+    'Click "Merge PDFs". The merged document is built on your device, usually in a few seconds.',
+    'Download the result. The file is named merged.pdf and contains every page in your chosen order.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None. The output is your pages, nothing added.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['File limit', 'None enforced. Very large sets are limited only by your device\u2019s memory.'],
+    ['Page order', 'You choose it with the reorder arrows'],
+    ['Quality', 'Pages are copied as-is; no re-rendering, no quality loss'],
+    ['Password-protected PDFs', 'Not supported. Remove the password first, then merge.'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this PDF merger really free?',
+      a: 'Yes. There is no free tier with a paid tier above it, no daily quota, and no features held back. Merging is a small local computation, so there is nothing to charge for.',
+    },
+    {
+      q: 'Are my PDFs uploaded to a server?',
+      a: 'No. The merge runs entirely in your browser using code that ships with this page. Your files never leave your device, which also means this tool works for sensitive documents that you would not want to upload anywhere.',
+    },
+    {
+      q: 'How many PDFs can I merge at once?',
+      a: 'There is no built-in limit. In practice the limit is your device\u2019s memory: dozens of normal-sized PDFs merge without trouble, while hundreds of very large scans may slow things down. If a merge ever fails, try fewer files at a time.',
+    },
+    {
+      q: 'Will merging reduce the quality of my PDFs?',
+      a: 'No. Pages are copied directly from your originals into the new document rather than being converted to images and back. Text remains selectable, embedded links keep working, and the visual quality is identical to the inputs.',
+    },
+    {
+      q: 'Can I merge only some pages from each PDF?',
+      a: 'This tool merges whole files. If you need selected pages, use the split tool first to extract the pages you want, then merge the results here.',
+    },
+    {
+      q: 'Why does my PDF fail to merge?',
+      a: 'The usual cause is a password-protected PDF, which cannot be opened without the password. Corrupt or malformed files can also fail. If a file will not merge, check that it opens normally in your PDF reader first.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Merge PDF tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add PDF files to merge">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop PDFs here</div>
+      <div class="dz-sub">or click to choose files &middot; they stay on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" multiple hidden />
+    <div id="error-box" class="error-box" hidden></div>
+    <ul id="file-list" class="file-list"></ul>
+    <p id="empty-state" class="empty-state">No files yet. Add your PDFs above, then arrange them in order.</p>
+    <div class="btn-row">
+      <button id="merge-btn" class="btn" disabled>Merge PDFs</button>
+      <span id="count-label" class="count-label"></span>
+    </div>
+    <div id="result" class="result" hidden>
+      <h3>Merged</h3>
+      <p id="result-info"></p>
+      <div id="preview-wrap" class="pdf-preview-wrap" hidden></div>
+      <button id="download-btn" class="btn">Download PDF</button>
+    </div>
+  </section>
+  <script>
+    import { initMergePdf } from '../tools/merge-pdf';
+    initMergePdf();
+  </script>
+</ToolPage>

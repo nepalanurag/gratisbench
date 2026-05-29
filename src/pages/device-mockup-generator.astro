@@ -1,0 +1,111 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+
+const title = 'Free Device Mockup Generator - Screenshots in Frames, No Signup';
+const description =
+  'Make device mockups free in your browser: frame a screenshot in a browser window, phone, or laptop, with backgrounds, padding, and shadow. PNG download. No signup, no $14.95/month.';
+const h1 = 'Free device mockup generator';
+const lede =
+  'Put your screenshot in a browser window, a phone, or a laptop: upload, pick a frame and background, download the PNG. Free, no account, everything runs in this browser.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Design tools', href: '/design-tools' }, { label: 'Device mockup generator', href: '/device-mockup-generator' }]}
+  toolName="FreeKit Device Mockup Generator"
+  intro={[
+    'Placeit charges $14.95 a month for device mockups, which buys you a library of photographed hands holding phones. If you just need your screenshot inside a clean browser window or phone frame for a landing page, a tweet, or a pitch deck, the photographed hands are doing no work. The frame is geometry: rectangles, rounded corners, a notch.',
+    'This tool draws the frame around your screenshot in the browser: upload any PNG, JPG, or WebP, pick a browser window, a phone, or a laptop, and adjust the background, the padding around the frame, and the drop shadow. The screenshot is fitted inside the screen area automatically, so odd sizes and aspect ratios do not break it. Download the result as a PNG.',
+    'The transparent background option exports with real transparency: the checkerboard you see in the preview is just a preview hint, so the file composites cleanly over whatever you place it on. Nothing is uploaded, so your unreleased screenshots never leave your machine, which is more than the subscription tools can promise.',
+  ]}
+  steps={[
+    'Upload a screenshot: click the drop area or drag an image onto it. Any PNG, JPG, or WebP works.',
+    'Pick a frame: a browser window with a traffic-light bar and URL pill, a phone with a notch, or a laptop with a deck.',
+    'Choose a background swatch, including transparent, which exports with real transparency.',
+    'Adjust the padding around the frame and the drop shadow strength with the sliders.',
+    'Download the PNG. The file is named after your screenshot and the frame.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits, no watermark'],
+    ['Frames', 'Browser window, phone, laptop'],
+    ['Backgrounds', '6 solid colors plus transparent (exports with real transparency)'],
+    ['Controls', 'Padding around the frame, drop shadow strength'],
+    ['Screenshot fit', 'Contain-fit: any image size or aspect ratio is framed automatically'],
+    ['Export', 'PNG at up to 1600 px wide'],
+    ['Signup', 'None. Everything runs in this browser.'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is the device mockup generator really free?',
+      a: 'Yes. There is no account, no watermark, and no limit on how many mockups you make. The frame is drawn on a canvas in your browser, so there is no server cost to recover. Placeit charges $14.95 a month for a stock-photo library of devices in hands; if you want a clean geometric frame around your screenshot, this does it for nothing.',
+    },
+    {
+      q: 'What frames are available?',
+      a: 'Three: a browser window with traffic-light dots and a URL bar, a phone with a notch and side buttons, and a laptop with a screen bezel and a deck. The frames are drawn fresh from your settings every time, not stock photos, so they stay crisp at any export size.',
+    },
+    {
+      q: 'What image can I upload?',
+      a: 'Any PNG, JPG, or WebP screenshot. The image is fitted inside the frame\u2019s screen area automatically (contain-fit), so it does not matter if your screenshot is portrait, landscape, or an odd size. Very large screenshots work too, though the export tops out at 1600 pixels wide.',
+    },
+    {
+      q: 'Does the transparent background really export transparent?',
+      a: 'Yes. The checkerboard you see in the preview is only a preview hint drawn with CSS; the exported PNG keeps real alpha transparency, so the mockup composites cleanly over any background you place it on. Most free tools bake the checkerboard into the file.',
+    },
+    {
+      q: 'Is my screenshot private?',
+      a: 'Yes. The image is read by your browser, drawn onto a canvas, and downloaded from there. It is never uploaded to any server, because there is no server involved. For unreleased products and client work, that is a meaningful difference from tools that render on someone else\u2019s machine.',
+    },
+    {
+      q: 'Can I change the URL shown in the browser frame?',
+      a: 'Not in v1. The browser frame shows a placeholder address. The frame is about presenting the screenshot, not faking a live site. If the URL matters, take the screenshot with it visible.',
+    },
+    {
+      q: 'Do I need an account?',
+      a: 'No, and there is no way to create one. Your frame, background, padding, and shadow settings are saved in this browser automatically so your next mockup starts where the last one left off. The screenshot itself is never stored; upload it again each visit.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Device mockup generator">
+    <p class="autosave-note">Your frame settings are saved automatically in this browser only. No account, no sync in v1.</p>
+    <div id="mockup-error" class="error-box" hidden></div>
+    <div class="split-2col">
+      <div>
+        <div id="mockup-dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload a screenshot">
+          <p><strong>Drop a screenshot here</strong> or click to choose one.</p>
+          <p id="mockup-drop-hint" class="autosave-note">PNG, JPG, or WebP. It never leaves this browser.</p>
+        </div>
+        <input type="file" id="mockup-file" accept="image/*" hidden />
+        <h3 class="tool-step">Frame</h3>
+        <div id="mockup-frames" class="pill-group" role="group" aria-label="Frame choice"></div>
+        <h3 class="tool-step">Background</h3>
+        <div id="mockup-bgs" class="swatch-row" role="group" aria-label="Background choice"></div>
+        <h3 class="tool-step">Padding &amp; shadow</h3>
+        <div class="field-row field-row-center">
+          <span class="field-row-label">Padding</span>
+          <input type="range" id="mockup-padding" min="0" max="160" step="4" aria-label="Padding around the frame" class="flex-grow" />
+          <span id="mockup-padding-val" class="range-val"></span>
+        </div>
+        <div class="field-row field-row-center">
+          <span class="field-row-label">Shadow</span>
+          <input type="range" id="mockup-shadow" min="0" max="100" step="5" aria-label="Drop shadow strength" class="flex-grow" />
+          <span id="mockup-shadow-val" class="range-val"></span>
+        </div>
+        <div class="btn-row">
+          <button id="mockup-download" class="btn" type="button">Download PNG</button>
+        </div>
+      </div>
+      <div>
+        <div class="mk-preview">
+          <canvas id="mockup-canvas" class="canvas-preview" aria-label="Mockup preview"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script>
+    import { initDeviceMockupGenerator } from '../tools/device-mockup-generator';
+    initDeviceMockupGenerator();
+  </script>
+</ToolPage>

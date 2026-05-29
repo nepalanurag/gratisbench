@@ -1,0 +1,130 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Compress PDF - Free Online PDF Compressor';
+const description =
+  'Reduce a PDF file size for free, right in your browser. Pick screen or print quality and see exactly how much you saved. No signup, no watermark.';
+const h1 = 'Compress PDF files';
+const lede = 'Make a PDF smaller by rebuilding its pages at a lower resolution. Free, no account, no watermark.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Compress PDF', href: '/pdf-compressor' }]}
+  toolName="FreeKit Compress PDF"
+  intro={[
+    'PDFs get heavy fast. A scanned contract, a slide deck exported with full-resolution images, a phone scan saved at maximum quality: each one can be tens of megabytes, which is awkward when the email server caps attachments at 10 MB or the upload form rejects anything bigger. The usual fix is an online compressor, and the usual price is your document sitting on someone else\u2019s server.',
+    'This compressor works differently in one important way, and you should know it before you click the button. It shrinks your PDF by rendering every page as an image at the resolution you choose, then rebuilding the document from those images. That is very effective on scans and image-heavy files. But it means text in the result is a picture of text: it is no longer selectable, searchable, or copyable. If your PDF is mostly typed text, it is probably already small, and this tool will not help much.',
+    'Everything happens on your device. The pages are rendered locally, the smaller PDF is built locally, and nothing is uploaded anywhere. Your original file is never modified; the download is a separate new file, so you can compare the two and keep whichever you prefer.',
+  ]}
+  steps={[
+    'Drop your PDF onto the box above, or click it to browse. One file at a time.',
+    'Choose a quality preset: Screen (110 DPI) for email and web uploads, or Print (200 DPI) if the result still needs to look good on paper.',
+    'Adjust the JPEG quality slider if you want. Lower values mean smaller files and softer images.',
+    'Click "Compress PDF". Each page is rendered and rebuilt, with a progress bar.',
+    'Compare the original and compressed sizes shown in the result, then download the smaller file.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None. The output is your pages, nothing added.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['How it shrinks files', 'Each page is re-rendered as a JPEG image at your chosen resolution'],
+    ['Text selection', 'Lost. Pages become images, so text is no longer selectable or searchable.'],
+    ['Best for', 'Scanned documents and image-heavy PDFs'],
+    ['Less useful for', 'Text-based PDFs, which are usually already small'],
+    ['Quality presets', 'Screen (110 DPI) or Print (200 DPI), plus a JPEG quality slider'],
+    ['Output filename', 'Your original name with "-compressed" added'],
+  ]}
+  faqs={[
+    {
+      q: 'Will compressing make my PDF blurry?',
+      a: 'It depends on the settings you pick and what you do with the result. The Screen preset (110 DPI) looks fine on monitors and phones but will look soft if printed. The Print preset (200 DPI) holds up on paper for most documents. Your original file is never touched, so you can try both and compare before deciding.',
+    },
+    {
+      q: 'Why did my file barely get smaller?',
+      a: 'Two common reasons. First, text-based PDFs are already compact; there is little image data to shrink, and this tool cannot do much for them. Second, the PDF may already be optimized. If the result is not meaningfully smaller, the honest answer is that your file was already fine.',
+    },
+    {
+      q: 'Is the text still selectable after compression?',
+      a: 'No. This is the main trade-off and it is worth stating plainly: every page is rebuilt as an image, so text becomes a picture of text. You cannot select, copy, or search it afterwards. If you need selectable text, do not compress; use the file as-is.',
+    },
+    {
+      q: 'Which quality setting should I choose?',
+      a: 'For emailing, uploading to a form, or reading on a screen, the Screen preset at the default JPEG quality is the right starting point and gives the biggest saving. If you plan to print the result, use the Print preset. When in doubt, try Screen first; you can always re-run at Print quality since the original is untouched.',
+    },
+    {
+      q: 'Can I compress several PDFs at once?',
+      a: 'The tool handles one PDF per run, which keeps the interface simple and memory use predictable. For a batch, just run it once per file; each run takes only a few seconds on a typical document.',
+    },
+    {
+      q: 'Are my PDFs uploaded to a server?',
+      a: 'No. The rendering and rebuilding both run in your browser using code that ships with this page. Your files never leave your device, which also means the tool keeps working offline once the page has loaded.',
+    },
+    {
+      q: 'Can it compress a password-protected PDF?',
+      a: 'No. Encrypted PDFs cannot be opened without the password. Remove the password in your PDF reader first, then compress the unlocked file.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Compress PDF tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to compress">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop a PDF here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <div id="error-box" class="error-box" hidden></div>
+    <p id="file-info" class="count-label"></p>
+
+    <div class="field">
+      <label>Quality</label>
+      <div class="radio-cards" role="radiogroup" aria-label="Quality preset">
+        <label class="radio-card">
+          <input type="radio" name="quality" value="110" checked />
+          <span><strong>Screen</strong><small>110 DPI. Smallest files, good on screens.</small></span>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="quality" value="200" />
+          <span><strong>Print</strong><small>200 DPI. Larger files, still sharp on paper.</small></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="quality-slider">JPEG quality</label>
+      <div class="range-row">
+        <input type="range" id="quality-slider" min="5" max="100" value="60" />
+        <span class="range-val" id="quality-value">60%</span>
+      </div>
+      <p class="hint">Lower values shrink the file further but soften images.</p>
+    </div>
+
+    <p class="honest-note">
+      <strong>Heads up:</strong> compressed pages become images, so text stops being
+      selectable. Best for scans and image-heavy PDFs.
+    </p>
+
+    <div id="progress-wrap" class="progress-wrap" hidden>
+      <div id="progress-label" class="progress-label"></div>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+
+    <div class="btn-row">
+      <button id="compress-btn" class="btn" disabled>Compress PDF</button>
+    </div>
+    <div id="result" class="result" hidden>
+      <h3>Compressed</h3>
+      <p id="result-info"></p>
+      <div id="preview-wrap" class="pdf-preview-wrap" hidden></div>
+      <button id="download-btn" class="btn">Download PDF</button>
+    </div>
+  </section>
+  <script>
+    import { initPdfCompressor } from '../tools/pdf-compressor';
+    initPdfCompressor();
+  </script>
+</ToolPage>

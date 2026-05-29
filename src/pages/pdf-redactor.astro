@@ -1,0 +1,110 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Redact PDF - Free Online PDF Redaction Tool';
+const description =
+  'Black out sensitive text in a PDF for free, in your browser. Draw boxes over what to hide; marked areas are permanently destroyed. No signup, no watermark.';
+const h1 = 'Redact a PDF';
+const lede = 'Draw boxes over the parts to hide. Marked areas are permanently painted over; unmarked pages stay untouched. Free, no account.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Redact PDF', href: '/pdf-redactor' }]}
+  toolName="FreeKit Redact PDF"
+  intro={[
+    'Redaction has one job: make the hidden parts truly gone, not just covered up. Plenty of tools fail at this by drawing a black rectangle on top of the text while the words sit underneath, recoverable by anyone who selects the page. If you are blacking out names, account numbers, or addresses before sharing a document, "looks hidden" is not good enough.',
+    'Here is exactly what this tool does, because with redaction the method matters. Pages you mark are converted to images with the marked areas permanently painted over at the pixel level; there is no text layer left underneath to recover. Pages you do not mark are copied into the result untouched, as vectors, with their text still selectable. That keeps the output clean: only the pages you touched change format.',
+    'Because redaction is destructive by design, double-check your marks before downloading: zoom into the preview, make sure every box fully covers its text including descenders and edges, and keep your original file safe. The whole process runs locally in your browser, which also means the sensitive document you are redacting never travels over the network.',
+  ]}
+  steps={[
+    'Drop your PDF onto the box above, or click it to browse. A preview of every page appears.',
+    'Click and drag on a preview to draw a black box over anything to hide. Make each box slightly larger than the text.',
+    'Double-click a box to remove it if you misplace one, or use "Clear marks" to start a page over.',
+    'When every sensitive spot is covered, click "Redact and download".',
+    'Check the downloaded PDF before sharing it: open it, try selecting text under the black areas, and confirm nothing is recoverable.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None. The output is your document, nothing added.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['How marked pages are handled', 'Converted to images; marked areas are painted over at the pixel level'],
+    ['How unmarked pages are handled', 'Copied as-is; text stays selectable'],
+    ['Is the hidden text recoverable?', 'No. Marked regions have no text layer underneath.'],
+    ['How to mark', 'Click and drag on the page preview; double-click a box to remove it'],
+    ['Output filename', 'Your original name with "-redacted" added'],
+    ['Password-protected PDFs', 'Not supported. Remove the password first, then redact.'],
+  ]}
+  faqs={[
+    {
+      q: 'Is the redacted text really gone?',
+      a: 'Yes, for the areas you mark. Marked pages are rebuilt as flat images with the boxes painted into the pixels, so there is no hidden text layer to extract. This is the whole point of the tool, and it is why marked pages change format while unmarked pages do not. Still, always verify the result yourself before sharing: open the download and try to select text beneath the black boxes.',
+    },
+    {
+      q: 'Why do only some pages become images?',
+      a: 'Converting every page to an image would bloat the file and destroy selectable text throughout the document for no reason. Pages you never mark are copied through untouched, so their text stays selectable and the file stays lean. Only the pages with marks are rasterized, because that is the only way to guarantee the covered content is destroyed.',
+    },
+    {
+      q: 'How careful do I need to be with the boxes?',
+      a: 'Quite careful. A box that leaves even a sliver of a character visible can leak information, and a box that is too tight on one line but loose on another looks sloppy. Make each box generously larger than the text it covers, and check the preview at full size before downloading. Redaction is permanent, so measure twice.',
+    },
+    {
+      q: 'Can I redact just part of a word or a single line?',
+      a: 'Yes. The boxes are free-form: draw them any size, over any part of the page. That said, redacting a whole field (the full account number, the full name) is safer than redacting part of it, since partial values can sometimes be guessed from context.',
+    },
+    {
+      q: 'Does this tool search for text automatically?',
+      a: 'No. You mark areas by hand on the page previews. Automatic text search sounds convenient but it misses things: scanned pages have no text to search, and pattern matching cannot know which occurrences are sensitive. For a document you are about to share, eyeballing every page is the reliable approach.',
+    },
+    {
+      q: 'Can I undo a redaction after downloading?',
+      a: 'No, and that is intentional. The marked content is destroyed when the new PDF is built; neither this tool nor anyone else can bring it back. Keep your original file somewhere safe in case you need the unredacted version later.',
+    },
+    {
+      q: 'Are my PDFs uploaded to a server?',
+      a: 'No. Everything runs in your browser, which is exactly what you want when the document contains the sensitive information you are trying to hide. The file never leaves your device.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Redact PDF tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to redact">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop a PDF here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <div id="error-box" class="error-box" hidden></div>
+
+    <p class="honest-note">
+      <strong>How this works:</strong> pages you mark are converted to images with the
+      marked areas permanently painted over; unmarked pages are untouched.
+      Draw each box a little larger than the text it covers.
+    </p>
+
+    <p id="pages-empty" class="empty-state">No pages yet. Add a PDF above to start marking areas to hide.</p>
+    <div id="pages-wrap"></div>
+
+    <div id="progress-wrap" class="progress-wrap" hidden>
+      <div id="progress-label" class="progress-label"></div>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+
+    <div class="btn-row">
+      <button id="redact-btn" class="btn" disabled>Redact and download</button>
+      <span id="count-label" class="count-label"></span>
+    </div>
+    <div id="result" class="result" hidden>
+      <h3>Redacted</h3>
+      <p id="result-info"></p>
+      <button id="download-btn" class="btn">Download PDF</button>
+    </div>
+  </section>
+  <script>
+    import { initPdfRedactor } from '../tools/pdf-redactor';
+    initPdfRedactor();
+  </script>
+</ToolPage>

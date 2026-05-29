@@ -1,0 +1,116 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Image Converter - Free Online Image Converter';
+const description =
+  'Convert images between PNG, JPEG, WebP, and AVIF in your browser. Batch conversion, ZIP download, transparency warning for JPEG. No signup, no watermark.';
+const h1 = 'Convert images';
+const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you need. Free, no account, no watermark. Your files never leave your device.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Image tools', href: '/image-tools' }, { label: 'Image converter', href: '/image-converter' }]}
+  toolName="FreeKit Image Converter"
+  intro={[
+    'Image formats are a compatibility puzzle: a designer sends a WebP that your old software cannot open, a website demands JPEGs under 200 KB, an archive of BMP scans eats gigabytes for no reason. Converting used to mean installing something or uploading files to a stranger. This converter redraws each image onto a canvas in your browser and saves it in the format you pick, so the round trip takes seconds and your files stay yours.',
+    'Two honest limitations shape this tool. First, JPEG has no transparency: converting a transparent PNG or WebP to JPEG forces a background color, and the tool warns you and offers a white fill rather than silently turning those areas black. Second, AVIF output only appears when your browser can actually encode it; the option is feature-detected, not promised, because pretending every browser supports AVIF would just produce broken downloads.',
+    'Conversion is not compression, but it often shrinks files anyway: BMP and TIFF are effectively uncompressed, so almost any target format makes them dramatically smaller. Animated GIFs are the one casualty; they convert as a single still frame, because this tool works with still images. What you get is a faithful still of your picture in the format you chose.',
+  ]}
+  steps={[
+    'Drop your images onto the box above, or click it to browse. PNG, JPEG, WebP, GIF, BMP, and TIFF are accepted as inputs.',
+    'Choose the output format: PNG, JPEG, WebP, or AVIF when your browser supports it.',
+    'Set the quality slider (JPEG, WebP, and AVIF). If you picked JPEG and any image is transparent, decide on the white fill.',
+    'Click "Convert images". Each file shows its original and converted size.',
+    'Download files individually, or take them all at once with "Download all as ZIP".',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None. The output is your image, nothing added.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Input formats', 'PNG, JPEG, WebP, GIF, BMP, TIFF'],
+    ['Output formats', 'PNG, JPEG, WebP; AVIF only when the browser can encode it'],
+    ['Quality control', 'Slider from 5 to 100 for JPEG, WebP, and AVIF'],
+    ['Batch + ZIP', 'Yes. Convert many files, download individually or as one ZIP.'],
+    ['Transparency', 'Kept for PNG, WebP, and AVIF. JPEG has no transparency; a white fill is offered with a warning.'],
+    ['Animated GIFs', 'Convert as a single still frame (the first one)'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Which formats can I convert between?',
+      a: 'Inputs: PNG, JPEG, WebP, GIF, BMP, and TIFF. Outputs: PNG, JPEG, and WebP in every browser, plus AVIF when your browser can encode it. GIF, BMP, and TIFF are read-only inputs; browsers cannot save images back into those formats, so they are not offered as outputs. Conversion runs entirely on your device with no uploads.',
+    },
+    {
+      q: 'Will converting to JPEG ruin my transparent PNG?',
+      a: 'It removes the transparency, because JPEG simply has no way to store it. The tool warns you when an image actually has transparent pixels and offers a white background fill, which is on by default. Without the fill, transparent areas turn black in the JPEG. If you need to keep transparency, convert to PNG or WebP instead.',
+    },
+    {
+      q: 'What is AVIF, and why do I not see it as an option?',
+      a: 'AVIF is the newest common image format and usually produces the smallest files, often half the size of an equivalent JPEG. But browser support for encoding AVIF is uneven: Chrome and Firefox can do it, Safari historically cannot. The converter tests your browser when the page loads and only shows AVIF when the test passes. A missing option means your browser failed that test.',
+    },
+    {
+      q: 'Does converting change image quality?',
+      a: 'Converting to PNG is lossless and changes nothing visible. Converting to JPEG, WebP, or AVIF re-encodes with the quality slider you set, so quality 100 is near-identical and lower values trade detail for size. Converting a lossy JPEG to PNG does not restore the detail the JPEG already lost; it just stores the current pixels losslessly in a bigger file.',
+    },
+    {
+      q: 'Can I convert animated GIFs?',
+      a: 'Only as stills. The converter reads the first frame of an animated GIF and converts that single image, because it works with still pictures rather than animation. If you need the animation preserved, this is the wrong tool; a desktop video or GIF editor will handle frame-by-frame work better.',
+    },
+    {
+      q: 'Are my images uploaded to a server?',
+      a: 'No. The conversion happens entirely in your browser: each image is drawn to a canvas and re-encoded locally. Nothing is sent anywhere, nothing is stored, and the tool keeps working offline once the page has loaded. Closing the tab removes every trace of your files.',
+    },
+    {
+      q: 'Why is my converted file bigger than the original?',
+      a: 'Usually because you converted from a lossy format to a lossless one: a JPEG recompressed as PNG keeps every pixel exactly but PNG cannot match JPEG file sizes for photos, so the file grows while looking identical. The fix is to pick a lossy target like WebP or JPEG instead. Going the other direction, BMP and TIFF inputs almost always shrink dramatically.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Image converter tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add images to convert">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop images here</div>
+      <div class="dz-sub">or click to choose files &middot; they stay on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,.tif" multiple hidden />
+    <div id="error-box" class="error-box" hidden></div>
+    <div id="input-note" class="honest-note" hidden></div>
+
+    <div class="field">
+      <label for="output-select">Output format</label>
+      <select id="output-select"></select>
+      <p class="hint" id="format-note"></p>
+    </div>
+
+    <div class="field" id="quality-field">
+      <label for="quality-range">Quality</label>
+      <div class="range-row">
+        <input type="range" id="quality-range" min="5" max="100" value="85" />
+        <span id="quality-val" class="range-val">85</span>
+      </div>
+      <p class="hint">Applies to JPEG, WebP, and AVIF. PNG is lossless and ignores it.</p>
+    </div>
+
+    <div id="jpeg-fill-block" class="field" hidden>
+      <label class="checkline"><input type="checkbox" id="fill-white" checked /> Fill transparent areas with white</label>
+      <p id="alpha-warning" class="honest-note" hidden><strong>Transparency:</strong> at least one of your images has transparent areas. JPEG cannot store transparency, so without the white fill those areas turn black.</p>
+    </div>
+
+    <ul id="file-list" class="file-list"></ul>
+    <p id="empty-state" class="empty-state">No images yet. Add your images above, pick an output format, then convert.</p>
+    <div class="btn-row">
+      <button id="convert-btn" class="btn" disabled>Convert images</button>
+      <button id="download-all-btn" class="btn btn-secondary" hidden>Download all as ZIP</button>
+      <span id="count-label" class="count-label"></span>
+    </div>
+  </section>
+  <script>
+    import { initImageConverter } from '../tools/image-converter';
+    initImageConverter();
+  </script>
+</ToolPage>

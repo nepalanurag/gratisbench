@@ -1,0 +1,105 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Video Converter - MP4, WebM, MOV Online Free | FreeKit';
+const description =
+  'Convert video between MP4, WebM, and MOV online for free. Real H.264 and VP8 encoding in your browser with ffmpeg.wasm. No signup, no watermark. Your video never leaves your device.';
+const h1 = 'Convert videos';
+const lede = 'Turn video between MP4, WebM, and MOV. Real encoding, on your device, no upload queues.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Media tools', href: '/media-tools' }, { label: 'Video converter', href: '/video-converter' }]}
+  toolName="FreeKit Video Converter"
+  intro={[
+    'Video conversion online usually means uploading a large file to a server, waiting in a queue, and getting back a file with a watermark unless you pay. This converter runs a real copy of ffmpeg in your tab instead. The file never leaves your device, there is no queue because there is no server, and the download is yours with nothing stamped on it.',
+    'Three formats cover nearly every real-world need. MP4 with H.264 is the universal choice: it plays on phones, browsers, TVs, and editing software without a second thought. WebM is the web-native open format, great for embedding video on your own site. MOV is Apple\'s container, handy when a Mac workflow or an old device specifically asks for it.',
+    'One honest technical note: the WebM output uses VP8, not VP9. The in-browser ffmpeg build\'s VP9 encoder hangs, so VP8 is the reliable choice here, and it plays everywhere WebM is supported. The page says so instead of shipping a convert button that freezes your tab.',
+  ]}
+  steps={[
+    'Drop your video onto the box above, or click it to browse. The encoder loads in the background while you choose.',
+    'Pick the output format: MP4 (H.264), WebM (VP8), or MOV (H.264).',
+    'Click "Convert video". The conversion runs on your device with a progress bar.',
+    'Download the converted file when it finishes.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Output formats', 'MP4 (H.264 + AAC), WebM (VP8 + Vorbis), MOV (H.264 + AAC)'],
+    ['Quality', 'High-quality constant-quality encoding (CRF 22 for H.264, CRF 28 for VP8)'],
+    ['Engine download', 'About 30MB on first use, cached afterwards'],
+    ['Works offline', 'Yes, once the page and the engine have loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this video converter really free?',
+      a: 'Yes. There is no free tier with a paid tier above it, no daily quota, and no features held back. Conversion runs on your device, so there is no per-minute encoding cost to pass on. The converted file downloads with no watermark and no account.',
+    },
+    {
+      q: 'Is my video uploaded to a server?',
+      a: 'No. The conversion runs inside your browser using a WebAssembly build of ffmpeg. Your video never leaves your device, which matters for screen recordings and personal footage. Closing the tab removes all trace of the file.',
+    },
+    {
+      q: 'Which format should I choose?',
+      a: 'MP4 is the safe default: it plays on every phone, browser, TV, and editor. Choose WebM when you are embedding video on a website and want the open web-native format with good compression. Choose MOV when a Mac workflow, an Apple device, or specific software asks for it by name.',
+    },
+    {
+      q: 'Why does WebM use VP8 instead of VP9?',
+      a: 'The single-threaded ffmpeg build that runs in browsers has a broken VP9 encoder: it hangs instead of encoding. Rather than ship a button that freezes your tab, this tool encodes WebM with VP8, which is reliable here and plays everywhere WebM is supported. The quality difference at these settings is small.',
+    },
+    {
+      q: 'How long will conversion take?',
+      a: 'Longer than desktop software. Video encoding in a browser runs roughly five to fifty times slower than a native app with hardware acceleration, depending on your device. A one-minute clip takes a few minutes on a decent laptop. The progress bar shows where it is, and the tab must stay open.',
+    },
+    {
+      q: 'Will converting reduce the video quality?',
+      a: 'Slightly, in theory. The tool encodes at high constant quality (CRF 22 for H.264), which is visually indistinguishable from the source for almost everyone. Converting an already-compressed file always loses a little; converting from the original camera file is always better than converting a convert.',
+    },
+    {
+      q: 'Can it convert between any formats, like AVI or MKV input?',
+      a: 'Most common inputs work: MP4, WebM, MOV, MKV, AVI, and phone formats. Outputs are limited to the three formats the in-browser encoder handles reliably: MP4, WebM, and MOV. If your input will not read, it is probably a rare codec the WebAssembly build does not include.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Video converter tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a video to convert">
+      <div class="dz-icon"><Icon name="video" size={30} /></div>
+      <div class="dz-title">Drop video here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="video/*,.mkv,.mov,.webm,.mp4,.m4v,.avi" hidden />
+    <div id="error-box" class="error-box" hidden></div>
+    <p id="file-info" class="count-label"></p>
+    <p id="engine-status" class="engine-status" hidden></p>
+
+    <h3 class="tool-step">Output format</h3>
+    <div class="radio-cards" role="radiogroup" aria-label="Output format">
+      <label class="radio-card"><input type="radio" name="format" value="mp4" checked /><span><strong>MP4</strong><small>H.264. Plays everywhere.</small></span></label>
+      <label class="radio-card"><input type="radio" name="format" value="webm" /><span><strong>WebM</strong><small>VP8. Open format for the web.</small></span></label>
+      <label class="radio-card"><input type="radio" name="format" value="mov" /><span><strong>MOV</strong><small>H.264. For Apple workflows.</small></span></label>
+    </div>
+    <p class="honest-note"><strong>WebM uses VP8 here, not VP9.</strong> The in-browser encoder's VP9 hangs, so VP8 is the reliable choice. It plays everywhere WebM does.</p>
+
+    <div class="btn-row">
+      <button id="convert-btn" class="btn" disabled>Convert video</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-label" id="progress-label"></div>
+      <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
+    </div>
+    <div id="result" class="result" hidden>
+      <h3>Converted</h3>
+      <p id="result-info"></p>
+    </div>
+  </section>
+  <script>
+    import { initVideoConverter } from '../tools/video-converter';
+    initVideoConverter();
+  </script>
+</ToolPage>

@@ -1,0 +1,90 @@
+---
+// Support notice: shown only when an ad blocker is detected.
+// FreeKit is free because of ads; this asks visitors to allow ads here
+// or chip in on Ko-fi. Dismissible, remembered in localStorage.
+//
+// Set your Ko-fi page URL in KOFI_URL below. Leave it empty to show
+// only the "allow ads" message without the Ko-fi button.
+const KOFI_URL = '';
+---
+<div class="support-notice" id="support-notice" hidden>
+  <button class="support-dismiss" id="support-dismiss" aria-label="Dismiss">×</button>
+  <p class="support-text">
+    You are blocking ads. Ads are what keep FreeKit free, so allow them here
+    if you want to support the site.
+    {KOFI_URL && (
+      <>
+        {' '}You can also <a href={KOFI_URL} target="_blank" rel="noopener">support us on Ko-fi</a>.
+      </>
+    )}
+  </p>
+</div>
+
+<script>
+  (function () {
+    var KEY = 'freekit-support-dismissed';
+    try {
+      if (localStorage.getItem(KEY)) return;
+    } catch (e) { /* storage unavailable, show anyway */ }
+
+    // Bait element: ad blockers hide or remove nodes with ad-like classes.
+    var bait = document.createElement('div');
+    bait.className = 'adsbox ad-banner textads';
+    bait.style.cssText = 'position:absolute;left:-9999px;height:10px;width:10px;';
+    document.body.appendChild(bait);
+
+    function blocked() {
+      if (!bait.parentNode) return true;
+      var s = window.getComputedStyle(bait);
+      return s.display === 'none' || s.visibility === 'hidden' || bait.offsetHeight === 0;
+    }
+
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var isBlocked = blocked();
+        bait.remove();
+        if (!isBlocked) return;
+        var notice = document.getElementById('support-notice');
+        var dismiss = document.getElementById('support-dismiss');
+        if (!notice) return;
+        notice.hidden = false;
+        if (dismiss) {
+          dismiss.addEventListener('click', function () {
+            notice.hidden = true;
+            try { localStorage.setItem(KEY, '1'); } catch (e) {}
+          });
+        }
+      }, 400);
+    });
+  })();
+</script>
+
+<style>
+  .support-notice {
+    position: relative;
+    background: var(--accent-tint);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 0.85rem 2.5rem 0.85rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.92rem;
+    color: var(--ink);
+  }
+  .support-notice p { margin: 0; line-height: 1.5; }
+  .support-notice a { color: var(--accent); font-weight: 600; }
+  .support-dismiss {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.6rem;
+    border: 0;
+    background: none;
+    font-size: 1.3rem;
+    line-height: 1;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0.25rem;
+  }
+  .support-dismiss:hover { color: var(--ink); }
+  @media print { .support-notice { display: none; } }
+</style>

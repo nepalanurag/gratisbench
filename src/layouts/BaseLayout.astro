@@ -1,0 +1,237 @@
+---
+import '../styles/global.css';
+import CommandPalette from '../components/CommandPalette.astro';
+import { siteUrl, basePath } from '../lib/site';
+
+interface Props {
+  title: string;
+  description: string;
+  canonical?: string;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+}
+
+const { title, description, canonical, jsonLd } = Astro.props;
+const site = siteUrl(Astro.site); // from SITE_URL env, placeholder until launch
+const pageUrl = canonical ?? site + Astro.url.pathname;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={pageUrl} />
+    <link rel="icon" type="image/svg+xml" href={basePath('/favicon.svg')} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={pageUrl} />
+    <script is:inline>
+      // Theme + accessibility prefs. is:inline keeps this a plain synchronous
+      // script in <head>: the stored theme applies before first paint (no
+      // flash), and the toggle works from the first click via delegation,
+      // because this runs before the header markup even parses.
+      (function () {
+        var root = document.documentElement;
+        function applyStored() {
+          try {
+            var t = null;
+            try { t = localStorage.getItem('fk-theme'); } catch (e) {}
+            if (t) { root.setAttribute('data-theme', t); }
+            else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              root.setAttribute('data-theme', 'dark');
+            }
+            var a = {};
+            try { a = JSON.parse(localStorage.getItem('fk-a11y') || '{}'); } catch (e2) {}
+            for (var k in a) {
+              if (a[k]) root.setAttribute('data-a11y-' + k, '1');
+            }
+          } catch (e3) {}
+        }
+        function syncThemeUI() {
+          var dark = root.getAttribute('data-theme') === 'dark';
+          var b = document.getElementById('fk-theme-toggle');
+          var bm = document.getElementById('fk-theme-toggle-m');
+          var st = document.getElementById('fk-theme-state');
+          if (b) b.setAttribute('aria-pressed', dark ? 'true' : 'false');
+          if (bm) bm.setAttribute('aria-pressed', dark ? 'true' : 'false');
+          if (st) st.textContent = dark ? 'on' : 'off';
+        }
+        function setTheme(dark) {
+          if (dark) root.setAttribute('data-theme', 'dark');
+          else root.removeAttribute('data-theme');
+          try { localStorage.setItem('fk-theme', dark ? 'dark' : 'light'); } catch (e4) {}
+          syncThemeUI();
+        }
+        applyStored();
+        // Delegated: works even though the header buttons parse after this script.
+        document.addEventListener('click', function (e) {
+          var t = e.target;
+          if (!(t instanceof Element)) return;
+          if (!t.closest('#fk-theme-toggle, #fk-theme-toggle-m')) return;
+          setTheme(root.getAttribute('data-theme') !== 'dark');
+        });
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', syncThemeUI);
+        } else {
+          syncThemeUI();
+        }
+      })();
+    </script>
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+    <!-- Plausible analytics: set data-domain to the real domain when ready, then uncomment.
+    <script defer data-domain="www.freekit.app" src="https://plausible.io/js/script.js"></script>
+    -->
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href={basePath('/')} aria-label="FreeKit home">
+          <span class="brand-mark" aria-hidden="true"></span>
+          FreeKit
+        </a>
+        <nav class="site-nav" id="fk-nav" aria-label="Main">
+          <a href={basePath('/pdf-tools')}>PDF</a>
+          <a href={basePath('/image-tools')}>Image</a>
+          <a href={basePath('/media-tools')}>Media</a>
+          <a href={basePath('/business-tools')}>Business</a>
+          <div class="nav-extra">
+            <button type="button" id="fk-theme-toggle-m" aria-pressed="false">
+              <span>Dark mode</span><span class="ne-state" id="fk-theme-state">off</span>
+            </button>
+            <button type="button" id="fk-a11y-toggle-m">
+              <span>Reading comfort</span><span class="ne-state">Aa</span>
+            </button>
+          </div>
+        </nav>
+        <button class="kbtn" data-open-palette type="button" aria-label="Search tools">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="7" cy="7" r="4.6"/><path d="M10.6 10.6 14 14"/></svg>
+          <span class="kbtn-text">Search</span> <kbd class="k">⌘K</kbd>
+        </button>
+        <div class="hdr-tools">
+          <button class="hdr-btn" id="fk-theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M13.5 9.5A5.8 5.8 0 0 1 6.5 2.5a5.8 5.8 0 1 0 7 7z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3"/></svg>
+          </button>
+          <button class="hdr-btn" id="fk-a11y-toggle" type="button" aria-label="Reading comfort settings" aria-expanded="false" aria-controls="fk-a11y">
+            <span class="a11y-glyph" aria-hidden="true">aA</span>
+          </button>
+        </div>
+        <div class="a11y-panel" id="fk-a11y" hidden role="dialog" aria-label="Reading comfort settings">
+          <p class="a11y-title">Reading comfort</p>
+          <label class="checkline"><input type="checkbox" data-a11y="text" /> Larger text</label>
+          <label class="checkline"><input type="checkbox" data-a11y="contrast" /> Higher contrast</label>
+          <label class="checkline"><input type="checkbox" data-a11y="motion" /> Reduce motion</label>
+          <label class="checkline"><input type="checkbox" data-a11y="links" /> Underline links</label>
+          <p class="a11y-note">Saved on this device only.</p>
+        </div>
+        <button class="nav-toggle" id="fk-nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="fk-nav">
+          <svg width="18" height="18" viewBox="0 0 18 18" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 4.5h14M2 9h14M2 13.5h14"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <a class="brand" href={basePath('/')}>
+          <span class="brand-mark" aria-hidden="true"></span>
+          FreeKit
+        </a>
+        <span class="fine">Built by Anurag. No cookies, no accounts, no tracking.</span>
+        <nav aria-label="Footer">
+          <a href={basePath('/pdf-tools')}>PDF tools</a>
+          <a href={basePath('/image-tools')}>Image tools</a>
+          <a href={basePath('/media-tools')}>Media tools</a>
+          <a href={basePath('/business-tools')}>Business tools</a>
+          <a href={basePath('/money-tools')}>Money tools</a>
+          <a href={basePath('/design-tools')}>Design tools</a>
+          <a href={basePath('/business-profile')}>Business profile</a>
+          <a href={basePath('/resume-builder')}>Resume builder</a>
+          <a href={basePath('/qr-generator')}>QR code generator</a>
+          <a href={basePath('/fake-data-generator')}>Fake data generator</a>
+        </nav>
+      </div>
+    </footer>
+    <CommandPalette />
+    <script>
+      // Theme toggling is handled by the synchronous is:inline script in <head>
+      // (delegated click listener); this deferred module only syncs nothing
+      // theme-related. Mobile nav toggle below.
+      const navToggle = document.getElementById('fk-nav-toggle');
+      const nav = document.getElementById('fk-nav');
+      navToggle?.addEventListener('click', () => {
+        const open = nav?.classList.toggle('open') ?? false;
+        navToggle.setAttribute('aria-expanded', String(open));
+        navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      });
+      nav?.querySelectorAll('a').forEach((a) =>
+        a.addEventListener('click', () => {
+          nav.classList.remove('open');
+          navToggle?.setAttribute('aria-expanded', 'false');
+          navToggle?.setAttribute('aria-label', 'Open menu');
+        }),
+      );
+
+      // Reading-comfort (accessibility) panel.
+      const root = document.documentElement;
+      const a11yPanel = document.getElementById('fk-a11y');
+      const a11yBtn = document.getElementById('fk-a11y-toggle');
+      const a11yBtnM = document.getElementById('fk-a11y-toggle-m');
+      const readA11y = () => {
+        try { return JSON.parse(localStorage.getItem('fk-a11y') || '{}'); } catch (e) { return {}; }
+      };
+      const writeA11y = (prefs) => {
+        try { localStorage.setItem('fk-a11y', JSON.stringify(prefs)); } catch (e) {}
+      };
+      const syncA11yUI = () => {
+        const prefs = readA11y();
+        a11yPanel?.querySelectorAll('input[data-a11y]').forEach((input) => {
+          input.checked = !!prefs[input.getAttribute('data-a11y')];
+        });
+      };
+      const openA11y = () => {
+        if (!a11yPanel) return;
+        a11yPanel.hidden = false;
+        a11yBtn?.setAttribute('aria-expanded', 'true');
+        nav?.classList.remove('open');
+        navToggle?.setAttribute('aria-expanded', 'false');
+      };
+      const closeA11y = () => {
+        if (!a11yPanel || a11yPanel.hidden) return;
+        a11yPanel.hidden = true;
+        a11yBtn?.setAttribute('aria-expanded', 'false');
+      };
+      a11yBtn?.addEventListener('click', () => (a11yPanel?.hidden ? openA11y() : closeA11y()));
+      a11yBtnM?.addEventListener('click', openA11y);
+      a11yPanel?.querySelectorAll('input[data-a11y]').forEach((input) =>
+        input.addEventListener('change', () => {
+          const key = input.getAttribute('data-a11y');
+          const prefs = readA11y();
+          if (input.checked) {
+            prefs[key] = true;
+            root.setAttribute('data-a11y-' + key, '1');
+          } else {
+            delete prefs[key];
+            root.removeAttribute('data-a11y-' + key);
+          }
+          writeA11y(prefs);
+        }),
+      );
+      document.addEventListener('click', (e) => {
+        const t = e.target;
+        if (!(t instanceof Node) || !a11yPanel || a11yPanel.hidden) return;
+        const hit = (b) => !!b && (t === b || b.contains(t));
+        if (!a11yPanel.contains(t) && !hit(a11yBtn) && !hit(a11yBtnM)) closeA11y();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeA11y();
+      });
+      syncA11yUI();
+    </script>
+  </body>
+</html>

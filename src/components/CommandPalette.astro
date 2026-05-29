@@ -1,0 +1,69 @@
+---
+// Cmd+K command palette: fuzzy-search the tool index, keyboard navigable.
+import { ALL_TOOLS } from '../lib/tools';
+import { basePath } from '../lib/site';
+
+const items = ALL_TOOLS.map((t, i) => ({ ...t, n: String(i + 1).padStart(2, '0'), url: basePath(t.href) }));
+---
+<div class="pal" id="fk-pal" role="dialog" aria-modal="true" aria-label="Search tools">
+  <div class="pal-box">
+    <input id="fk-pal-input" type="text" placeholder="Type a tool name…" autocomplete="off" aria-label="Search tools" />
+    <div class="pal-list" id="fk-pal-list" role="listbox"></div>
+    <div class="pal-foot">↑↓ NAVIGATE · ↵ OPEN · ESC CLOSE</div>
+  </div>
+</div>
+<script define:vars={{ items }}>
+  const pal = document.getElementById('fk-pal');
+  const input = document.getElementById('fk-pal-input');
+  const list = document.getElementById('fk-pal-list');
+  let active = 0;
+  let shown = items;
+
+  function esc(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function render() {
+    list.innerHTML = shown.length
+      ? shown.map((t, i) =>
+          `<div class="pal-item${i === active ? ' active' : ''}" role="option" data-url="${esc(t.url)}" data-i="${i}">` +
+          `<span class="n">${t.n}</span><span>${esc(t.name)}</span><span class="t">${esc(t.group)}</span></div>`
+        ).join('')
+      : '<div class="pal-item"><span style="color:var(--faint)">No tools match.</span></div>';
+    list.querySelectorAll('.pal-item[data-url]').forEach((el) => {
+      el.addEventListener('click', () => { window.location.href = el.dataset.url; });
+      el.addEventListener('mousemove', () => {
+        active = Number(el.dataset.i);
+        list.querySelectorAll('.pal-item').forEach((x, xi) => x.classList.toggle('active', xi === active));
+      });
+    });
+  }
+
+  function filter(q) {
+    const needle = q.trim().toLowerCase();
+    shown = needle
+      ? items.filter((t) => (t.name + ' ' + t.desc + ' ' + t.group).toLowerCase().includes(needle))
+      : items;
+    active = 0;
+    render();
+  }
+
+  function open() { pal.classList.add('open'); input.value = ''; filter(''); setTimeout(() => input.focus(), 20); }
+  function close() { pal.classList.remove('open'); }
+  function toggle() { pal.classList.contains('open') ? close() : open(); }
+
+  document.querySelectorAll('[data-open-palette]').forEach((b) => b.addEventListener('click', open));
+  pal.addEventListener('click', (e) => { if (e.target === pal) close(); });
+  input.addEventListener('input', () => filter(input.value));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, shown.length - 1); render(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); render(); }
+    else if (e.key === 'Enter' && shown[active]) { window.location.href = shown[active].url; }
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); toggle(); }
+    else if (e.key === 'Escape' && pal.classList.contains('open')) { close(); }
+    else if (e.key === '/' && !pal.classList.contains('open') && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); open(); }
+  });
+  filter('');
+</script>
