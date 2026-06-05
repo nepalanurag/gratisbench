@@ -1,7 +1,7 @@
 ---
 import '../styles/global.css';
 import CommandPalette from '../components/CommandPalette.astro';
-import { siteUrl, basePath } from '../lib/site';
+import { siteUrl, basePath, DONATE_URL } from '../lib/site';
 
 interface Props {
   title: string;
@@ -103,6 +103,11 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
             <button type="button" id="fk-a11y-toggle-m">
               <span>Reading comfort</span><span class="ne-state">Aa</span>
             </button>
+            {DONATE_URL && (
+              <a class="ne-link" href={DONATE_URL} target="_blank" rel="noopener">
+                <span>Donate</span>
+              </a>
+            )}
           </div>
         </nav>
         <button class="kbtn" data-open-palette type="button" aria-label="Search tools">
@@ -110,6 +115,9 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
           <span class="kbtn-text">Search</span> <kbd class="k">⌘K</kbd>
         </button>
         <div class="hdr-tools">
+          {DONATE_URL && (
+            <a class="donate-btn" href={DONATE_URL} target="_blank" rel="noopener">Donate</a>
+          )}
           <button class="hdr-btn" id="fk-theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false">
             <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M13.5 9.5A5.8 5.8 0 0 1 6.5 2.5a5.8 5.8 0 1 0 7 7z"/></svg>
             <svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3"/></svg>

@@ -83,7 +83,7 @@ html[data-a11y-motion="1"] *::after {
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
 }
-html[data-a11y-links="1"] a:not(.btn):not(.tool-row):not(.brand):not(.icon-btn):not(.pill):not(.tab-btn):not(.nav-toggle):not(.kbtn):not(.swatch):not(.icon-pick) {
+html[data-a11y-links="1"] a:not(.btn):not(.tool-row):not(.brand):not(.icon-btn):not(.pill):not(.tab-btn):not(.nav-toggle):not(.kbtn):not(.swatch):not(.icon-pick):not(.donate-btn):not(.ne-link) {
   text-decoration: underline !important;
   text-underline-offset: 3px;
 }
@@ -903,6 +903,13 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
 [data-theme="dark"] .hdr-btn .icon-sun { display: block; }
 [data-theme="dark"] .hdr-btn .icon-moon { display: none; }
 .hdr-btn .a11y-glyph { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+.donate-btn {
+  display: inline-flex; align-items: center; background: var(--accent); color: #fff;
+  border: 1px solid var(--accent-dark); border-radius: var(--radius);
+  padding: 6px 14px; font-size: 0.85rem; font-weight: 650; text-decoration: none;
+  white-space: nowrap;
+}
+.donate-btn:hover { background: var(--accent-dark); color: #fff; }
 
 /* Reading-comfort panel: plain dropdown under the header. */
 .a11y-panel {
@@ -925,14 +932,14 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
     flex-direction: column; align-items: stretch; gap: 0;
     border-top: 1px solid var(--line); margin-top: 6px; padding-top: 4px;
   }
-  .nav-extra button {
+  .nav-extra button, .nav-extra a {
     display: flex; align-items: center; gap: 0.6rem; width: 100%;
     background: none; border: none; border-bottom: 1px solid var(--line);
     padding: 11px 4px; font: inherit; font-size: 1rem; color: var(--muted);
-    cursor: pointer; text-align: left;
+    cursor: pointer; text-align: left; text-decoration: none;
   }
-  .nav-extra button:last-child { border-bottom: none; }
-  .nav-extra button:hover { color: var(--ink); }
+  .nav-extra button:last-child, .nav-extra a:last-child { border-bottom: none; }
+  .nav-extra button:hover, .nav-extra a:hover { color: var(--ink); }
   .nav-extra .ne-state { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; }
 }
 

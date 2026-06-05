@@ -1,20 +1,20 @@
 ---
+import { DONATE_URL } from '../lib/site';
 // Support notice: shown only when an ad blocker is detected.
 // FreeKit is free because of ads; this asks visitors to allow ads here
-// or chip in on Ko-fi. Dismissible, remembered in localStorage.
+// or chip in via the donation link. Dismissible, remembered in localStorage.
 //
-// Set your Ko-fi page URL in KOFI_URL below. Leave it empty to show
-// only the "allow ads" message without the Ko-fi button.
-const KOFI_URL = '';
+// Set DONATE_URL in src/lib/site.ts. Leave it empty to show only the
+// "allow ads" message without the donation link.
 ---
 <div class="support-notice" id="support-notice" hidden>
   <button class="support-dismiss" id="support-dismiss" aria-label="Dismiss">×</button>
   <p class="support-text">
     You are blocking ads. Ads are what keep FreeKit free, so allow them here
     if you want to support the site.
-    {KOFI_URL && (
+    {DONATE_URL && (
       <>
-        {' '}You can also <a href={KOFI_URL} target="_blank" rel="noopener">support us on Ko-fi</a>.
+        {' '}You can also <a href={DONATE_URL} target="_blank" rel="noopener">donate to support the site</a>.
       </>
     )}
   </p>

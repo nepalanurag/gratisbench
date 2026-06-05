@@ -13,3 +13,9 @@ export function basePath(p: string): string {
 export function siteUrl(site: URL | undefined): string {
   return (site?.toString() ?? 'https://www.freekit.app').replace(/\/$/, '');
 }
+
+// Donation page URL shown as the "Donate" button in the site header (desktop
+// and mobile menu) and as the Ko-fi link in the ad-block support notice.
+// Leave empty to hide the Donate button entirely. Set this to the real
+// donation page URL (Ko-fi, PayPal, etc.) before launch.
+export const DONATE_URL = '';
