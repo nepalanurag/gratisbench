@@ -18,4 +18,4 @@ export function siteUrl(site: URL | undefined): string {
 // and mobile menu) and as the Ko-fi link in the ad-block support notice.
 // Leave empty to hide the Donate button entirely. Set this to the real
 // donation page URL (Ko-fi, PayPal, etc.) before launch.
-export const DONATE_URL = '';
+export const DONATE_URL = 'https://ko-fi.com/anuragnepal';
