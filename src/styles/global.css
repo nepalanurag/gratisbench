@@ -910,6 +910,8 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
   white-space: nowrap;
 }
 .donate-btn:hover { background: var(--accent-dark); color: #fff; }
+[data-theme="dark"] .donate-btn { color: #161616; }
+[data-theme="dark"] .donate-btn:hover { color: #161616; }
 
 /* Reading-comfort panel: plain dropdown under the header. */
 .a11y-panel {

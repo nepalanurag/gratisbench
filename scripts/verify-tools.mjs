@@ -2311,6 +2311,10 @@ console.log('== responsive / mobile checks (static) ==');
   }
   ok('light mode: white text on accent button clears 4.5:1', ratio('#ffffff', light.accent) >= 4.5);
   ok('dark mode: dark text on accent button clears 4.5:1', ratio('#161616', dark.accent) >= 4.5);
+  // Donate button hardcodes white text, so it needs an explicit dark-mode override
+  // (white on the light dark-mode accent was unreadable).
+  ok('donate button has a dark-mode text override', /\[data-theme="dark"\]\s*\.donate-btn\s*\{\s*color:\s*#161616/.test(css));
+  ok('donate button hover keeps dark text in dark mode', /\[data-theme="dark"\]\s*\.donate-btn:hover\s*\{\s*color:\s*#161616/.test(css));
   // The media engine load must never hang silently: it races a timeout.
   const loader = readFileSync(join(ROOT, 'src/tools/ffmpeg-loader.ts'), 'utf8');
   ok('ffmpeg load races a timeout', /Promise\.race\(\[load, timeout\]\)/.test(loader));
