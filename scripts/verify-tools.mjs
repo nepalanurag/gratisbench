@@ -320,7 +320,7 @@ import {
   deserializeSettings,
 } from '../src/lib/fakedata-core.ts';
 import JSZip from 'jszip';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -2268,7 +2268,7 @@ console.log('== responsive / mobile checks (static) ==');
   ok('unlock tool verifies the output opens password-free', /PDFDocument\.load\(out\)/.test(unlockTool));
   ok('unlock page notes the one-time engine download', /one-time/.test(unlockPage));
   ok('unlock tool is listed on the PDF tools hub', readFileSync(join(ROOT, 'src/pages/pdf-tools.astro'), 'utf8').includes('/unlock-pdf'));
-  ok('unlock PDF is in the sitemap', readFileSync(join(ROOT, 'public/sitemap.xml'), 'utf8').includes('/unlock-pdf'));
+  ok('unlock PDF is in the sitemap', /import\.meta\.glob\('\.\/\*\.astro'\)/.test(readFileSync(join(ROOT, 'src/pages/sitemap.xml.ts'), 'utf8')) && existsSync(join(ROOT, 'src/pages/unlock-pdf.astro')));
   ok('homepage counts 32 tools', /32 small tools/.test(index));
   for (const [page, tool] of [['merge-pdf', 'merge-pdf'], ['images-to-pdf', 'images-to-pdf'], ['pdf-compressor', 'pdf-compressor']]) {
     const p = readFileSync(join(ROOT, `src/pages/${page}.astro`), 'utf8');
@@ -2315,6 +2315,30 @@ console.log('== responsive / mobile checks (static) ==');
   // (white on the light dark-mode accent was unreadable).
   ok('donate button has a dark-mode text override', /\[data-theme="dark"\]\s*\.donate-btn\s*\{\s*color:\s*#161616/.test(css));
   ok('donate button hover keeps dark text in dark mode', /\[data-theme="dark"\]\s*\.donate-btn:hover\s*\{\s*color:\s*#161616/.test(css));
+  // README / SEO / analytics / feedback batch.
+  ok('repo README exists', existsSync(join(ROOT, 'README.md')));
+  const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+  ok('README documents analytics setup', /GoatCounter/.test(readme));
+  ok('README documents deployment env vars', /SITE_URL/.test(readme) && /BASE_PATH/.test(readme));
+  ok('OG social image exists', existsSync(join(ROOT, 'public/og-image.png')));
+  const baseLayout = readFileSync(join(ROOT, 'src/layouts/BaseLayout.astro'), 'utf8');
+  ok('head has og:image', /property="og:image"/.test(baseLayout));
+  ok('head has twitter card', /name="twitter:card"/.test(baseLayout));
+  ok('head has theme-color', /name="theme-color"/.test(baseLayout));
+  ok('analytics snippet gated on ANALYTICS_CODE', /ANALYTICS_CODE && \(/.test(baseLayout) && /goatcounter/.test(baseLayout));
+  ok('footer no longer claims "no tracking"', !/no tracking/.test(baseLayout));
+  ok('footer links the feedback page', /\/feedback/.test(baseLayout));
+  const toolPageLayout = readFileSync(join(ROOT, 'src/layouts/ToolPage.astro'), 'utf8');
+  ok('tool pages emit FAQPage structured data', /'FAQPage'/.test(toolPageLayout));
+  ok('dynamic sitemap endpoint exists', existsSync(join(ROOT, 'src/pages/sitemap.xml.ts')));
+  ok('stale static sitemap removed', !existsSync(join(ROOT, 'public/sitemap.xml')));
+  const sitemapSrc = readFileSync(join(ROOT, 'src/pages/sitemap.xml.ts'), 'utf8');
+  ok('sitemap generated from page files', /import\.meta\.glob/.test(sitemapSrc));
+  ok('feedback page exists', existsSync(join(ROOT, 'src/pages/feedback.astro')));
+  const feedback = readFileSync(join(ROOT, 'src/pages/feedback.astro'), 'utf8');
+  ok('feedback opens a prefilled GitHub issue', /\/issues\/new\?title=/.test(feedback));
+  const siteLib = readFileSync(join(ROOT, 'src/lib/site.ts'), 'utf8');
+  ok('analytics code constant exists', /ANALYTICS_CODE/.test(siteLib));
   // The media engine load must never hang silently: it races a timeout.
   const loader = readFileSync(join(ROOT, 'src/tools/ffmpeg-loader.ts'), 'utf8');
   ok('ffmpeg load races a timeout', /Promise\.race\(\[load, timeout\]\)/.test(loader));

@@ -1,0 +1,113 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { basePath, GITHUB_REPO } from '../lib/site';
+import { TOOL_GROUPS } from '../lib/tools';
+
+const title = 'Feedback - FreeKit';
+const description =
+  'Report a bug, request a feature, or suggest a tool. Feedback opens as a GitHub issue so it stays public and trackable.';
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="wrap">
+    <div class="page-head">
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href={basePath('/')}>FreeKit</a>
+        <span><span class="sep">/</span>Feedback</span>
+      </nav>
+      <h1>Feedback</h1>
+      <p class="tool-desc">
+        Found a bug, want a feature, or have a tool idea? Write it below. It
+        opens as a GitHub issue on the FreeKit repo so it stays public and
+        trackable. You need a GitHub account to post.
+      </p>
+    </div>
+
+    <form id="feedback-form" class="feedback-form">
+      <label>
+        <span>What is this about</span>
+        <select id="fb-category" name="category">
+          <option value="Bug report">Bug report</option>
+          <option value="Feature request">Feature request</option>
+          <option value="Tool idea">Tool idea</option>
+          <option value="Something else">Something else</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Tool (if relevant)</span>
+        <select id="fb-tool" name="tool">
+          <option value="">Not tied to one tool</option>
+          {TOOL_GROUPS.map((g) => (
+            <optgroup label={g.name}>
+              {g.tools.map((t) => (
+                <option value={t.name}>{t.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        <span>Details</span>
+        <textarea
+          id="fb-message"
+          name="message"
+          rows="8"
+          required
+          placeholder="What happened, or what should exist. Steps to reproduce help for bugs."
+        ></textarea>
+      </label>
+
+      <label>
+        <span>Contact (optional)</span>
+        <input
+          id="fb-contact"
+          name="contact"
+          type="text"
+          autocomplete="off"
+          placeholder="Email or handle, in case a follow-up question comes up"
+        />
+      </label>
+
+      <button type="submit" class="btn">Open GitHub issue</button>
+      <p class="fine">
+        This opens github.com/{GITHUB_REPO} with your text prefilled. Nothing
+        is sent until you submit the issue there.
+      </p>
+    </form>
+  </div>
+
+  <style>
+    .feedback-form { max-width: 40rem; display: grid; gap: 1rem; margin-top: 1.5rem; }
+    .feedback-form label { display: grid; gap: 0.4rem; }
+    .feedback-form label > span { font-weight: 600; font-size: 0.9rem; }
+    .feedback-form .btn { justify-self: start; }
+  </style>
+
+  <script define:vars={{ repo: GITHUB_REPO }}>
+    const form = document.getElementById('feedback-form');
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const category = document.getElementById('fb-category').value;
+      const tool = document.getElementById('fb-tool').value;
+      const message = document.getElementById('fb-message').value.trim();
+      const contact = document.getElementById('fb-contact').value.trim();
+      if (!message) return;
+      const headline = message.split('\n')[0].slice(0, 80);
+      const title = '[Feedback] ' + category + ': ' + headline;
+      const lines = ['Category: ' + category];
+      if (tool) lines.push('Tool: ' + tool);
+      if (contact) lines.push('Contact: ' + contact);
+      lines.push('', message, '', '---', 'Sent from the FreeKit feedback page.');
+      const url =
+        'https://github.com/' +
+        repo +
+        '/issues/new?title=' +
+        encodeURIComponent(title) +
+        '&body=' +
+        encodeURIComponent(lines.join('\n'));
+      window.open(url, '_blank', 'noopener');
+    });
+  </script>
+</BaseLayout>

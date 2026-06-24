@@ -1,7 +1,7 @@
 ---
 import '../styles/global.css';
 import CommandPalette from '../components/CommandPalette.astro';
-import { siteUrl, basePath, DONATE_URL } from '../lib/site';
+import { siteUrl, basePath, DONATE_URL, ANALYTICS_CODE } from '../lib/site';
 
 interface Props {
   title: string;
@@ -27,6 +27,12 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={pageUrl} />
+    <meta property="og:image" content={site + basePath('/og-image.png')} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={site + basePath('/og-image.png')} />
+    <meta name="theme-color" content="#ffffff" />
     <script is:inline>
       // Theme + accessibility prefs. is:inline keeps this a plain synchronous
       // script in <head>: the stored theme applies before first paint (no
@@ -80,9 +86,13 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
       })();
     </script>
     {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
-    <!-- Plausible analytics: set data-domain to the real domain when ready, then uncomment.
-    <script defer data-domain="www.freekit.app" src="https://plausible.io/js/script.js"></script>
-    -->
+    {ANALYTICS_CODE && (
+      <script
+        data-goatcounter={'https://' + ANALYTICS_CODE + '.goatcounter.com/count'}
+        async
+        src="//gc.zgo.at/count.js"
+      />
+    )}
   </head>
   <body>
     <header class="site-header">
@@ -150,7 +160,7 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
           <span class="brand-mark" aria-hidden="true"></span>
           FreeKit
         </a>
-        <span class="fine">Built by Anurag. No cookies, no accounts, no tracking.</span>
+        <span class="fine">Built by Anurag. No cookies, no accounts.</span>
         <nav aria-label="Footer">
           <a href={basePath('/pdf-tools')}>PDF tools</a>
           <a href={basePath('/image-tools')}>Image tools</a>
@@ -162,6 +172,7 @@ const pageUrl = canonical ?? site + Astro.url.pathname;
           <a href={basePath('/resume-builder')}>Resume builder</a>
           <a href={basePath('/qr-generator')}>QR code generator</a>
           <a href={basePath('/fake-data-generator')}>Fake data generator</a>
+          <a href={basePath('/feedback')}>Feedback</a>
         </nav>
       </div>
     </footer>

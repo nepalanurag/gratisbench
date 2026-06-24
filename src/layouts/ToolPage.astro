@@ -47,6 +47,15 @@ const jsonLd = [
       })),
     ],
   },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  },
 ];
 ---
 <BaseLayout title={title} description={description} jsonLd={jsonLd}>

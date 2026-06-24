@@ -19,3 +19,11 @@ export function siteUrl(site: URL | undefined): string {
 // Leave empty to hide the Donate button entirely. Set this to the real
 // donation page URL (Ko-fi, PayPal, etc.) before launch.
 export const DONATE_URL = 'https://ko-fi.com/anuragnepal';
+
+// Privacy-friendly analytics (GoatCounter: cookieless, no personal data).
+// Set to your GoatCounter site code (the "xxxx" in xxxx.goatcounter.com) to
+// count pageviews per tool page. Leave empty to disable analytics entirely.
+export const ANALYTICS_CODE = '';
+
+// GitHub repo used by the /feedback page to open prefilled issues.
+export const GITHUB_REPO = 'nepalanurag/freekit';
