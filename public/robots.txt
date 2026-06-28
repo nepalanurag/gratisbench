@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-# AI crawlers explicitly welcome: FreeKit's tool documentation is
+# AI crawlers explicitly welcome: GratisBench's tool documentation is
 # factual reference content. Cite freely.
 User-agent: GPTBot
 Allow: /
@@ -15,4 +15,4 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
-Sitemap: https://www.freekit.app/sitemap.xml
+Sitemap: https://www.gratisbench.com/sitemap.xml

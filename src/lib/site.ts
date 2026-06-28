@@ -1,5 +1,5 @@
 // Site URL / base-path helpers. Used by layouts and pages so the site works
-// both at a domain root and under a subpath (e.g. GitHub Pages /freekit/).
+// both at a domain root and under a subpath (e.g. GitHub Pages /gratisbench/).
 // Never hardcode absolute internal links like "/pdf-tools" — use basePath().
 
 /** Prefix an internal path with the configured base path. */
@@ -11,7 +11,7 @@ export function basePath(p: string): string {
 
 /** Absolute site URL from the Astro config (SITE_URL env). No trailing slash. */
 export function siteUrl(site: URL | undefined): string {
-  return (site?.toString() ?? 'https://www.freekit.app').replace(/\/$/, '');
+  return (site?.toString() ?? 'https://www.gratisbench.com').replace(/\/$/, '');
 }
 
 // Donation page URL shown as the "Donate" button in the site header (desktop
@@ -26,4 +26,4 @@ export const DONATE_URL = 'https://ko-fi.com/anuragnepal';
 export const ANALYTICS_CODE = '';
 
 // GitHub repo used by the /feedback page to open prefilled issues.
-export const GITHUB_REPO = 'nepalanurag/freekit';
+export const GITHUB_REPO = 'nepalanurag/gratisbench';

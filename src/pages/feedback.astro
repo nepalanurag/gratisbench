@@ -3,22 +3,22 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { basePath, GITHUB_REPO } from '../lib/site';
 import { TOOL_GROUPS } from '../lib/tools';
 
-const title = 'Feedback - FreeKit';
+const title = 'Feedback - GratisBench Free Tools';
 const description =
-  'Report a bug, request a feature, or suggest a tool. Feedback opens as a GitHub issue so it stays public and trackable.';
+  'Report a bug, request a feature, or suggest a tool for the GratisBench free tools. Feedback opens as a GitHub issue so it stays public and trackable.';
 ---
 
 <BaseLayout title={title} description={description}>
   <div class="wrap">
     <div class="page-head">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href={basePath('/')}>FreeKit</a>
+        <a href={basePath('/')}>GratisBench</a>
         <span><span class="sep">/</span>Feedback</span>
       </nav>
       <h1>Feedback</h1>
       <p class="tool-desc">
         Found a bug, want a feature, or have a tool idea? Write it below. It
-        opens as a GitHub issue on the FreeKit repo so it stays public and
+        opens as a GitHub issue on the GratisBench repo so it stays public and
         trackable. You need a GitHub account to post.
       </p>
     </div>
@@ -99,7 +99,7 @@ const description =
       const lines = ['Category: ' + category];
       if (tool) lines.push('Tool: ' + tool);
       if (contact) lines.push('Contact: ' + contact);
-      lines.push('', message, '', '---', 'Sent from the FreeKit feedback page.');
+      lines.push('', message, '', '---', 'Sent from the GratisBench feedback page.');
       const url =
         'https://github.com/' +
         repo +

@@ -94,7 +94,7 @@ export function exampleOgSpec(): OgSpec {
   return {
     headline: 'Small tools that run in your browser',
     subtext: 'Free, no accounts, no watermarks. Your files never leave your device.',
-    brand: 'FreeKit',
+    brand: 'GratisBench',
     presetId: 'og',
     themeId: 'paper',
     pattern: 'dots',
@@ -273,7 +273,7 @@ export function layoutOg(spec: OgSpec): OgLayout {
   };
 }
 
-/** "freekit-og-1200x630.png" style download names. */
+/** "gratisbench-og-1200x630.png" style download names. */
 export function ogFileName(brand: string, presetId: string): string {
   const preset = ogPresetById(presetId);
   const slug = brand.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);

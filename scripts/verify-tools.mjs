@@ -475,7 +475,7 @@ console.log('== imagesToPdf ==');
 
 console.log('== QR ==');
 {
-  const text = 'https://www.freekit.app/merge-pdf';
+  const text = 'https://www.gratisbench.com/merge-pdf';
   for (const ec of ['L', 'M', 'Q', 'H']) {
     const url = await makeQrPng({ text, size: 512, errorCorrection: ec });
     ok(`PNG generated (EC=${ec})`, url.startsWith('data:image/png;base64,'));
@@ -2163,7 +2163,7 @@ console.log('== built HTML: page scripts survived the build ==');
         continue;
       }
       const html = readFileSync(pageHtml, 'utf8');
-      // Allow an optional base-path prefix (e.g. /freekit/_astro/ on GitHub Pages).
+      // Allow an optional base-path prefix (e.g. /gratisbench/_astro/ on GitHub Pages).
       const m = html.match(/<script type="module" src="([^"]*\/_astro\/[a-z-]+\.astro_astro_type_script_index_0_lang\.[A-Za-z0-9_-]+\.js)"/);
       const rel = m ? m[1].slice(m[1].indexOf('/_astro/') + 1) : null;
       const chunkPath = rel ? join(ROOT, 'dist', rel) : null;

@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { basePath, siteUrl } from '../lib/site';
 import { ALL_TOOLS } from '../lib/tools';
 
-const title = 'Design Tools - Free Logo Maker, OG Images & Mockups | FreeKit';
+const title = 'Design Tools - Free Logo Maker, OG Images & Mockups | GratisBench';
 const description =
   'Free design tools that run in your browser: a wordmark logo maker with PNG and SVG download, a social card generator, and a device mockup generator. No signup, no download fees.';
 
@@ -19,7 +19,7 @@ const tools = toolsRaw.map((t, i) => ({ ...t, num: String(i + 1).padStart(2, '0'
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: 'FreeKit design tools',
+  name: 'GratisBench design tools',
   url: siteUrl(Astro.site) + basePath('/design-tools'),
   description,
 };
@@ -28,7 +28,7 @@ const jsonLd = {
   <div class="wrap">
     <div class="page-head">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href={basePath("/")}>FreeKit</a><span><span class="sep">/</span><a href={basePath("/design-tools")}>Design tools</a></span>
+        <a href={basePath("/")}>GratisBench</a><span><span class="sep">/</span><a href={basePath("/design-tools")}>Design tools</a></span>
       </nav>
       <h1>Design tools</h1>
       <p class="lede">

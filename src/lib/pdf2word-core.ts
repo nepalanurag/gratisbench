@@ -300,7 +300,7 @@ export async function assembleDocx(pages: DocPage[], title = 'Converted document
   }
   const doc = new Document({
     title,
-    creator: 'FreeKit PDF to Word',
+    creator: 'GratisBench PDF to Word',
     sections: [{ children }],
   });
   // Packer.toBuffer() needs Node's Buffer and throws in browsers

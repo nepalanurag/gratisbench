@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { basePath, siteUrl } from '../lib/site';
 import { TOOL_GROUPS } from '../lib/tools';
 
-const title = 'FreeKit - Free Online Tools That Run in Your Browser';
+const title = 'GratisBench - Free Online Tools That Run in Your Browser';
 const description =
   'Free online tools with no signup and no watermarks: budget planner, subscription tracker, logo maker, OG image generator, device mockup generator, resume builder, invoice generator, email signature generator, merge PDF, split PDF, images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, unlock PDF, PDF to Word, compress and convert images, remove backgrounds, image OCR, trace images to SVG, QR code generator, trim and join audio, convert audio, compress/trim/convert video, screen recorder, fake data generator, business profile. Your files never leave your device.';
 
@@ -16,7 +16,7 @@ const groups = TOOL_GROUPS.map((g) => ({
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
-  name: 'FreeKit',
+  name: 'GratisBench',
   url: siteUrl(Astro.site) + basePath('/'),
   description,
 };
@@ -26,7 +26,7 @@ const jsonLd = {
     <div class="home-head">
       <h1>Free tools that run in your browser.</h1>
       <p class="intro">
-        FreeKit is 32 small tools for everyday file work: PDFs, images, audio,
+        GratisBench is 32 small tools for everyday file work: PDFs, images, audio,
         video, and a few business basics. They run entirely on your device,
         so there is nothing to upload, no account to create, and no watermark
         on the way out.
@@ -46,7 +46,7 @@ const jsonLd = {
           <input
             id="demo-qr-text"
             type="text"
-            value="https://nepalanurag.github.io/freekit/"
+            value="https://nepalanurag.github.io/gratisbench/"
             maxlength="4000"
             autocomplete="off"
             spellcheck="false"
@@ -102,8 +102,8 @@ const jsonLd = {
       <h2>Common questions</h2>
       <dl>
         <div class="faq">
-          <dt>What is FreeKit?</dt>
-          <dd>FreeKit is a collection of small, single-purpose web tools: PDF utilities, converters, and generators. Each tool does one job, runs entirely in your browser, and is free without an account.</dd>
+          <dt>What is GratisBench?</dt>
+          <dd>GratisBench is a collection of small, single-purpose web tools: PDF utilities, converters, and generators. Each tool does one job, runs entirely in your browser, and is free without an account.</dd>
         </div>
         <div class="faq">
           <dt>How can the tools be free?</dt>

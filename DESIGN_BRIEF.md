@@ -1,4 +1,4 @@
-# FreeKit Design Brief (v4)
+# GratisBench Design Brief (v4)
 
 Written 2026-09-24 after the v3 redesign was rejected as looking AI-generated.
 Based on a web-research pass on human vs. AI-looking web design (report:

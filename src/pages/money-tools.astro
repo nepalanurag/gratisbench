@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { basePath, siteUrl } from '../lib/site';
 import { ALL_TOOLS } from '../lib/tools';
 
-const title = 'Money Tools - Free Budget Planner & Subscription Tracker | FreeKit';
+const title = 'Money Tools - Free Budget Planner & Subscription Tracker | GratisBench';
 const description =
   'Free money tools that run in your browser: a zero-based budget planner and a subscription tracker with renewal reminders. No signup, no sync, your data never leaves your device.';
 
@@ -18,7 +18,7 @@ const tools = toolsRaw.map((t, i) => ({ ...t, num: String(i + 1).padStart(2, '0'
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: 'FreeKit money tools',
+  name: 'GratisBench money tools',
   url: siteUrl(Astro.site) + basePath('/money-tools'),
   description,
 };
@@ -27,7 +27,7 @@ const jsonLd = {
   <div class="wrap">
     <div class="page-head">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href={basePath("/")}>FreeKit</a><span><span class="sep">/</span><a href={basePath("/money-tools")}>Money tools</a></span>
+        <a href={basePath("/")}>GratisBench</a><span><span class="sep">/</span><a href={basePath("/money-tools")}>Money tools</a></span>
       </nav>
       <h1>Money tools</h1>
       <p class="lede">

@@ -1,8 +1,8 @@
-# FreeKit
+# GratisBench
 
 Free browser-based tools. 32 tools, zero signup, zero uploads: every file is processed locally in the visitor's browser and never touches a server.
 
-Test site: https://nepalanurag.github.io/freekit/
+Test site: https://nepalanurag.github.io/gratisbench/
 
 ## Tools
 
@@ -48,8 +48,8 @@ npm run verify
 
 Pushes to `main` trigger `.github/workflows/deploy.yml`, which builds and deploys to GitHub Pages. Two environment variables control the output:
 
-- `SITE_URL`: absolute site URL (production default `https://www.freekit.app`)
-- `BASE_PATH`: subpath the site is served from (e.g. `/freekit/` for GitHub Pages testing)
+- `SITE_URL`: absolute site URL (production default `https://www.gratisbench.com`)
+- `BASE_PATH`: subpath the site is served from (e.g. `/gratisbench/` for GitHub Pages testing)
 
 Always push the source tree, never `dist/`. The tree-push helper replaces the whole branch, so verify `.github/workflows/deploy.yml` still exists after pushing.
 

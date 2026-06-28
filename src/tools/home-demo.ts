@@ -51,7 +51,7 @@ export function initHomeDemo(): void {
     if (!current) return;
     const a = document.createElement('a');
     a.href = current;
-    a.download = 'freekit-qr.png';
+    a.download = 'gratisbench-qr.png';
     document.body.appendChild(a);
     a.click();
     a.remove();

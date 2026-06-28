@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { basePath, siteUrl } from '../lib/site';
 import { ALL_TOOLS } from '../lib/tools';
 
-const title = 'Image Tools - Free Online Image Utilities | FreeKit';
+const title = 'Image Tools - Free Online Image Utilities | GratisBench';
 const description =
   'Free online image tools: compress images, convert formats, remove backgrounds with AI, read text from images (OCR), and trace images to SVG vectors. No signup, no watermark. Everything runs in your browser.';
 
@@ -21,7 +21,7 @@ const tools = toolsRaw.map((t, i) => ({ ...t, num: String(i + 1).padStart(2, '0'
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: 'FreeKit image tools',
+  name: 'GratisBench image tools',
   url: siteUrl(Astro.site) + basePath('/image-tools'),
   description,
 };
@@ -30,7 +30,7 @@ const jsonLd = {
   <div class="wrap">
     <div class="page-head">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href={basePath("/")}>FreeKit</a><span><span class="sep">/</span><a href={basePath("/image-tools")}>Image tools</a></span>
+        <a href={basePath("/")}>GratisBench</a><span><span class="sep">/</span><a href={basePath("/image-tools")}>Image tools</a></span>
       </nav>
       <h1>Image tools</h1>
       <p class="lede">

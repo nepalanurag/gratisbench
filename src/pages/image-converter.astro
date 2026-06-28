@@ -4,7 +4,7 @@ import Icon from '../components/Icon.astro';
 
 const title = 'Image Converter - Free Online Image Converter';
 const description =
-  'Convert images between PNG, JPEG, WebP, and AVIF in your browser. Batch conversion, ZIP download, transparency warning for JPEG. No signup, no watermark.';
+  'Convert images between PNG, JPEG, WebP, and AVIF in your browser. Batch conversion, ZIP download, transparency warning for JPEG. Free, no signup, no watermark.';
 const h1 = 'Convert images';
 const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you need. Free, no account, no watermark. Your files never leave your device.';
 ---
@@ -14,7 +14,7 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
   h1={h1}
   lede={lede}
   crumbs={[{ label: 'Image tools', href: '/image-tools' }, { label: 'Image converter', href: '/image-converter' }]}
-  toolName="FreeKit Image Converter"
+  toolName="GratisBench Image Converter"
   intro={[
     'Image formats are a compatibility puzzle: a designer sends a WebP that your old software cannot open, a website demands JPEGs under 200 KB, an archive of BMP scans eats gigabytes for no reason. Converting used to mean installing something or uploading files to a stranger. This converter redraws each image onto a canvas in your browser and saves it in the format you pick, so the round trip takes seconds and your files stay yours.',
     'Two honest limitations shape this tool. First, JPEG has no transparency: converting a transparent PNG or WebP to JPEG forces a background color, and the tool warns you and offers a white fill rather than silently turning those areas black. Second, AVIF output only appears when your browser can actually encode it; the option is feature-detected, not promised, because pretending every browser supports AVIF would just produce broken downloads.',

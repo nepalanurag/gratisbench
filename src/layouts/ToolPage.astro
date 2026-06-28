@@ -38,7 +38,7 @@ const jsonLd = [
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'FreeKit', item: site + basePath('/') },
+      { '@type': 'ListItem', position: 1, name: 'GratisBench', item: site + basePath('/') },
       ...crumbs.map((c, i) => ({
         '@type': 'ListItem',
         position: i + 2,
@@ -62,7 +62,7 @@ const jsonLd = [
   <div class="wrap">
     <div class="page-head">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href={basePath('/')}>FreeKit</a>
+        <a href={basePath('/')}>GratisBench</a>
         {crumbs.map((c) => (
           <span><span class="sep">/</span><a href={basePath(c.href)}>{c.label}</a></span>
         ))}
