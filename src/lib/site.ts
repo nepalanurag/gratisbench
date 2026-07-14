@@ -14,6 +14,21 @@ export function siteUrl(site: URL | undefined): string {
   return (site?.toString() ?? 'https://www.gratisbench.com').replace(/\/$/, '');
 }
 
+/**
+ * Strip the configured base path from a request pathname.
+ * Astro.url.pathname already includes the base (e.g. /gratisbench/ on GitHub
+ * Pages), and siteUrl() includes it too — so an absolute URL for the current
+ * page is siteUrl() + stripBase(Astro.url.pathname), never
+ * siteUrl() + basePath(...). basePath() is only for in-page href/src links.
+ */
+export function stripBase(pathname: string): string {
+  const base: string = import.meta.env.BASE_URL; // always ends with '/'
+  if (base.length > 1 && pathname.startsWith(base.slice(0, -1))) {
+    return pathname.slice(base.length - 1) || '/';
+  }
+  return pathname;
+}
+
 // Donation page URL shown as the "Donate" button in the site header (desktop
 // and mobile menu) and as the Ko-fi link in the ad-block support notice.
 // Leave empty to hide the Donate button entirely. Set this to the real
