@@ -1,7 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import SupportNotice from '../components/SupportNotice.astro';
-import { siteUrl, basePath } from '../lib/site';
+import { siteUrl, basePath, stripBase } from '../lib/site';
 
 interface Crumb { label: string; href: string }
 interface Faq { q: string; a: string }
@@ -21,7 +21,9 @@ interface Props {
 
 const { title, description, h1, lede, crumbs, toolName, intro, steps, specs, faqs } = Astro.props;
 const site = siteUrl(Astro.site);
-const pageUrl = site + Astro.url.pathname;
+// siteUrl() already includes the base path, so strip it from the pathname
+// before joining (same doubling bug as the canonical once had).
+const pageUrl = site + stripBase(Astro.url.pathname);
 
 const jsonLd = [
   {
@@ -38,12 +40,13 @@ const jsonLd = [
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'GratisBench', item: site + basePath('/') },
+      { '@type': 'ListItem', position: 1, name: 'GratisBench', item: site + '/' },
       ...crumbs.map((c, i) => ({
         '@type': 'ListItem',
         position: i + 2,
         name: c.label,
-        item: site + basePath(c.href),
+        // Trailing slash to match the canonical URLs.
+        item: site + (c.href.endsWith('/') ? c.href : c.href + '/'),
       })),
     ],
   },
