@@ -1,25 +1,22 @@
 ---
 import '../styles/global.css';
 import CommandPalette from '../components/CommandPalette.astro';
-import { siteUrl, basePath, DONATE_URL, ANALYTICS_CODE } from '../lib/site';
+import { siteUrl, basePath, stripBase, DONATE_URL, ANALYTICS_CODE } from '../lib/site';
 
 interface Props {
   title: string;
   description: string;
   canonical?: string;
+  noindex?: boolean;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-const { title, description, canonical, jsonLd } = Astro.props;
+const { title, description, canonical, noindex, jsonLd } = Astro.props;
 const site = siteUrl(Astro.site); // from SITE_URL env, placeholder until launch
 // Astro.url.pathname already includes the base path (e.g. /gratisbench/ on
-// GitHub Pages), so strip it before joining with the absolute site URL.
+// GitHub Pages), and `site` includes it too, so strip it before joining.
 // Otherwise the canonical doubles the path and points at a nonexistent page.
-const base = import.meta.env.BASE_URL; // always ends with '/'
-let path = Astro.url.pathname;
-if (base.length > 1 && path.startsWith(base.slice(0, -1))) {
-  path = path.slice(base.length - 1) || '/';
-}
+const path = stripBase(Astro.url.pathname);
 const pageUrl = canonical ?? site + path;
 ---
 <!doctype html>
@@ -31,16 +28,17 @@ const pageUrl = canonical ?? site + path;
     <meta name="description" content={description} />
     <meta name="keywords" content="free tools, free online tools, free PDF tools, free image tools, free audio tools, free video tools, QR generator, invoice generator, resume builder, budget planner, no signup tools" />
     <link rel="canonical" href={pageUrl} />
+    {noindex && <meta name="robots" content="noindex" />}
     <link rel="icon" type="image/svg+xml" href={basePath('/favicon.svg')} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={pageUrl} />
-    <meta property="og:image" content={site + basePath('/og-image.png')} />
+    <meta property="og:image" content={site + '/og-image.png'} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={site + basePath('/og-image.png')} />
+    <meta name="twitter:image" content={site + '/og-image.png'} />
     <meta name="theme-color" content="#ffffff" />
     <script is:inline>
       // Theme + accessibility prefs. is:inline keeps this a plain synchronous
