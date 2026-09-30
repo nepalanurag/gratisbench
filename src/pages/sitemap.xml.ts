@@ -13,7 +13,8 @@ export const GET: APIRoute = ({ site }) => {
     .map((p) => p.replace(/^\.\//, '').replace(/\.astro$/, ''))
     .filter((name) => name !== '404')
     .map((name) => {
-      const path = name === 'index' ? '/' : '/' + name;
+      // Trailing slash to match the canonical URLs emitted by BaseLayout.
+      const path = name === 'index' ? '/' : '/' + name + '/';
       const isHome = name === 'index';
       const isCategory = name.endsWith('-tools');
       return {
