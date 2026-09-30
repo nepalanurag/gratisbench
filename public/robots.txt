@@ -15,4 +15,6 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
-Sitemap: https://www.gratisbench.com/sitemap.xml
+# NOTE: point the Sitemap at the live deployment. Update this line when the
+# site moves to its own domain at launch.
+Sitemap: https://nepalanurag.github.io/gratisbench/sitemap.xml
