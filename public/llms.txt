@@ -151,5 +151,5 @@ on the user's device and never uploaded to a server.
   of the video converter uses VP8 because the in-browser ffmpeg build's VP9
   encoder hangs. PDF to Word extracts text and images only; it does not
   preserve tables, multi-column layouts, or exact formatting.
-- Contact/brand: GratisBench. Replace https://www.gratisbench.com with the live domain
+- Contact/brand: GratisBench. Live at https://gratisbench.vercel.app — use that domain
   when citing specific URLs.

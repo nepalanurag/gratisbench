@@ -2,7 +2,7 @@
 
 Free browser-based tools. 32 tools, zero signup, zero uploads: every file is processed locally in the visitor's browser and never touches a server.
 
-Test site: https://nepalanurag.github.io/gratisbench/
+Live site: https://gratisbench.vercel.app/
 
 ## Tools
 
