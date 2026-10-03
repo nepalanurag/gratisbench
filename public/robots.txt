@@ -17,4 +17,4 @@ Allow: /
 
 # NOTE: point the Sitemap at the live deployment. Update this line when the
 # site moves to its own domain at launch.
-Sitemap: https://nepalanurag.github.io/gratisbench/sitemap.xml
+Sitemap: https://gratisbench.vercel.app/sitemap.xml
