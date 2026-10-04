@@ -522,7 +522,7 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
 .resume-doc p { margin: 0; }
 .rs-empty-name { color: #767676; }
 .rs-sec { margin-top: 1.05rem; }
-.rs-sec-t { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; border-bottom: 1px solid #d8cfbd; padding-bottom: 0.25rem; margin-bottom: 0.55rem; }
+.rs-sec-t { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #d8cfbd; padding-bottom: 0.25rem; margin-bottom: 0.55rem; }
 .rs-item { margin-bottom: 0.7rem; }
 .rs-item:last-child { margin-bottom: 0; }
 .rs-item-head { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
@@ -538,7 +538,8 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
 .rs-skill-label { font-weight: 700; flex: 0 0 auto; }
 .rs-list-row { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.2rem; }
 .rs-list-tail { color: #5c554a; font-size: 0.93em; flex: 0 0 auto; }
-.rs-proj-link { font-weight: 400; font-size: 0.9em; color: #5c554a; }
+.rs-proj-link { font-weight: 400; font-size: 0.9em; color: #5c554a; text-decoration: none; }
+a.rs-proj-link:hover { text-decoration: underline; }
 
 .resume-classic { font-family: Georgia, 'Times New Roman', serif; }
 .resume-classic .rs-head-center { text-align: center; border-bottom: 2px solid #201c16; padding-bottom: 0.85rem; margin-bottom: 0.4rem; }
@@ -553,7 +554,7 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
 .resume-modern .rs-side-name { font-family: var(--font-head); font-size: 1.35rem; font-weight: 700; line-height: 1.2; margin: 0 0 0.15rem; }
 .resume-modern .rs-side-role { font-size: 0.9em; color: #161616; font-weight: 600; margin-bottom: 1.1rem; }
 .resume-modern .rs-side-sec { margin-bottom: 1.1rem; }
-.resume-modern .rs-side-t { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #161616; margin-bottom: 0.4rem; border-bottom: 1px solid #ddd2ba; padding-bottom: 0.2rem; }
+.resume-modern .rs-side-t { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #161616; margin-bottom: 0.4rem; border-bottom: 1px solid #ddd2ba; padding-bottom: 0.2rem; }
 .resume-modern .rs-side-line { font-size: 0.88em; margin-bottom: 0.25rem; word-break: break-word; }
 .resume-modern .rs-side-body { font-size: 0.88em; }
 .resume-modern .rs-side-body .rs-skill { display: block; margin-bottom: 0.45rem; }

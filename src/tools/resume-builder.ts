@@ -220,6 +220,7 @@ export function initResumeBuilder(): void {
       ['phone', 'Phone', '(415) 555-0132'],
       ['location', 'Location', 'San Francisco, CA'],
       ['website', 'Website', 'samrivera.design'],
+      ['portfolio', 'Portfolio', 'samrivera.design/work'],
       ['linkedin', 'LinkedIn', 'linkedin.com/in/samrivera'],
     ];
     return `<div class="rb-grid">${defs

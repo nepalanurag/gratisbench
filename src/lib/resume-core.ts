@@ -14,6 +14,7 @@ export interface ContactInfo {
   phone: string;
   location: string;
   website: string;
+  portfolio: string;
   linkedin: string;
 }
 
@@ -85,7 +86,7 @@ export function newId(): string {
 }
 
 export function blankContact(): ContactInfo {
-  return { fullName: '', title: '', email: '', phone: '', location: '', website: '', linkedin: '' };
+  return { fullName: '', title: '', email: '', phone: '', location: '', website: '', portfolio: '', linkedin: '' };
 }
 
 export function blankWorkEntry(): WorkEntry {
@@ -359,6 +360,7 @@ export function deserialize(raw: string | null | undefined): ResumeData {
       phone: asString(contact.phone),
       location: asString(contact.location),
       website: asString(contact.website),
+      portfolio: asString(contact.portfolio),
       linkedin: asString(contact.linkedin),
     },
     summary: asString(p.summary),
@@ -423,7 +425,7 @@ function bulletsHtml(bullets: string[]): string {
 }
 
 function contactBits(c: ContactInfo): string[] {
-  return [c.email, c.phone, c.location, c.website, c.linkedin]
+  return [c.email, c.phone, c.location, c.website, c.portfolio, c.linkedin]
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
     .map(esc);
@@ -481,7 +483,13 @@ function projectsHtml(r: ResumeData): string {
   if (items.length === 0) return '';
   return items
     .map((p) => {
-      const link = p.link.trim() ? ` <span class="rs-proj-link">${esc(p.link.trim())}</span>` : '';
+      const rawLink = p.link.trim();
+      const href = rawLink
+        ? (/^https?:\/\//i.test(rawLink) ? rawLink : `https://${rawLink}`)
+        : '';
+      const link = href
+        ? ` <a class="rs-proj-link" href="${esc(href)}">${esc(rawLink)}</a>`
+        : '';
       return `<div class="rs-item">
         <div class="rs-item-head"><span class="rs-item-title">${esc(p.name.trim())}${link}</span></div>
         ${p.detail.trim() ? `<div class="rs-detail">${esc(p.detail.trim())}</div>` : ''}
