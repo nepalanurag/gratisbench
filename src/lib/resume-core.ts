@@ -139,6 +139,7 @@ export function exampleResume(): ResumeData {
       phone: '(415) 555-0132',
       location: 'San Francisco, CA',
       website: 'samrivera.design',
+      portfolio: 'samrivera.design/work',
       linkedin: 'linkedin.com/in/samrivera',
     },
     summary:
