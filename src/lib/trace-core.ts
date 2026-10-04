@@ -23,7 +23,7 @@ export interface TraceOptions {
 
 /** Honest engine note shown next to the file picker. */
 export const TRACE_ENGINE_NOTE =
-  'Tracing runs entirely in your browser — no upload. ' +
+  'Tracing runs entirely in your browser, no upload. ' +
   'Logos, icons, and high-contrast art trace beautifully; photos do not.';
 
 /** Validate raw option values from the DOM into a safe TraceOptions object. */
@@ -114,7 +114,7 @@ export function validateSvg(svg: unknown): { ok: true } | { ok: false; reason: s
     return { ok: false, reason: 'The tracer produced no usable output.' };
   }
   if (!svg.includes('<path') || !/[dD]="[^"]*[MLCQZ]/.test(svg)) {
-    return { ok: false, reason: 'The trace contains no vector paths — try a higher-contrast image.' };
+    return { ok: false, reason: 'The trace contains no vector paths. Try a higher-contrast image.' };
   }
   if (!svg.trimEnd().endsWith('</svg>')) {
     return { ok: false, reason: 'The tracer output was cut off.' };

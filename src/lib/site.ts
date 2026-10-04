@@ -11,7 +11,7 @@ export function basePath(p: string): string {
 
 /** Absolute site URL from the Astro config (SITE_URL env). No trailing slash. */
 export function siteUrl(site: URL | undefined): string {
-  return (site?.toString() ?? 'https://www.gratisbench.com').replace(/\/$/, '');
+  return (site?.toString() ?? 'https://gratisbench.vercel.app').replace(/\/$/, '');
 }
 
 /**

@@ -132,7 +132,7 @@ export function ocrProgressLabel(msg: TesseractProgress): { percent: number; lab
 export function ocrErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (/network|fetch|failed to fetch|load/i.test(msg)) {
-    return 'Could not download the OCR engine or language data. Check your connection and try again — your image never left your device.';
+    return 'Could not download the OCR engine or language data. Check your connection and try again. Your image never left your device.';
   }
   return msg || 'Text recognition failed.';
 }
