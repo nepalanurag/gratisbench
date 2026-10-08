@@ -1,11 +1,7 @@
-// Images to PDF tool: DOM glue. Core logic lives in ../lib/pdf-imagestopdf-x.ts
-import {
-  imagesToPdfEx,
-  type ImageOrientation,
-  type ImageMargin,
-} from '../lib/pdf-imagestopdf-x.ts';
+// v2: force rebuild
+// Images to PDF tool: DOM glue. Core logic lives in ../lib/pdf-core.ts
+import { imagesToPdf, type PdfImage, type PageSizeOption } from '../lib/pdf-core.ts';
 import { showPdfPreview } from './pdf-render.ts';
-import { enableDragReorder, GRIP_ICON } from '../lib/drag-reorder-x.ts';
 import {
   el,
   formatBytes,
@@ -14,12 +10,9 @@ import {
   hideError,
   setBusy,
   setupDropzone,
-  setupPasteHandler,
   loadImage,
   ICONS,
 } from './common.ts';
-
-import type { PdfImage } from '../lib/pdf-core.ts';
 
 interface Item {
   file: File;
@@ -64,26 +57,6 @@ export function initImagesToPdf(opts?: { accept?: string; fallbackName?: string 
   const convertBtn = el<HTMLButtonElement>('convert-btn');
   const result = el('result');
   const pageSizeSel = el<HTMLSelectElement>('page-size');
-  const orientationSel = el<HTMLSelectElement>('orientation');
-  const marginSel = el<HTMLSelectElement>('margin');
-  const orientationField = el('orientation-field');
-  const marginField = el('margin-field');
-
-  /** Orientation and margins only apply to A4/Letter pages. */
-  function syncLayoutFields(): void {
-    const fixed = pageSizeSel.value !== 'fit';
-    orientationField.hidden = !fixed;
-    marginField.hidden = !fixed;
-  }
-  pageSizeSel.addEventListener('change', syncLayoutFields);
-  syncLayoutFields();
-
-  function move(from: number, to: number): void {
-    if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return;
-    const [item] = items.splice(from, 1);
-    items.splice(from < to ? to - 1 : to, 0, item);
-    render();
-  }
 
   function render(): void {
     empty.hidden = items.length > 0;
@@ -91,10 +64,7 @@ export function initImagesToPdf(opts?: { accept?: string; fallbackName?: string 
     items.forEach((item, i) => {
       const row = document.createElement('li');
       row.className = 'file-row thumb-row';
-      row.draggable = true;
-      row.dataset.idx = String(i);
       row.innerHTML = `
-        <span data-drag title="Drag to reorder" aria-hidden="true" style="cursor:grab;display:inline-flex;align-items:center;opacity:.55;touch-action:none">${GRIP_ICON}</span>
         <span class="file-order">${i + 1}</span>
         <img class="thumb" src="${item.previewUrl}" alt="Page ${i + 1} preview" loading="lazy" />
         <span class="file-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
@@ -110,8 +80,6 @@ export function initImagesToPdf(opts?: { accept?: string; fallbackName?: string 
     el('count-label').textContent =
       items.length === 0 ? '' : `${items.length} image${items.length === 1 ? '' : 's'} → ${items.length} page${items.length === 1 ? '' : 's'}`;
   }
-
-  enableDragReorder(list, move);
 
   list.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('button[data-act]');
@@ -129,10 +97,8 @@ export function initImagesToPdf(opts?: { accept?: string; fallbackName?: string 
   const input = el<HTMLInputElement>('file-input');
   input.accept = accept;
 
-  /** Shared by the dropzone and clipboard paste. */
-  async function addFiles(files: File[]): Promise<void> {
+  setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
-    let added = 0;
     for (const file of files) {
       if (!file.type.startsWith('image/')) {
         showError('error-box', `"${file.name}" is not an image file.`);
@@ -148,19 +114,12 @@ export function initImagesToPdf(opts?: { accept?: string; fallbackName?: string 
           URL.revokeObjectURL(sanityUrl);
         }
         items.push({ file, previewUrl: URL.createObjectURL(file), image });
-        added++;
       } catch {
         showError('error-box', `Could not read "${file.name}". Try a PNG or JPEG instead.`);
       }
     }
-    if (added > 0) render();
-  }
-
-  setupDropzone('dropzone', 'file-input', (files) => void addFiles(files));
-
-  // Paste screenshots straight from the clipboard (Ctrl+V). setupPasteHandler
-  // already skips pastes inside text inputs.
-  setupPasteHandler((files) => void addFiles(files), (f) => f.type.startsWith('image/'));
+    render();
+  });
 
   convertBtn.addEventListener('click', async () => {
     hideError('error-box');
@@ -168,14 +127,10 @@ export function initImagesToPdf(opts?: { accept?: string; fallbackName?: string 
     setBusy('convert-btn', true, 'Building PDF…');
     try {
       await new Promise((r) => setTimeout(r, 30));
-      const pageSize = pageSizeSel.value as 'fit' | 'a4' | 'letter';
-      const out = await imagesToPdfEx(
+      const pageSize = pageSizeSel.value as PageSizeOption;
+      const out = await imagesToPdf(
         items.map((i) => i.image),
-        {
-          pageSize,
-          orientation: orientationSel.value as ImageOrientation,
-          margin: marginSel.value as ImageMargin,
-        }
+        pageSize
       );
       // Name the PDF after the first image: "scan-01.jpg" -> "scan-01.pdf".
       const stem =
@@ -197,8 +152,8 @@ export function initImagesToPdf(opts?: { accept?: string; fallbackName?: string 
   render();
 }
 
-function pageSizeLabel(pageSize: 'fit' | 'a4' | 'letter'): string {
-  return pageSize === 'fit' ? 'fit to image' : pageSize === 'a4' ? 'A4 pages' : 'US Letter pages';
+function pageSizeLabel(s: PageSizeOption): string {
+  return s === 'fit' ? 'fit to image' : s === 'a4' ? 'A4 pages' : 'US Letter pages';
 }
 
 function escapeHtml(s: string): string {
