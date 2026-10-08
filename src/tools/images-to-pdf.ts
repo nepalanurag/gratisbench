@@ -47,7 +47,9 @@ async function normalizeImage(file: File): Promise<PdfImage> {
   }
 }
 
-export function initImagesToPdf(): void {
+export function initImagesToPdf(opts?: { accept?: string; fallbackName?: string }): void {
+  const accept = opts?.accept ?? ACCEPT;
+  const fallbackName = opts?.fallbackName ?? 'images.pdf';
   const items: Item[] = [];
   const list = el('file-list');
   const empty = el('empty-state');
@@ -92,7 +94,7 @@ export function initImagesToPdf(): void {
   });
 
   const input = el<HTMLInputElement>('file-input');
-  input.accept = ACCEPT;
+  input.accept = accept;
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
@@ -104,7 +106,12 @@ export function initImagesToPdf(): void {
       try {
         const image = await normalizeImage(file);
         // Sanity check: make sure the browser can actually decode it.
-        await loadImage(URL.createObjectURL(new Blob([image.data as unknown as BlobPart], { type: image.mime })));
+        const sanityUrl = URL.createObjectURL(new Blob([image.data as unknown as BlobPart], { type: image.mime }));
+        try {
+          await loadImage(sanityUrl);
+        } finally {
+          URL.revokeObjectURL(sanityUrl);
+        }
         items.push({ file, previewUrl: URL.createObjectURL(file), image });
       } catch {
         showError('error-box', `Could not read "${file.name}". Try a PNG or JPEG instead.`);
@@ -124,10 +131,14 @@ export function initImagesToPdf(): void {
         items.map((i) => i.image),
         pageSize
       );
+      // Name the PDF after the first image: "scan-01.jpg" -> "scan-01.pdf".
+      const stem =
+        items[0].file.name.replace(/\.[^.]+$/, '').trim() || fallbackName.replace(/\.pdf$/i, '');
+      const outName = `${stem}.pdf`;
       result.hidden = false;
-      el('result-info').textContent = `${formatBytes(out.length)} · ${items.length} page${items.length === 1 ? '' : 's'} · ${pageSizeLabel(pageSize)}`;
+      el('result-info').textContent = `${formatBytes(out.length)} · ${items.length} page${items.length === 1 ? '' : 's'} · ${pageSizeLabel(pageSize)} · ${outName}`;
       el<HTMLButtonElement>('download-btn').onclick = () =>
-        downloadBytes('images.pdf', out, 'application/pdf');
+        downloadBytes(outName, out, 'application/pdf');
       void showPdfPreview('preview-wrap', out);
       result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
