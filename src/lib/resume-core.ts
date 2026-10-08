@@ -637,6 +637,11 @@ function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
+/** Click-to-edit hook: marks a preview element as editable, mapping back to a data field. */
+function de(path: string): string {
+  return ` data-edit="${path}"`;
+}
+
 function dateRange(start: string, end: string, current: boolean): string {
   const s = start.trim();
   const e = current ? 'Present' : end.trim();
@@ -644,17 +649,24 @@ function dateRange(start: string, end: string, current: boolean): string {
   return esc(s || e);
 }
 
-function bulletsHtml(bullets: string[]): string {
-  const items = bullets.map((b) => b.trim()).filter((b) => b.length > 0);
-  if (items.length === 0) return '';
-  return `<ul class="rs-bullets">${items.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`;
+function bulletsHtml(bullets: string[], editPrefix?: string): string {
+  const items = bullets.map((b) => b.trim());
+  const shown = items.map((b, i) => ({ b, i })).filter(({ b }) => b.length > 0);
+  if (shown.length === 0) return '';
+  return `<ul class="rs-bullets">${shown.map(({ b, i }) => `<li${editPrefix ? de(`${editPrefix}.bullets.${i}`) : ''}>${esc(b)}</li>`).join('')}</ul>`;
 }
 
-function contactBits(c: ContactInfo): string[] {
-  return [c.email, c.phone, c.location, c.website, c.linkedin]
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-    .map(esc);
+function contactBits(c: ContactInfo): Array<{ field: string; html: string }> {
+  const pairs: Array<[string, string]> = [
+    ['email', c.email],
+    ['phone', c.phone],
+    ['location', c.location],
+    ['website', c.website],
+    ['linkedin', c.linkedin],
+  ];
+  return pairs
+    .filter(([, s]) => s.trim().length > 0)
+    .map(([field, s]) => ({ field, html: esc(s.trim()) }));
 }
 
 function section(title: string, inner: string): string {
@@ -662,27 +674,33 @@ function section(title: string, inner: string): string {
   return `<div class="rs-sec"><div class="rs-sec-t">${esc(title)}</div>${inner}</div>`;
 }
 
-function workEntriesHtml(entries: WorkEntry[]): string {
+function workEntriesHtml(entries: WorkEntry[], sec: string): string {
   const items = entries.filter((e) => e.title.trim() || e.company.trim());
   if (items.length === 0) return '';
   return items
     .map((e) => {
-      const sub = [e.company.trim(), e.location.trim()].filter(Boolean).map(esc).join(', ');
+      const p = `${sec}.${e.id}`;
+      const co = e.company.trim();
+      const loc = e.location.trim();
+      const sub = [
+        co ? `<span${de(`${p}.company`)}>${esc(co)}</span>` : '',
+        loc ? `<span${de(`${p}.location`)}>${esc(loc)}</span>` : '',
+      ].filter(Boolean).join(', ');
       return `<div class="rs-item">
-        <div class="rs-item-head"><span class="rs-item-title">${esc(e.title.trim())}</span><span class="rs-item-dates">${dateRange(e.start, e.end, e.current)}</span></div>
+        <div class="rs-item-head"><span class="rs-item-title"${de(`${p}.title`)}>${esc(e.title.trim())}</span><span class="rs-item-dates">${dateRange(e.start, e.end, e.current)}</span></div>
         ${sub ? `<div class="rs-item-sub">${sub}</div>` : ''}
-        ${bulletsHtml(e.bullets)}
+        ${bulletsHtml(e.bullets, p)}
       </div>`;
     })
     .join('');
 }
 
 function experienceHtml(r: ResumeData): string {
-  return workEntriesHtml(r.experience);
+  return workEntriesHtml(r.experience, 'experience');
 }
 
 function volunteerHtml(r: ResumeData): string {
-  return workEntriesHtml(r.volunteer);
+  return workEntriesHtml(r.volunteer, 'volunteer');
 }
 
 function educationHtml(r: ResumeData): string {
@@ -690,11 +708,12 @@ function educationHtml(r: ResumeData): string {
   if (items.length === 0) return '';
   return items
     .map((e) => {
+      const p = `education.${e.id}`;
       const sub = [e.school.trim(), e.location.trim()].filter(Boolean).map(esc).join(', ');
       return `<div class="rs-item">
-        <div class="rs-item-head"><span class="rs-item-title">${esc(e.degree.trim() || e.school.trim())}</span><span class="rs-item-dates">${dateRange(e.start, e.end, false)}</span></div>
-        ${e.degree.trim() && sub ? `<div class="rs-item-sub">${sub}</div>` : ''}
-        ${e.detail.trim() ? `<div class="rs-detail">${esc(e.detail.trim())}</div>` : ''}
+        <div class="rs-item-head"><span class="rs-item-title"${de(`${p}.degree`)}>${esc(e.degree.trim() || e.school.trim())}</span><span class="rs-item-dates">${dateRange(e.start, e.end, false)}</span></div>
+        ${e.degree.trim() && sub ? `<div class="rs-item-sub"${de(`${p}.school`)}>${sub}</div>` : ''}
+        ${e.detail.trim() ? `<div class="rs-detail"${de(`${p}.detail`)}>${esc(e.detail.trim())}</div>` : ''}
       </div>`;
     })
     .join('');
@@ -704,11 +723,12 @@ function skillsHtml(r: ResumeData): string {
   const groups = r.skills.filter((g) => g.label.trim() || g.items.trim());
   if (groups.length === 0) return '';
   return `<div class="rs-skills">${groups
-    .map((g) =>
-      g.label.trim()
-        ? `<div class="rs-skill"><span class="rs-skill-label">${esc(g.label.trim())}</span><span class="rs-skill-items">${esc(g.items.trim())}</span></div>`
-        : `<div class="rs-skill"><span class="rs-skill-items">${esc(g.items.trim())}</span></div>`
-    )
+    .map((g) => {
+      const p = `skills.${g.id}`;
+      return g.label.trim()
+        ? `<div class="rs-skill"><span class="rs-skill-label"${de(`${p}.label`)}>${esc(g.label.trim())}</span><span class="rs-skill-items"${de(`${p}.items`)}>${esc(g.items.trim())}</span></div>`
+        : `<div class="rs-skill"><span class="rs-skill-items"${de(`${p}.items`)}>${esc(g.items.trim())}</span></div>`;
+    })
     .join('')}</div>`;
 }
 
@@ -717,11 +737,12 @@ function projectsHtml(r: ResumeData): string {
   if (items.length === 0) return '';
   return items
     .map((p) => {
-      const link = p.link.trim() ? ` <span class="rs-proj-link">${esc(p.link.trim())}</span>` : '';
+      const ep = `projects.${p.id}`;
+      const link = p.link.trim() ? ` <span class="rs-proj-link"${de(`${ep}.link`)}>${esc(p.link.trim())}</span>` : '';
       return `<div class="rs-item">
-        <div class="rs-item-head"><span class="rs-item-title">${esc(p.name.trim())}${link}</span></div>
-        ${p.detail.trim() ? `<div class="rs-detail">${esc(p.detail.trim())}</div>` : ''}
-        ${bulletsHtml(p.bullets)}
+        <div class="rs-item-head"><span class="rs-item-title"${de(`${ep}.name`)}>${esc(p.name.trim())}${link}</span></div>
+        ${p.detail.trim() ? `<div class="rs-detail"${de(`${ep}.detail`)}>${esc(p.detail.trim())}</div>` : ''}
+        ${bulletsHtml(p.bullets, ep)}
       </div>`;
     })
     .join('');
@@ -733,7 +754,7 @@ function certificationsHtml(r: ResumeData): string {
   return `<div class="rs-list">${items
     .map((c) => {
       const tail = [c.issuer.trim(), c.year.trim()].filter(Boolean).map(esc).join(', ');
-      return `<div class="rs-list-row"><span>${esc(c.name.trim())}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
+      return `<div class="rs-list-row"><span${de(`certifications.${c.id}.name`)}>${esc(c.name.trim())}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
     })
     .join('')}</div>`;
 }
@@ -742,7 +763,7 @@ function languagesHtml(r: ResumeData): string {
   const items = r.languages.filter((l) => l.language.trim());
   if (items.length === 0) return '';
   return `<div class="rs-list">${items
-    .map((l) => `<div class="rs-list-row"><span>${esc(l.language.trim())}</span>${l.level.trim() ? `<span class="rs-list-tail">${esc(l.level.trim())}</span>` : ''}</div>`)
+    .map((l) => `<div class="rs-list-row"><span${de(`languages.${l.id}.language`)}>${esc(l.language.trim())}</span>${l.level.trim() ? `<span class="rs-list-tail">${esc(l.level.trim())}</span>` : ''}</div>`)
     .join('')}</div>`;
 }
 
@@ -752,7 +773,7 @@ function awardsHtml(r: ResumeData): string {
   return `<div class="rs-list">${items
     .map((a) => {
       const tail = [a.issuer.trim(), a.year.trim()].filter(Boolean).map(esc).join(', ');
-      return `<div class="rs-list-row"><span>${esc(a.title.trim())}${a.description.trim() ? `<div class="rs-detail">${esc(a.description.trim())}</div>` : ''}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
+      return `<div class="rs-list-row"><span${de(`awards.${a.id}.title`)}>${esc(a.title.trim())}${a.description.trim() ? `<div class="rs-detail">${esc(a.description.trim())}</div>` : ''}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
     })
     .join('')}</div>`;
 }
@@ -764,7 +785,7 @@ function publicationsHtml(r: ResumeData): string {
     .map((p) => {
       const tail = [p.publisher.trim(), p.year.trim()].filter(Boolean).map(esc).join(', ');
       const link = p.link.trim() ? ` <span class="rs-proj-link">${esc(p.link.trim())}</span>` : '';
-      return `<div class="rs-list-row"><span>${esc(p.title.trim())}${link}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
+      return `<div class="rs-list-row"><span${de(`publications.${p.id}.title`)}>${esc(p.title.trim())}${link}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
     })
     .join('')}</div>`;
 }
@@ -775,7 +796,7 @@ function coursesHtml(r: ResumeData): string {
   return `<div class="rs-list">${items
     .map((c) => {
       const tail = [c.provider.trim(), c.year.trim()].filter(Boolean).map(esc).join(', ');
-      return `<div class="rs-list-row"><span>${esc(c.name.trim())}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
+      return `<div class="rs-list-row"><span${de(`courses.${c.id}.name`)}>${esc(c.name.trim())}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
     })
     .join('')}</div>`;
 }
@@ -784,7 +805,7 @@ function coursesHtml(r: ResumeData): string {
 const BODY_SECTIONS: Record<Exclude<SectionKey, 'contact'>, { heading: string; html: (r: ResumeData) => string }> = {
   summary: {
     heading: 'Professional Summary',
-    html: (r) => (r.summary.trim() ? `<p class="rs-summary">${esc(r.summary.trim())}</p>` : ''),
+    html: (r) => (r.summary.trim() ? `<p class="rs-summary"${de('summary.text')}>${esc(r.summary.trim())}</p>` : ''),
   },
   experience: { heading: 'Work Experience', html: experienceHtml },
   education: { heading: 'Education', html: educationHtml },
@@ -821,10 +842,10 @@ export function renderResume(r: ResumeData, template: TemplateId): string {
 
   if (template === 'modern') {
     const name = c.fullName.trim() ? esc(c.fullName.trim()) : '<span class="rs-empty-name">Your Name</span>';
-    const role = c.title.trim() ? `<div class="rs-side-role">${esc(c.title.trim())}</div>` : '';
+    const role = c.title.trim() ? `<div class="rs-side-role"${de('contact.title')}>${esc(c.title.trim())}</div>` : '';
     const sideContact =
       visible('contact') && bits.length > 0
-        ? `<div class="rs-side-sec"><div class="rs-side-t">Contact</div>${bits.map((b) => `<div class="rs-side-line">${b}</div>`).join('')}</div>`
+        ? `<div class="rs-side-sec"><div class="rs-side-t">Contact</div>${bits.map((b) => `<div class="rs-side-line"${de(`contact.${b.field}`)}>${b.html}</div>`).join('')}</div>`
         : '';
     const side = (k: Exclude<SectionKey, 'contact'>, label: string, inner: string) =>
       visible(k) && inner
@@ -832,7 +853,7 @@ export function renderResume(r: ResumeData, template: TemplateId): string {
         : '';
     return `<div class="rs-mod">
       <aside class="rs-side">
-        ${visible('contact') ? `<div class="rs-side-name">${name}</div>${role}` : ''}
+        ${visible('contact') ? `<div class="rs-side-name"${de('contact.fullName')}>${name}</div>${role}` : ''}
         ${sideContact}
         ${side('skills', 'Skills', skillsHtml(r))}
         ${side('languages', 'Languages', languagesHtml(r))}
@@ -842,12 +863,12 @@ export function renderResume(r: ResumeData, template: TemplateId): string {
   }
 
   const name = c.fullName.trim() ? esc(c.fullName.trim()) : '<span class="rs-empty-name">Your Name</span>';
-  const role = c.title.trim() ? `<div class="rs-role">${esc(c.title.trim())}</div>` : '';
-  const contactLine = bits.length > 0 ? `<div class="rs-contact">${bits.join(' <span class="rs-sep">·</span> ')}</div>` : '';
+  const role = c.title.trim() ? `<div class="rs-role"${de('contact.title')}>${esc(c.title.trim())}</div>` : '';
+  const contactLine = bits.length > 0 ? `<div class="rs-contact">${bits.map((b) => `<span${de(`contact.${b.field}`)}>${b.html}</span>`).join(' <span class="rs-sep">·</span> ')}</div>` : '';
   const headClass = template === 'compact' ? 'rs-head rs-head-left' : 'rs-head rs-head-center';
   const header = visible('contact')
     ? `<div class="${headClass}">
-      <div class="rs-name">${name}</div>${role}${contactLine}
+      <div class="rs-name"${de('contact.fullName')}>${name}</div>${role}${contactLine}
     </div>`
     : '';
   return `${header}${bodyHtml()}`;

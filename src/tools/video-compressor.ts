@@ -11,6 +11,7 @@ import {
   hideError,
   setBusy,
   setupDropzone,
+  mobileFileSizeGuard,
 } from './common.ts';
 
 export function initVideoCompressor(): void {
@@ -57,6 +58,18 @@ export function initVideoCompressor(): void {
     hideError('error-box');
     const f = files[0];
     if (!f) return;
+    // Mobile file-size guard: a tab crash is worse than a clear message.
+    const sizeNote = el('size-note');
+    sizeNote.hidden = true;
+    const guard = mobileFileSizeGuard(f);
+    if (guard?.block) {
+      showError('error-box', guard.message);
+      return;
+    }
+    if (guard) {
+      sizeNote.textContent = guard.message;
+      sizeNote.hidden = false;
+    }
     file = f;
     // Read the duration from a throwaway video element — no engine needed.
     const url = URL.createObjectURL(f);

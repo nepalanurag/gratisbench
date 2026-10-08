@@ -113,7 +113,7 @@ export function collectImageXObjects(doc: PDFDocument): FoundImage[] {
 }
 
 /** Names of the /Filter entry, in order. Empty array means no filter. */
-function filterNames(dict: PDFDict): string[] {
+export function filterNames(dict: PDFDict): string[] {
   const filter = dict.lookup(PDFName.of('Filter'));
   const names: string[] = [];
   if (filter instanceof PDFName) {
@@ -130,7 +130,7 @@ function filterNames(dict: PDFDict): string[] {
 const ASCII_FILTERS = new Set(['ASCII85Decode', 'A85', 'ASCIIHexDecode', 'AHx']);
 // Encodings we cannot turn into pixels: JPEG2000, fax, JBIG2, or a JPEG that
 // is not the final filter (pathological). These images are left untouched.
-const UNSUPPORTED_FILTERS = new Set(['JPXDecode', 'CCITTFaxDecode', 'CCF', 'JBIG2Decode']);
+export const UNSUPPORTED_FILTERS = new Set(['JPXDecode', 'CCITTFaxDecode', 'CCF', 'JBIG2Decode']);
 
 function numberEntry(dict: PDFDict, key: string): number | undefined {
   const v = dict.lookupMaybe(PDFName.of(key), PDFNumber);
@@ -194,7 +194,7 @@ export function asciiHexDecode(data: Uint8Array): Uint8Array {
 }
 
 /** Peel leading ASCII85/ASCIIHex layers; returns the remaining filter list. */
-function peelAsciiLayers(
+export function peelAsciiLayers(
   bytes: Uint8Array,
   filters: string[],
 ): { bytes: Uint8Array; rest: string[] } {
@@ -620,6 +620,103 @@ export async function compressPdfImages(
     return true;
   });
 
+  const stats: CompressImagesStats = {
+    imagesFound: images.length,
+    imagesReplaced: 0,
+    imagesSkipped: 0,
+    imageBytesBefore: 0,
+    imageBytesAfter: 0,
+  };
+  let done = 0;
+  for (const { stream } of images) {
+    done++;
+    try {
+      const before = stream.getContents().length;
+      const replacement = await downsampleImage(stream, doc.context, level, codec);
+      if (replacement) {
+        replaceImageContents(stream, replacement);
+        stats.imagesReplaced++;
+        stats.imageBytesBefore += before;
+        stats.imageBytesAfter += replacement.bytes.length;
+      } else {
+        stats.imagesSkipped++;
+      }
+    } catch {
+      stats.imagesSkipped++;
+    }
+    onProgress?.(done, images.length);
+  }
+  const data = await doc.save({ useObjectStreams: true });
+  return { data, stats };
+}
+
+/** Progressive levels for target-size mode, weakest to strongest. */
+const TARGET_LEVELS: CompressionLevel[] = [
+  { maxDim: 2400, jpegQuality: 0.82 },
+  { maxDim: 1600, jpegQuality: 0.68 },
+  { maxDim: 1200, jpegQuality: 0.6 },
+  { maxDim: 1000, jpegQuality: 0.55 },
+  { maxDim: 800, jpegQuality: 0.5 },
+  { maxDim: 600, jpegQuality: 0.45 },
+];
+
+export interface TargetSizeResult {
+  data: Uint8Array;
+  stats: CompressImagesStats;
+  /** True when the output fits under the target. */
+  hitTarget: boolean;
+  /** The smallest size achieved, even when the target was missed. */
+  smallestBytes: number;
+}
+
+/**
+ * Compress until the output fits under targetBytes, trying progressively
+ * stronger settings. Honest about the floor: when nothing fits, returns the
+ * smallest achievable output with hitTarget=false instead of a bad file.
+ */
+export async function compressToTargetSize(
+  input: Uint8Array,
+  targetBytes: number,
+  codec: ImageCodec,
+  onProgress?: (done: number, total: number) => void
+): Promise<TargetSizeResult> {
+  let best: { data: Uint8Array; stats: CompressImagesStats } | null = null;
+  for (const level of TARGET_LEVELS) {
+    const res = await compressWithLevel(input, level, codec, onProgress);
+    if (!best || res.data.length < best.data.length) best = res;
+    if (res.data.length <= targetBytes) {
+      return { data: res.data, stats: res.stats, hitTarget: true, smallestBytes: res.data.length };
+    }
+  }
+  return {
+    data: best!.data,
+    stats: best!.stats,
+    hitTarget: best!.data.length <= targetBytes,
+    smallestBytes: best!.data.length,
+  };
+}
+
+/** Same as compressPdfImages but with an explicit level instead of a name. */
+async function compressWithLevel(
+  input: Uint8Array,
+  level: CompressionLevel,
+  codec: ImageCodec,
+  onProgress?: (done: number, total: number) => void
+): Promise<{ data: Uint8Array; stats: CompressImagesStats }> {
+  const doc = await PDFDocument.load(input);
+  const all = collectImageXObjects(doc);
+  const maskObjs = new Set<PDFStream>();
+  for (const { stream } of all) {
+    const smask = stream.dict.lookup(PDFName.of('SMask'));
+    const smaskObj = smask instanceof PDFRef ? doc.context.lookup(smask) : smask;
+    if (smaskObj instanceof PDFStream) maskObjs.add(smaskObj);
+  }
+  const images = all.filter(({ stream }) => {
+    if (maskObjs.has(stream)) return false;
+    const imageMask = stream.dict.lookup(PDFName.of('ImageMask'));
+    if (imageMask instanceof PDFBool && imageMask.asBoolean()) return false;
+    return true;
+  });
   const stats: CompressImagesStats = {
     imagesFound: images.length,
     imagesReplaced: 0,

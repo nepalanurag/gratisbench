@@ -221,6 +221,57 @@ export async function getPageCount(buffer: Uint8Array): Promise<number> {
 }
 
 /**
+ * Bake a PDF's form fields into the page content so they can no longer be
+ * edited. The filled values stay visible; the fields themselves are gone.
+ */
+export async function flattenPdf(buffer: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(buffer, { ignoreEncryption: false });
+  let form;
+  try {
+    form = doc.getForm();
+  } catch {
+    throw new Error('This PDF has no form fields. There is nothing to flatten.');
+  }
+  if (form.getFields().length === 0) {
+    throw new Error('This PDF has no form fields. There is nothing to flatten.');
+  }
+  form.updateFieldAppearances();
+  form.flatten();
+  return doc.save();
+}
+
+/**
+ * Attempt to repair a damaged PDF: load it and re-save it, which rebuilds
+ * the file's internal structure. This fixes some damaged files and not
+ * others; a file that still cannot be read is likely beyond repair.
+ */
+export async function repairPdf(buffer: Uint8Array): Promise<Uint8Array> {
+  let doc;
+  try {
+    doc = await PDFDocument.load(buffer, { ignoreEncryption: false });
+  } catch {
+    try {
+      doc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    } catch {
+      throw new Error(
+        'This file could not be repaired. It may be too damaged, or it may not be a PDF at all.'
+      );
+    }
+  }
+  return doc.save();
+}
+
+/** Output filename for the flattened PDF. */
+export function flattenedFileName(stem: string): string {
+  return `${stem}-flattened.pdf`;
+}
+
+/** Output filename for the repaired PDF. */
+export function repairedFileName(stem: string): string {
+  return `${stem}-repaired.pdf`;
+}
+
+/**
  * Copy the given 1-based page numbers into a new PDF, in the order given.
  * Used by the split tool's visual page picker.
  */

@@ -332,6 +332,70 @@ export function initResumeBuilder(): void {
     preview.innerHTML = renderResume(resume, template);
   }
 
+  // Click-to-edit: click text in the preview to edit it in place.
+  function applyPreviewEdit(path: string, text: string): void {
+    const parts = path.split('.');
+    if (parts[0] === 'contact' && parts.length === 2) {
+      const f = parts[1] as keyof typeof resume.contact;
+      if (f in resume.contact) resume.contact[f] = text;
+    } else if (parts[0] === 'summary' && parts[1] === 'text') {
+      resume.summary = text;
+    } else if (parts.length >= 3) {
+      const [sec, id, field] = parts;
+      const list = (resume as unknown as Record<string, Array<{ id: string } & Record<string, unknown>> | undefined>)[sec];
+      const entry = Array.isArray(list) ? list.find((e) => e.id === id) : undefined;
+      if (entry && field in entry) {
+        if (field === 'bullets' && parts.length === 4) {
+          const idx = Number(parts[3]);
+          const bullets = entry.bullets as string[];
+          if (Array.isArray(bullets) && idx >= 0 && idx < bullets.length) bullets[idx] = text;
+        } else if (typeof entry[field] === 'string') {
+          entry[field] = text;
+        }
+      }
+    }
+    save();
+    renderEditor();
+    renderPreview();
+  }
+
+  let editingEl: HTMLElement | null = null;
+  preview.addEventListener('click', (e) => {
+    const t = (e.target as HTMLElement).closest?.('[data-edit]') as HTMLElement | null;
+    if (!t || t === editingEl) return;
+    // Finish any open edit first.
+    if (editingEl) editingEl.blur();
+    editingEl = t;
+    t.contentEditable = 'true';
+    t.classList.add('rs-editing');
+    t.focus();
+    document.getSelection()?.selectAllChildren(t);
+    t.title = 'Editing — press Enter to save, Esc to cancel';
+
+    const done = (saveIt: boolean) => {
+      if (editingEl !== t) return;
+      editingEl = null;
+      t.contentEditable = 'false';
+      t.classList.remove('rs-editing');
+      t.removeAttribute('title');
+      const text = (t.textContent ?? '').trim();
+      const path = t.getAttribute('data-edit') ?? '';
+      if (saveIt && path) applyPreviewEdit(path, text);
+      else renderPreview();
+    };
+    t.onblur = () => done(true);
+    t.onkeydown = (ev: KeyboardEvent) => {
+      if (ev.key === 'Enter' && !ev.shiftKey) {
+        ev.preventDefault();
+        done(true);
+      } else if (ev.key === 'Escape') {
+        ev.preventDefault();
+        done(false);
+      }
+      ev.stopPropagation();
+    };
+  });
+
   // ---------- editor ----------
 
   function fieldHtml(sec: SectionDef, id: string, f: FieldDef, value: unknown): string {
@@ -597,14 +661,21 @@ export function initResumeBuilder(): void {
 
   // Filled by the import panel (src/tools/resume-import-ui.ts): replace the
   // whole resume with the parsed data, then re-render editor and preview.
+  // This is always a full replace: example data, a previous import, or manual
+  // edits are all discarded (after confirm). No need to Clear first.
   window.addEventListener('freekit:resume-import', (e) => {
     const data = (e as CustomEvent).detail as ResumeData | null;
     if (!data || typeof data !== 'object' || !data.contact) return;
     if (!window.confirm('Replace your current resume with the imported details? This cannot be undone.')) return;
-    resume = data;
-    save();
-    renderEditor();
-    renderPreview();
+    try {
+      resume = data;
+      save();
+      renderEditor();
+      renderPreview();
+    } catch (err) {
+      showError('rb-error', 'The details were read but the editor could not display them. Try reloading the page.');
+      el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   });
 
   el('rb-clear').addEventListener('click', () => {

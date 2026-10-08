@@ -1,0 +1,108 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Extract Images from PDF Free — Pull Out Embedded Pictures, No Signup';
+const description =
+  'Extract all embedded images from a PDF for free, in your browser. Thumbnails appear below; download each picture on its own or grab everything as a ZIP. No signup, no watermark.';
+const h1 = 'Extract Images';
+const lede = 'Pull every embedded picture out of a PDF. See thumbnails of what is inside, download images one by one or all together as a ZIP.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Extract Images', href: '/extract-images' }]}
+  toolName="TruePDF Extract Images"
+  intro={[
+    'PDFs often carry full-resolution pictures that you cannot get at any other way: product photos in a catalog, figures in a paper, scans someone embedded instead of attaching. Screenshots of the page give you a low-quality crop. This tool pulls the actual embedded images out at their original resolution.',
+    'Drop the file and every picture inside appears as a thumbnail with its page number and size. Download the ones you want individually, or take everything at once as a ZIP. Photos come out as JPG; drawings and graphics come out as PNG. The original PDF is never changed.',
+  ]}
+  steps={[
+    'Drop your PDF onto the box above, or click it to browse.',
+    'Wait a moment while the tool reads every page. Thumbnails of all embedded images appear below.',
+    'Download single images with their buttons, or take everything at once.',
+    'Use "Download all as ZIP" for the full set in one file.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None. The images are yours, untouched.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Image quality', 'Original resolution, as embedded in the PDF'],
+    ['Formats', 'JPG for photos, PNG for graphics and drawings'],
+    ['ZIP download', 'All images in one images.zip file'],
+    ['What is skipped', 'Tiny icons and invisible mask images are skipped'],
+    ['Password-protected PDFs', 'Not supported. Remove the password first, then extract.'],
+  ]}
+  faqs={[
+    {
+      q: 'Why do some images come out as JPG and others as PNG?',
+      a: 'Photos are usually stored in the PDF as JPEG already, so they come out unchanged as JPG. Drawings, logos, and graphics are usually stored uncompressed, so they are converted to PNG. Either way, the resolution is the original one.',
+    },
+    {
+      q: 'The PDF has pictures but the tool found none. Why?',
+      a: 'A few reasons. The pictures may be vector drawings rather than images (this tool extracts embedded raster images). They may be tiny icons that were skipped. Or the PDF is a scan: one big image per page should still be found, but if not, the PDF to JPG tool renders pages as images instead.',
+    },
+    {
+      q: 'Are the images full quality?',
+      a: 'Yes. Extraction pulls the embedded image data at the resolution the PDF stores it. That is the best quality available anywhere; a screenshot of the page is always worse.',
+    },
+    {
+      q: 'Can I extract images from a password-protected PDF?',
+      a: 'No. Remove the password first (there is an Unlock PDF tool here), then extract the images.',
+    },
+    {
+      q: 'Does this change my PDF?',
+      a: 'No. The PDF is only read. Your original file is untouched and you keep it alongside the extracted images.',
+    },
+    {
+      q: 'Why do I get more images than I expected?',
+      a: 'Documents repeat images: a logo on every page is extracted once per unique image, but backgrounds, bullets, and design elements each count. The page number on each thumbnail tells you where it came from.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Recovering photos from a document',
+      p: 'A catalog, brochure, or report contains the only copy of a photo you need. Extract it at full resolution instead of taking a blurry screenshot.',
+    },
+    {
+      h: 'Pulling figures out of a paper',
+      p: 'Making slides from a published paper? Extract the charts and figures as clean images instead of cropping screenshots.',
+    },
+    {
+      h: 'Checking what is inside a PDF',
+      p: 'Before sharing a document, see every embedded image at a glance. Useful when a file is suspiciously large: one huge background photo is often the reason, and Compress PDF can shrink it.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Extract images tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to extract images from">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop a PDF here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <p id="size-note" class="hint" hidden></p>
+    <div id="error-box" class="error-box" hidden></div>
+
+    <p class="honest-note">
+      <strong>How this works:</strong> the tool reads the PDF's embedded pictures at their
+      original resolution. Nothing is re-rendered and your file is never changed.
+    </p>
+
+    <p id="images-empty" class="empty-state" hidden>No images yet. Add a PDF above to see what is inside it.</p>
+    <div id="images-wrap" class="img-grid"></div>
+
+    <div id="result" class="result" hidden>
+      <h3>Images found</h3>
+      <p id="count-label" class="count-label"></p>
+      <button id="zip-btn" class="btn" disabled>Download all as ZIP</button>
+    </div>
+  </section>
+  <script>
+    import { initExtractImages } from '../tools/extract-images';
+    initExtractImages();
+  </script>
+</ToolPage>

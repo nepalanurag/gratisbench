@@ -18,8 +18,8 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
   toolName="TruePDF Image OCR"
   intro={[
     'Optical character recognition is one of those features software companies love to gate: Adobe keeps decent OCR behind an Acrobat Pro subscription, and most free online OCR tools cap you at a few pages or hold the download hostage. Yet the underlying technology is decades old and runs fine on your own hardware.',
-    'This tool runs the Tesseract OCR engine directly in your browser. Drop in a photo of a document, a screenshot, or a scan, and it reads the text into an editable box you can copy or download as a .txt file. Before recognition it upscales small images and stretches contrast on a grayscale copy, the two preprocessing steps that genuinely move the needle on accuracy. Your image never leaves your device.',
-    'Be honest with yourself about the input: OCR is only as good as the pixels. Clean, high-contrast, straight-on text at a decent size reads near-perfectly. Blurry photos, decorative fonts, handwriting, and text over busy backgrounds will produce errors you need to proofread. The tool tells you this up front because a confident wrong transcript is worse than no transcript.',
+    'This tool reads text from images directly in your browser. Drop in a photo of a document, a screenshot, or a scan, and it reads the text into an editable box you can copy or download as a .txt file. It enlarges small images and boosts contrast first, which genuinely improves accuracy. Your image never leaves your device.',
+    'Be honest with yourself about the input: The result is only as good as the photo. Clean, high-contrast, straight-on text at a decent size reads near-perfectly. Blurry photos, decorative fonts, handwriting, and text over busy backgrounds will produce errors you need to proofread. The tool tells you this up front because a confident wrong transcript is worse than no transcript.',
   ]}
   steps={[
     'Drop an image onto the box above, or click it to browse. PNG, JPG, and WebP all work.',
@@ -35,7 +35,7 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     ['Where files are processed', 'In your browser, on your device'],
     ['Languages', '12: English, French, German, Spanish, Italian, Portuguese, Dutch, Russian, Japanese, Chinese (Simplified), Hindi, Arabic'],
     ['Output', 'Editable text: copy to clipboard or download .txt'],
-    ['Preprocessing', 'Optional upscale for small images, grayscale + contrast stretch'],
+    ['Preprocessing', 'Optional upscale for small images, contrast boost'],
     ['Engine download', 'About 15 MB once per browser, then cached'],
     ['Works offline', 'Yes, once the engine and language data have downloaded'],
     ['Honest limits', 'Clean, high-contrast text works best; handwriting and blurry photos will have errors'],
@@ -43,7 +43,7 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
   faqs={[
     {
       q: 'Is this OCR tool really free?',
-      a: 'Yes. Adobe and others put OCR behind paid plans because they run it on their servers. Tesseract is a mature open-source engine, and this page runs it on your own device, so there is nothing to charge for: no page caps, no account, no watermark on the text.',
+      a: 'Yes. Adobe and others put OCR behind paid plans because they run it on their servers. This page runs everything on your own device, so there is nothing to charge for: no page caps, no account, no watermark on the text.',
     },
     {
       q: 'Are my images uploaded to a server?',
@@ -55,7 +55,7 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     },
     {
       q: 'Can it read handwriting?',
-      a: 'Not reliably. Tesseract is built for printed text. Neat block handwriting sometimes produces partial results, but cursive and messy writing will mostly come back as errors. Treat any handwriting output as a rough draft at best.',
+      a: 'Not reliably. The reader is built for printed text. Neat block handwriting sometimes produces partial results, but cursive and messy writing will mostly come back as errors. Treat any handwriting output as a rough draft at best.',
     },
     {
       q: 'Which languages are supported?',
@@ -63,11 +63,11 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     },
     {
       q: 'What do the preprocessing options do?',
-      a: 'Upscaling enlarges small images, because Tesseract expects text at roughly 300 DPI and tiny text is its biggest weakness. The contrast option converts to grayscale and stretches the tonal range, which helps faded scans and uneven lighting. Both are on by default and help far more often than they hurt.',
+      a: 'Upscaling enlarges small images, because tiny text is the biggest weakness. The contrast option boosts faded scans and uneven lighting. Both are on by default and help far more often than they hurt.',
     },
     {
       q: 'Why is some text missing or wrong?',
-      a: 'Usually the input: text smaller than about 10 pixels tall, low contrast, glare, or heavy compression artifacts. Tables and multi-column layouts can also come out in the wrong reading order. Re-shoot or re-scan at higher quality, make sure the page fills the frame, and proofread the result.',
+      a: 'Usually the input: text smaller than about 10 pixels tall, low contrast, glare, or heavy compression. Tables and multi-column layouts can also come out in the wrong reading order. Re-shoot or re-scan at higher quality, make sure the page fills the frame, and proofread the result.',
     },
     {
       q: 'How accurate is it compared to Adobe Acrobat OCR?',
@@ -103,8 +103,8 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
 
     <div class="field">
       <label>Preprocessing</label>
-      <label class="checkline"><input type="checkbox" id="opt-upscale" checked /><span>Upscale small images<small>Tesseract wants text at roughly 300 DPI. Small text is its biggest weakness.</small></span></label>
-      <label class="checkline"><input type="checkbox" id="opt-contrast" checked /><span>Grayscale + boost contrast<small>Helps faded scans and uneven lighting. Almost always an improvement.</small></span></label>
+      <label class="checkline"><input type="checkbox" id="opt-upscale" checked /><span>Upscale small images<small>Small text is the biggest weakness. Upscaling helps.</small></span></label>
+      <label class="checkline"><input type="checkbox" id="opt-contrast" checked /><span>Boost contrast<small>Helps faded scans and uneven lighting. Almost always an improvement.</small></span></label>
       <label class="checkline"><input type="checkbox" id="opt-cleanup" checked /><span>Tidy up whitespace<small>Fixes ragged line breaks and blank lines. Never rewrites words.</small></span></label>
     </div>
 

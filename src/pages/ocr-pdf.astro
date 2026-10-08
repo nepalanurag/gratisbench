@@ -1,0 +1,128 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'OCR PDF Free — Make Scanned PDFs Searchable, No Signup, No Upload';
+const description =
+  'Make a scanned PDF searchable for free, in your browser. Scanned pages are read and rebuilt with an invisible text layer; pages that already have text are left alone. No signup, no watermark.';
+const h1 = 'OCR PDF';
+const lede = 'Turn scanned PDFs into searchable documents. Pages with no text are read and rebuilt with a hidden text layer; the pages look exactly the same.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'OCR PDF', href: '/ocr-pdf' }]}
+  toolName="TruePDF OCR PDF"
+  intro={[
+    'A scanned PDF is just pictures of pages. You cannot search it, copy text from it, or select a paragraph. This tool fixes that: it reads every page that has no text and adds an invisible text layer behind the image. The pages look exactly the same, but now Ctrl+F finds words and you can copy passages out.',
+    'Only the pages that need it are touched. If your document mixes scanned pages with real text pages (a common result of scanning one page badly, or combining files), the text pages are copied through unchanged. Pick the language the pages are written in before you run it; that matters for accuracy.',
+  ]}
+  steps={[
+    'Drop your PDF onto the box above, or click it to browse. Pick the language the pages are written in.',
+    'The tool checks every page. Pages that already have text are left alone; only scanned pages are read.',
+    'Click "Make searchable". A progress bar shows the page currently being read.',
+    'Save the result, then test it: open the PDF and search for a word you know is on a scanned page.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None. The output is your document, nothing added.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['How scanned pages are handled', 'Read, then rebuilt as the same image with an invisible text layer'],
+    ['How pages with text are handled', 'Copied through unchanged'],
+    ['Text languages', 'English, French, German, Spanish, Italian, Portuguese, Dutch, Russian, Japanese, Chinese, Hindi, Arabic, and more'],
+    ['First use', 'Downloads the text reader (a few MB), then it is cached'],
+    ['Output filename', 'Your original name with "-searchable" added'],
+    ['Password-protected PDFs', 'Not supported. Remove the password first, then run the tool.'],
+  ]}
+  faqs={[
+    {
+      q: 'How is this different from the Image OCR tool?',
+      a: 'Image OCR reads a single picture and gives you the text as a file. This tool adds a searchable text layer inside the PDF itself, page by page, so the whole document becomes searchable and copyable while looking identical.',
+    },
+    {
+      q: 'Do I need an internet connection?',
+      a: 'Only the first time, to download the text reader (a few MB). After that it is cached and the tool works offline, like everything else here. Your PDF is never uploaded either way.',
+    },
+    {
+      q: 'Will the pages look any different?',
+      a: 'No. Scanned pages are rebuilt as the same image with an invisible text layer behind it. Only the file size changes slightly.',
+    },
+    {
+      q: 'How accurate is the text recognition?',
+      a: 'On clean scans of printed text it is very good. Blurry scans, skewed pages, tiny fonts, and unusual layouts produce more mistakes. Always spot-check the result by searching for a few words you know are there.',
+    },
+    {
+      q: 'Can it read handwriting?',
+      a: 'Not reliably. It is built for printed text. Handwritten pages usually come back as gibberish, so run it on printed documents.',
+    },
+    {
+      q: 'My PDF already has text. What does this tool do with it?',
+      a: 'Nothing. Pages with real text are copied into the result unchanged, which also keeps the file small and the good text perfect. If a page has text but it is garbled, convert the page to an image first, or re-scan it.',
+    },
+    {
+      q: 'How long does it take?',
+      a: 'A few seconds per scanned page on most computers. A hundred-page scan takes several minutes; the progress bar shows where it is. Very long documents are better run on a desktop than a phone.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Making old scanned contracts searchable',
+      p: 'A filing cabinet of scanned agreements is useless until you can search it. Run the scans through this tool and you can find clauses and names with Ctrl+F instead of reading every page.',
+    },
+    {
+      h: 'Preparing research material',
+      p: 'Scanned book chapters and journal pages become quotable: search for a term, copy the paragraph, paste it into your notes with the page number.',
+    },
+    {
+      h: 'Fixing mixed documents',
+      p: 'Documents that mix real text pages with scanned pages (a replaced page, a faxed signature page) become uniformly searchable without rebuilding the whole file.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="OCR PDF tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to make searchable">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop a PDF here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <p id="size-note" class="hint" hidden></p>
+    <div id="error-box" class="error-box" hidden></div>
+
+    <p class="honest-note">
+      <strong>How this works:</strong> pages with no text are read and rebuilt with an invisible
+      text layer. Pages that already have text are copied unchanged.
+    </p>
+
+    <p id="file-info" class="hint" hidden></p>
+    <p id="engine-note" class="hint" hidden></p>
+
+    <div class="row-2">
+      <div class="field-row" style="display:grid;gap:0.3rem;">
+        <label for="lang-select" style="font-weight:600;font-size:0.9rem;">Text language</label>
+        <select id="lang-select" class="select-input"></select>
+      </div>
+    </div>
+
+    <div id="progress-wrap" class="progress-wrap" hidden>
+      <div id="progress-label" class="progress-label"></div>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+
+    <div class="btn-row">
+      <button id="ocr-btn" class="btn" disabled>Make searchable</button>
+    </div>
+    <div id="result" class="result" hidden>
+      <h3>Searchable PDF ready</h3>
+      <p id="result-info"></p>
+      <button id="download-btn" class="btn">Download PDF</button>
+    </div>
+  </section>
+  <script>
+    import { initOcrPdf } from '../tools/ocr-pdf';
+    initOcrPdf();
+  </script>
+</ToolPage>

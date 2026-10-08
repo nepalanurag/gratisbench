@@ -117,7 +117,52 @@ export function setupDropzone(
   });
 }
 
-/** Friendly message for common pdf-lib load failures. */
+/**
+ * True on phones/tablets. Used for file-size guards: mobile browsers kill
+ * tabs that use too much memory, so a clear "too large for this device"
+ * message beats a crash. Prefers the UA client hint, falls back to UA sniff.
+ */
+export function isMobileDevice(): boolean {
+  try {
+    const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
+    if (typeof nav.userAgentData?.mobile === 'boolean') return nav.userAgentData.mobile;
+  } catch {
+    /* fall through to UA sniffing */
+  }
+  return /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent || '');
+}
+
+/**
+ * Mobile file-size guard for the ffmpeg tools. Returns null when the file is
+ * fine, or { block, message }: block=true means refuse the file (it would
+ * crash the tab), block=false means warn but let the user continue.
+ * Desktop has far more headroom, so it only blocks truly huge files.
+ */
+export function mobileFileSizeGuard(file: File): { block: boolean; message: string } | null {
+  const MB = 1024 * 1024;
+  if (isMobileDevice()) {
+    if (file.size >= 500 * MB) {
+      return {
+        block: true,
+        message:
+          'That file is over 500 MB, which is too large to process on a phone or tablet — the browser would likely crash. Please use a desktop computer for this one.',
+      };
+    }
+    if (file.size >= 200 * MB) {
+      return {
+        block: false,
+        message:
+          'Heads up: that file is over 200 MB. Phones and tablets can run out of memory on large files — if the tab closes unexpectedly, try a smaller file or use a desktop.',
+      };
+    }
+  } else if (file.size >= 2 * 1024 * MB) {
+    return {
+      block: true,
+      message: 'That file is over 2 GB, which is too large to process in a browser tab. Please use a smaller file.',
+    };
+  }
+  return null;
+}
 export function pdfLoadErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (/encrypted|password/i.test(msg)) {

@@ -59,15 +59,15 @@ const lede = 'Turn logos, icons, and high-contrast art into clean SVG paths. Fre
     },
     {
       q: 'Why does my traced photo look bad?',
-      a: 'Because tracing is the wrong tool for photos. A tracer sees only flat regions of similar color, so skin tones, shadows, and textures become posterized blobs. For photos you want the original pixels; for logos and icons you want vectors. No setting fixes a photo source.',
+      a: 'Because tracing is the wrong tool for photos. A tracer sees only flat regions of similar color, so skin tones, shadows, and textures become posterized blobs. For photos you want the original pixels; for logos and icons you want a scalable SVG. No setting fixes a photo source.',
     },
     {
       q: 'My transparent PNG traced with a white background. Why?',
-      a: 'The tracer works on opaque pixels, so transparent regions are filled with white before tracing. If you need the transparency preserved as a cut-out, trace the opaque version and delete the white background path in a vector editor, or use the background remover first and trace the result.',
+      a: 'Tracing works on solid parts of the image, so transparent regions are filled with white before tracing. If you need the transparency preserved as a cut-out, trace the opaque version and delete the white background path in a vector editor, or use the background remover first and trace the result.',
     },
     {
       q: 'How large can the input image be?',
-      a: 'Any size, but the long edge is scaled to 1024 px before tracing to keep it fast. That sounds like a downgrade, but tracing is about shapes, not pixels: the SVG output scales infinitely regardless of the trace resolution, and 1024 px captures all the edge detail a logo needs.',
+      a: 'Any size works. Big images are scaled down first to keep tracing fast, but the SVG output scales to any size regardless, so nothing is lost.',
     },
     {
       q: 'Can I edit the SVG afterwards?',

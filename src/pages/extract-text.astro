@@ -1,0 +1,112 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Extract Text from PDF Free — Copy PDF Text to TXT, No Signup';
+const description =
+  'Extract the plain text from a PDF for free, in your browser. Read every page, copy the text with one click, or download it as a .txt file. No signup, no watermark.';
+const h1 = 'Extract Text';
+const lede = 'Get the plain text out of a PDF. Read it right on the page, copy it with one click, or download it as a .txt file.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Extract Text', href: '/extract-text' }]}
+  toolName="TruePDF Extract Text"
+  intro={[
+    'Sometimes you do not want the document. You want the words: to quote in an email, to paste into notes, to feed into a translator, to search through quickly. This tool reads every page of a PDF and hands you the text as plain text, editable right on the page before you copy or download it.',
+    'What comes out is the text in reading order, page by page. Layouts, fonts, and images are dropped: this is for the words, not the design. If the PDF is a scan with no text inside, the tool says so plainly, and the OCR PDF tool is the fix for that.',
+  ]}
+  steps={[
+    'Drop your PDF onto the box above, or click it to browse.',
+    'The tool reads every page. The text appears in the box below, editable if you want to fix anything.',
+    'Click "Copy" to copy it to your clipboard, or "Download .txt" to save it as a text file.',
+    'For scanned PDFs with no text, use the OCR PDF tool first, then extract the text here.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Output', 'Plain text: copy to clipboard or download as .txt'],
+    ['Order', 'Pages in order, text in reading order'],
+    ['What is dropped', 'Layouts, fonts, images, and formatting'],
+    ['Scanned PDFs', 'No text to extract. Run OCR PDF first.'],
+    ['Password-protected PDFs', 'Not supported. Remove the password first, then extract.'],
+  ]}
+  faqs={[
+    {
+      q: 'The tool says there is no text. What now?',
+      a: 'The PDF is probably scanned pages: pictures with no text inside. Run it through the OCR PDF tool first to add a text layer, then extract the text here.',
+    },
+    {
+      q: 'Why does the text look jumbled in places?',
+      a: 'PDFs store text as positioned fragments, not paragraphs. Multi-column layouts, tables, and footnotes can come out in the wrong order. The text box is editable, so you can fix the order before copying.',
+    },
+    {
+      q: 'Can I get the text with its formatting?',
+      a: 'No, this tool is plain text only. If you need headings, bold, and lists preserved, the PDF to Word tool converts the document to an editable .docx instead.',
+    },
+    {
+      q: 'Does it keep the page numbers or headers?',
+      a: 'Headers, footers, and page numbers come out as plain text mixed in with the rest, since the tool cannot tell them apart from body text. Delete them in the text box before copying if you do not want them.',
+    },
+    {
+      q: 'Is there a size limit?',
+      a: 'No hard limit, but very long documents (hundreds of pages) take a while to read and produce a big text box. On a phone, keep it to shorter documents.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Quoting a document',
+      p: 'Pull the exact wording of a clause, paragraph, or figure caption out of a PDF to quote in an email or report, without retyping it.',
+    },
+    {
+      h: 'Feeding text to other tools',
+      p: 'Translation apps, note-taking apps, and spreadsheets all take plain text. Extract once, paste anywhere.',
+    },
+    {
+      h: 'Searching a long document fast',
+      p: 'Dump a long PDF to text and search through it in your text editor, or diff two versions of a contract by extracting both.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Extract text tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to extract text from">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop a PDF here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <p id="size-note" class="hint" hidden></p>
+    <div id="error-box" class="error-box" hidden></div>
+
+    <p class="honest-note">
+      <strong>How this works:</strong> every page is read and its text is joined into plain
+      text, page by page. Layout and images are dropped. Edit the result before copying.
+    </p>
+
+    <p id="text-empty" class="empty-state">No text yet. Add a PDF above to read its text.</p>
+    <textarea id="text-output" class="ocr-output" aria-label="Extracted text — you can edit it before copying" hidden></textarea>
+
+    <div id="progress-wrap" class="progress-wrap" hidden>
+      <div id="progress-label" class="progress-label"></div>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+
+    <div id="result" class="result" hidden>
+      <h3>Text extracted</h3>
+      <p id="count-label" class="count-label"></p>
+      <div class="btn-row" style="margin-top:0;">
+        <button id="copy-btn" class="btn btn-secondary" disabled>Copy</button>
+        <button id="txt-btn" class="btn" disabled>Download .txt</button>
+      </div>
+    </div>
+  </section>
+  <script>
+    import { initExtractText } from '../tools/extract-text';
+    initExtractText();
+  </script>
+</ToolPage>

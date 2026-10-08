@@ -18,7 +18,7 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
   toolName="TruePDF Background Remover"
   intro={[
     'Removing a background used to mean either paying for Photoshop or feeding your photos to a service like remove.bg, which gives you a tiny 0.25-megapixel preview for free and charges for the full-resolution version. One credit per image, subscriptions that renew whether you use them or not. It is a simple job wrapped in a pricing page.',
-    'This tool runs a real AI segmentation model right here in your browser. Drop in a photo, and the model figures out which pixels are the subject and which are the background, then hands you a full-resolution transparent PNG. No account, no credits, no "free preview" upsell. The output is the actual full-size image, because there is no server bill to recover.',
+    'This tool runs a real AI model right here in your browser. Drop in a photo, and the model figures out which pixels are the subject and which are the background, then hands you a full-resolution transparent PNG. No account, no credits, no "free preview" upsell. The output is the actual full-size image, because there is no server bill to recover.',
     'Everything happens on your device. The model downloads once (about 40 MB, cached by your browser), your photo is processed locally, and when you close the tab nothing remains anywhere but your own computer. Portraits, product shots, and pet photos all work; wispy hair and glass are hard for every background remover, including the paid ones, so check the edges before you ship something important.',
   ]}
   steps={[
@@ -61,15 +61,15 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
     },
     {
       q: 'Which browsers are supported?',
-      a: 'Any recent Chrome, Edge, Firefox, or Safari. The AI engine needs WebAssembly, which every modern browser has. Very old browsers or ones with WebAssembly disabled will show an error instead of a result.',
+      a: 'Any recent Chrome, Edge, Firefox, or Safari. Very old browsers may show an error instead of a result.',
     },
     {
       q: 'How is this different from remove.bg?',
-      a: 'remove.bg is a paid API with a free low-resolution preview; full-resolution downloads cost credits. This tool runs an open segmentation model locally in your browser, so there is no per-image cost and no account. The trade-off is that the first visit downloads the model, and very tricky images may need the touch-up tools a paid editor provides.',
+      a: 'remove.bg is a paid API with a free low-resolution preview; full-resolution downloads cost credits. This tool runs an AI model in your browser, so there is no per-image cost and no account. The trade-off is that the first visit downloads the model, and very tricky images may need the touch-up tools a paid editor provides.',
     },
     {
       q: 'Can I remove backgrounds from many images at once?',
-      a: 'One image at a time. Batch processing would keep the model hot in memory, which is fine, but the UI is built around inspecting each result. Process them one by one; repeat runs start instantly because the model stays cached.',
+      a: 'One image at a time. Process them one by one; repeat runs start instantly because the model stays cached.',
     },
   ]}
 >
@@ -117,6 +117,7 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
     <div id="progress-wrap" class="progress-wrap" hidden>
       <div class="progress-label" id="progress-label"></div>
       <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
+      <p class="hint">The first run downloads the AI model once (about 40 MB). Use Wi-Fi on mobile if you can.</p>
     </div>
 
     <div class="btn-row">

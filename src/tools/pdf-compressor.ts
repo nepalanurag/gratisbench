@@ -1,8 +1,10 @@
 // Compress PDF tool: DOM glue. Image-downsampling logic lives in ../lib/pdf-compress.ts
 import {
   compressPdfImages,
+  compressToTargetSize,
   COMPRESSION_LEVELS,
   type CompressionLevelName,
+  type CompressImagesStats,
   type ImageCodec,
   type RawImage,
 } from '../lib/pdf-compress.ts';
@@ -60,6 +62,20 @@ function levelName(): CompressionLevelName {
   return value in COMPRESSION_LEVELS ? (value as CompressionLevelName) : 'medium';
 }
 
+function targetMode(): boolean {
+  return document.querySelector<HTMLInputElement>('input[name="cmode"]:checked')?.value === 'target';
+}
+
+function wireModeToggle(): void {
+  document.querySelectorAll<HTMLInputElement>('input[name="cmode"]').forEach((r) =>
+    r.addEventListener('change', () => {
+      const target = targetMode();
+      el('target-size-field').hidden = !target;
+      el('quality-field').hidden = target;
+    })
+  );
+}
+
 function setProgress(done: number, total: number): void {
   const wrap = el('progress-wrap');
   wrap.hidden = false;
@@ -70,6 +86,7 @@ function setProgress(done: number, total: number): void {
 
 export function initPdfCompressor(): void {
   const compressBtn = el<HTMLButtonElement>('compress-btn');
+  wireModeToggle();
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
@@ -117,10 +134,28 @@ export function initPdfCompressor(): void {
     setBusy('compress-btn', true, 'Compressing…');
     setProgress(0, 0);
     try {
-      const level = levelName();
-      const { data: out, stats } = await compressPdfImages(fileBytes, level, browserCodec, (done, total) => {
-        setProgress(done, total);
-      });
+      let out: Uint8Array;
+      let stats: CompressImagesStats;
+      let resultNote = '';
+      if (targetMode()) {
+        const targetMb = Math.max(0.1, Number(el<HTMLInputElement>('target-mb').value) || 2);
+        const targetBytes = Math.round(targetMb * 1024 * 1024);
+        const res = await compressToTargetSize(fileBytes, targetBytes, browserCodec, (done, total) => {
+          setProgress(done, total);
+        });
+        out = res.data;
+        stats = res.stats;
+        resultNote = res.hitTarget
+          ? ` · under your ${formatBytes(targetBytes)} target`
+          : ` · could not reach ${formatBytes(targetBytes)} — this is the smallest it goes (${formatBytes(res.smallestBytes)})`;
+      } else {
+        const level = levelName();
+        const res = await compressPdfImages(fileBytes, level, browserCodec, (done, total) => {
+          setProgress(done, total);
+        });
+        out = res.data;
+        stats = res.stats;
+      }
 
       const saved = originalSize - out.length;
       const pct = originalSize > 0 ? Math.round((saved / originalSize) * 100) : 0;
@@ -132,7 +167,7 @@ export function initPdfCompressor(): void {
             : ' · no images to shrink';
       el('result-info').textContent =
         saved > 0
-          ? `${formatBytes(originalSize)} → ${formatBytes(out.length)} · ${pct}% smaller${imageNote}`
+          ? `${formatBytes(originalSize)} → ${formatBytes(out.length)} · ${pct}% smaller${imageNote}${resultNote}`
           : `${formatBytes(originalSize)} → ${formatBytes(out.length)} · no saving this time (this PDF was already compact)`;
       el('result').hidden = false;
       const stem = fileName.replace(/\.[^.]+$/, '');

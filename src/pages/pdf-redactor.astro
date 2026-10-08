@@ -17,7 +17,7 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
   toolName="TruePDF Redact PDF"
   intro={[
     'Redaction has one job: make the hidden parts truly gone, not just covered up. Plenty of tools fail at this by drawing a black rectangle on top of the text while the words sit underneath, recoverable by anyone who selects the page. If you are blacking out names, account numbers, or addresses before sharing a document, "looks hidden" is not good enough.',
-    'Here is exactly what this tool does, because with redaction the method matters. Pages you mark are converted to images with the marked areas permanently painted over at the pixel level; there is no text layer left underneath to recover. Pages you do not mark are copied into the result untouched, as vectors, with their text still selectable. That keeps the output clean: only the pages you touched change format.',
+    'Here is exactly what this tool does, because with redaction the method matters. Pages you mark are turned into images with the marked areas permanently painted over; there is no hidden text left underneath to recover. Pages you do not mark are copied into the result untouched, with their text still selectable. That keeps the output clean: only the pages you touched change format.',
     'Because redaction is destructive by design, double-check your marks before downloading: zoom into the preview, make sure every box fully covers its text including descenders and edges, and keep your original file safe. The whole process runs locally in your browser, which also means the sensitive document you are redacting never travels over the network.',
   ]}
   steps={[
@@ -32,7 +32,7 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None. The output is your document, nothing added.'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['How marked pages are handled', 'Converted to images; marked areas are painted over at the pixel level'],
+    ['How marked pages are handled', 'Turned into images; marked areas are painted over permanently'],
     ['How unmarked pages are handled', 'Copied as-is; text stays selectable'],
     ['Is the hidden text recoverable?', 'No. Marked regions have no text layer underneath.'],
     ['How to mark', 'Click and drag on the page preview; double-click a box to remove it'],
@@ -42,11 +42,11 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
   faqs={[
     {
       q: 'Is the redacted text really gone?',
-      a: 'Yes, for the areas you mark. Marked pages are rebuilt as flat images with the boxes painted into the pixels, so there is no hidden text layer to extract. This is the whole point of the tool, and it is why marked pages change format while unmarked pages do not. Still, always verify the result yourself before sharing: open the download and try to select text beneath the black boxes.',
+      a: 'Yes, for the areas you mark. Marked pages are rebuilt as images with the boxes painted in, so there is no hidden text to extract. This is the whole point of the tool, and it is why marked pages change format while unmarked pages do not. Still, always verify the result yourself before sharing: open the download and try to select text beneath the black boxes.',
     },
     {
       q: 'Why do only some pages become images?',
-      a: 'Converting every page to an image would bloat the file and destroy selectable text throughout the document for no reason. Pages you never mark are copied through untouched, so their text stays selectable and the file stays lean. Only the pages with marks are rasterized, because that is the only way to guarantee the covered content is destroyed.',
+      a: 'Converting every page to an image would bloat the file and remove selectable text throughout the document for no reason. Pages you never mark are copied through untouched, so their text stays selectable and the file stays small. Only the pages with marks are converted to images, because that is the only way to guarantee the covered content is destroyed.',
     },
     {
       q: 'How careful do I need to be with the boxes?',

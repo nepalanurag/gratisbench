@@ -1,0 +1,111 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Repair PDF Free — Fix Damaged PDF Files Online, No Signup';
+const description =
+  'Try to repair a damaged PDF for free, in your browser. The file\u2019s structure is rebuilt; when it works, the document opens again. Honest about limits: some files cannot be fixed. No signup, no watermark.';
+const h1 = 'Repair PDF';
+const lede = 'Try to fix a damaged PDF that will not open. The file\u2019s structure is rebuilt from scratch; when it works, the document opens again.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Repair PDF', href: '/repair-pdf' }]}
+  toolName="TruePDF Repair PDF"
+  intro={[
+    'A PDF stops opening for dull reasons: a download cut off halfway, a transfer mangled the file, a disk hiccup damaged the internal structure. Often the content is still in there and only the file\u2019s scaffolding is broken. This tool reads what it can and rebuilds the file from scratch.',
+    'Be clear-eyed about it: this fixes some damaged PDFs and not others. A file with its content destroyed, or something that was never a PDF, cannot be brought back by any tool. If the repair fails here, the file is likely beyond repair, and the tool says so instead of handing you a broken download.',
+  ]}
+  steps={[
+    'Drop the damaged PDF onto the box above, or click it to browse.',
+    'Click "Try to repair". The tool rebuilds the file\u2019s internal structure.',
+    'If it works, save the result.',
+    'Open the repaired file and check every page. Skim for missing pages or garbled content before relying on it.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['What it does', 'Reads the damaged file and writes a fresh, clean copy'],
+    ['What it cannot do', 'Recover content that is actually destroyed, or fix files that were never PDFs'],
+    ['Success rate', 'Honest answer: some files, not all. Truncated downloads repair best.'],
+    ['Output filename', 'Your original name with "-repaired" added'],
+  ]}
+  faqs={[
+    {
+      q: 'What kinds of damage can this fix?',
+      a: 'Broken internal structure: the index at the end of the file is corrupt, the file was saved badly, or a transfer scrambled the scaffolding while the content survived. Downloads that were cut off sometimes repair if the pages you need are in the intact part.',
+    },
+    {
+      q: 'What can it not fix?',
+      a: 'Content that is actually gone: a file that is half missing, a disk sector of zeros, or a file that was never a PDF. No tool recovers data that no longer exists.',
+    },
+    {
+      q: 'The repair "worked" but pages are missing. Why?',
+      a: 'The tool rebuilds from whatever content survived. If the original was truncated, the missing part is gone for good. Always check the repaired file page by page.',
+    },
+    {
+      q: 'Is my damaged file uploaded anywhere?',
+      a: 'No. The repair runs entirely in your browser, which is also why a file nobody else should see stays private.',
+    },
+    {
+      q: 'The file opens but looks wrong. Now what?',
+      a: 'Try opening the original in a different reader first; some readers tolerate damage better than others. If the content is garbled everywhere, the damage is in the content itself and repair cannot help.',
+    },
+    {
+      q: 'Can this remove a password from a damaged PDF?',
+      a: 'No. Repair and password removal are different jobs. A damaged encrypted file needs its password too, and this tool does not crack passwords.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'A download that will not open',
+      p: 'The download finished but the reader says the file is damaged. Repair often rebuilds it into an openable document.',
+    },
+    {
+      h: 'An old file from a failing drive',
+      p: 'Files copied off dying storage sometimes open halfway or not at all. Rebuilding the structure can recover what is still intact.',
+    },
+    {
+      h: 'A file a colleague cannot open',
+      p: 'Before asking them to resend, try a repair. Badly saved exports and mangled email attachments are common, fixable cases.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Repair PDF tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a damaged PDF file to repair">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop a damaged PDF here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <p id="size-note" class="hint" hidden></p>
+    <div id="error-box" class="error-box" hidden></div>
+
+    <p class="honest-note">
+      <strong>Be clear-eyed:</strong> this fixes some damaged PDFs, not all.
+      If the repair fails, the file is likely beyond repair.
+    </p>
+
+    <div id="repair-wrap" hidden>
+      <p id="file-info" class="hint"></p>
+      <div class="btn-row">
+        <button id="repair-btn" class="btn">Try to repair</button>
+      </div>
+    </div>
+
+    <div id="result" class="result" hidden>
+      <h3>Repaired</h3>
+      <p id="result-info"></p>
+      <button id="download-btn" class="btn">Download PDF</button>
+    </div>
+  </section>
+  <script>
+    import { initRepairPdf } from '../tools/repair-pdf';
+    initRepairPdf();
+  </script>
+</ToolPage>

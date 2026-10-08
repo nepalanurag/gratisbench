@@ -14,6 +14,7 @@ import {
   hideError,
   setBusy,
   setupDropzone,
+  mobileFileSizeGuard,
 } from './common.ts';
 
 type OutFormat = 'mp4' | 'webm' | 'mov';
@@ -57,6 +58,18 @@ export function initVideoConverter(): void {
     hideError('error-box');
     const f = files[0];
     if (!f) return;
+    // Mobile file-size guard: a tab crash is worse than a clear message.
+    const sizeNote = el('size-note');
+    sizeNote.hidden = true;
+    const guard = mobileFileSizeGuard(f);
+    if (guard?.block) {
+      showError('error-box', guard.message);
+      return;
+    }
+    if (guard) {
+      sizeNote.textContent = guard.message;
+      sizeNote.hidden = false;
+    }
     file = f;
     el('file-info').textContent = `${f.name} · ${formatBytes(f.size)}`;
     el<HTMLButtonElement>('convert-btn').disabled = false;

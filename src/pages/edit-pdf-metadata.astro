@@ -1,0 +1,136 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Edit PDF Metadata Free — Change Title, Author, Keywords, No Signup';
+const description =
+  'Edit a PDF\u2019s title, author, subject, and keywords for free, in your browser. The document itself is untouched; only its description changes. No signup, no watermark.';
+const h1 = 'Edit PDF Metadata';
+const lede = 'Change the title, author, subject, and keywords stored inside a PDF. The document itself is untouched; only its description changes.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Edit PDF Metadata', href: '/edit-pdf-metadata' }]}
+  toolName="TruePDF Edit PDF Metadata"
+  intro={[
+    'Every PDF carries a small description of itself: a title, an author, a subject, keywords. Readers and search tools show this info, which is why a document exported from Word often shows the wrong title, or your name where you would rather have the company name. This tool lets you fix all of it.',
+    'Drop the file, edit the fields, save. The pages, text, and images are copied through byte-identical; only the description changes. It is also the honest way to strip personal info from a file before sharing it: clear the author field instead of hoping nobody looks.',
+  ]}
+  steps={[
+    'Drop your PDF onto the box above, or click it to browse. Its current details appear in the form.',
+    'Edit the title, author, subject, keywords, or creator. Use "Clear all" to wipe every field.',
+    'Click "Save and download".',
+    'Check the result in your PDF reader\u2019s document properties to confirm the new details.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Editable fields', 'Title, author, subject, keywords, creator'],
+    ['What changes', 'Only the description. Pages, text, and images are untouched.'],
+    ['Output filename', 'Your original name with "-metadata" added'],
+    ['Password-protected PDFs', 'Not supported. Remove the password first, then edit.'],
+  ]}
+  faqs={[
+    {
+      q: 'Where does this metadata show up?',
+      a: 'PDF readers show it under document properties (usually File, then Properties). Search engines and document libraries use the title and author when listing files, which is why fixing them matters for shared documents.',
+    },
+    {
+      q: 'Will this change anything in the document itself?',
+      a: 'No. The pages are copied through unchanged. Only the description fields are rewritten, so the file opens and prints exactly as before.',
+    },
+    {
+      q: 'Can I remove my name from a PDF before sharing it?',
+      a: 'Yes. Clear the author and creator fields and save. That removes the obvious personal info. For a deeper clean (hidden edit history, embedded comments), that data lives in the page content and needs a different tool.',
+    },
+    {
+      q: 'What are keywords for?',
+      a: 'A few descriptive words that help search tools and document libraries find the file later. Think "invoice, 2026, acme-corp" rather than full sentences.',
+    },
+    {
+      q: 'The title field is empty. Is that a problem?',
+      a: 'Not for reading, but readers then show the filename as the title, which is often ugly. Setting a proper title takes ten seconds and makes the document look finished when shared.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Fixing an exported document',
+      p: 'Word and other apps often export PDFs with the wrong title or your username as the author. Fix the fields here before sending the file to a client.',
+    },
+    {
+      h: 'Preparing files for a shared library',
+      p: 'A folder of reports is searchable only if the titles and subjects are right. Set them properly so colleagues can find things.',
+    },
+    {
+      h: 'Cleaning personal info before sharing',
+      p: 'Clear the author and creator fields so a document you post publicly does not carry your name in its properties.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Edit PDF metadata tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to edit its metadata">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop a PDF here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <p id="size-note" class="hint" hidden></p>
+    <div id="error-box" class="error-box" hidden></div>
+
+    <p class="honest-note">
+      <strong>How this works:</strong> only the file\u2019s description is rewritten.
+      The pages, text, and images are copied through untouched.
+    </p>
+
+    <p id="file-info" class="empty-state" hidden></p>
+
+    <div id="meta-form-wrap" hidden>
+      <p id="meta-empty-note" class="hint" hidden>This PDF has no description filled in yet. Add one below.</p>
+      <div class="meta-form">
+        <div class="field-row">
+          <label for="meta-title">Title</label>
+          <input type="text" id="meta-title" placeholder="e.g. Q3 sales report" autocomplete="off" />
+          <span class="field-note">Shown by readers and search results. This is the important one.</span>
+        </div>
+        <div class="field-row">
+          <label for="meta-author">Author</label>
+          <input type="text" id="meta-author" placeholder="e.g. Jane Smith" autocomplete="off" />
+          <span class="field-note">Who wrote it. Clear it to remove a personal name before sharing.</span>
+        </div>
+        <div class="field-row">
+          <label for="meta-subject">Subject</label>
+          <input type="text" id="meta-subject" placeholder="e.g. Quarterly results" autocomplete="off" />
+        </div>
+        <div class="field-row">
+          <label for="meta-keywords">Keywords</label>
+          <input type="text" id="meta-keywords" placeholder="e.g. sales, 2026, report" autocomplete="off" />
+          <span class="field-note">A few words that help the file get found later. Separate with commas.</span>
+        </div>
+        <div class="field-row">
+          <label for="meta-creator">Creator</label>
+          <input type="text" id="meta-creator" placeholder="e.g. Acme Corp" autocomplete="off" />
+          <span class="field-note">The app or company that made the file.</span>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button id="save-btn" class="btn">Save and download</button>
+        <button id="clear-btn" class="btn btn-secondary" type="button">Clear all</button>
+      </div>
+    </div>
+
+    <div id="result" class="result" hidden>
+      <h3>Metadata updated</h3>
+      <p id="result-info"></p>
+      <button id="download-btn" class="btn">Download PDF</button>
+    </div>
+  </section>
+  <script>
+    import { initEditPdfMetadata } from '../tools/edit-pdf-metadata';
+    initEditPdfMetadata();
+  </script>
+</ToolPage>

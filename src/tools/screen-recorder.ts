@@ -3,9 +3,19 @@
 // and downloads a WebM. No server, no time cap — the honest limit is the
 // device's memory, stated on the page.
 import { preferredRecorderMimeTypes, withExtension, formatTime } from '../lib/media-core.ts';
-import { el, formatBytes, showError, hideError, setBusy } from './common.ts';
+import { el, formatBytes, showError, hideError, setBusy, isMobileDevice } from './common.ts';
 
 export function initScreenRecorder(): void {
+  // Screen capture doesn't exist on phones/tablets — say so up front instead
+  // of showing the tool and failing when the user clicks.
+  if (isMobileDevice() || !navigator.mediaDevices?.getDisplayMedia) {
+    const tool = el('recorder-tool');
+    const note = el('recorder-unavailable');
+    tool.hidden = true;
+    note.hidden = false;
+    return;
+  }
+
   let stream: MediaStream | null = null;
   let recorder: MediaRecorder | null = null;
   let chunks: Blob[] = [];

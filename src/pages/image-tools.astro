@@ -11,7 +11,7 @@ const toolsRaw = [
   { href: '/image-compressor', name: 'Image compressor', desc: 'Shrink photos and screenshots with a quality slider, batch and ZIP included.' },
   { href: '/image-converter', name: 'Image converter', desc: 'Convert between PNG, JPEG, WebP, and AVIF, with a transparency warning for JPEG.' },
   { href: '/background-remover', name: 'Background remover', desc: 'AI background removal in your browser. Full-resolution transparent PNG, free.' },
-  { href: '/image-ocr', name: 'Image OCR', desc: 'Read text from photos and scans with Tesseract. Copy or download .txt.' },
+  { href: '/image-ocr', name: 'Image OCR', desc: 'Read text from photos and scans. Copy or download .txt.' },
   { href: '/image-tracer', name: 'Image tracer', desc: 'Turn logos and icons into clean SVG vectors. Free SVG download.' },
 ] as const;
 
@@ -76,10 +76,10 @@ const jsonLd = {
       </p>
       <p>
         The three newer tools go further. The <a href={basePath("/background-remover")}>background remover</a> runs
-        an AI segmentation model in your browser and gives you a full-resolution transparent PNG, which paid
+        an AI model in your browser and gives you a full-resolution transparent PNG, which paid
         services charge per image for. <a href={basePath("/image-ocr")}>Image OCR</a> reads text out of photos and
-        scans with Tesseract, with copy and .txt download. And the <a href={basePath("/image-tracer")}>image
-        tracer</a> turns logos and icons into clean SVG vectors with a free download. Same deal as the rest:
+        scans, with copy and .txt download. And the <a href={basePath("/image-tracer")}>image
+        tracer</a> turns logos and icons into clean SVGs with a free download. Same deal as the rest:
         free, private, in your browser.
       </p>
 
@@ -88,7 +88,7 @@ const jsonLd = {
         PNG is lossless, so compressing a PNG as PNG barely changes its size; real savings come from converting
         to JPEG or WebP, and both tools say so where it matters. JPEG has no transparency, so converting a
         transparent image to JPEG forces a background color: the tools warn you and offer a white fill instead of
-        silently turning those areas black. AVIF output appears only when your browser can actually encode it.
+        silently turning those areas black. AVIF output appears only when your browser supports it.
         Animated GIFs convert as a single still frame.
       </p>
 

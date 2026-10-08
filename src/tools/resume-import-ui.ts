@@ -13,6 +13,7 @@ import {
 } from '../lib/resume-import.ts';
 import type { ParsedResume } from '../lib/resume-import.ts';
 import type { ResumeData } from '../lib/resume-core.ts';
+import { aiParseResume, isAiEnabled, getAiKey, setAiKey, setAiEnabled } from '../lib/resume-ai-parse.ts';
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
@@ -78,6 +79,19 @@ export function initResumeImport(): void {
     el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
+  /** AI parsing when the user opted in with their own key, else the heuristic parser. */
+  async function parseWithAiOrHeuristic(text: string): Promise<ParsedResume> {
+    if (isAiEnabled()) {
+      showStatus('Reading your resume with AI…');
+      const ai = await aiParseResume(text);
+      if (ai && (ai.fullName || ai.experience.length || ai.education.length || ai.skills.length)) {
+        return ai;
+      }
+      showStatus('AI reading did not work. Using standard reading instead…');
+    }
+    return parseResumeText(text);
+  }
+
   async function handleFile(file: File | undefined): Promise<void> {
     hideError('rb-error');
     if (!file || working) return;
@@ -119,7 +133,21 @@ export function initResumeImport(): void {
         );
         return;
       }
-      const parsed = parseResumeText(text);
+      const parsed = await parseWithAiOrHeuristic(text);
+      // If nothing recognizable was found, say so plainly instead of showing
+      // an empty review that would wipe the resume on "Use these details".
+      const foundCount =
+        (parsed.fullName ? 1 : 0) +
+        parsed.experience.length +
+        parsed.education.length +
+        parsed.skills.length +
+        parsed.projects.length;
+      if (foundCount === 0) {
+        fail(
+          'Could not find resume details in that file. If it is a scan or photo, try a sharper, higher-contrast image. You can also start from a blank resume below.'
+        );
+        return;
+      }
       imported = parsedToResumeData(parsed);
       renderReview(parsed);
       const preview = el<HTMLImageElement>('rb-import-preview');
@@ -148,6 +176,23 @@ export function initResumeImport(): void {
   setupDropzone('rb-import-drop', 'rb-import-file', (files) => {
     void handleFile(files[0]);
   });
+
+  // AI opt-in: the user supplies their own Gemini key, kept in localStorage.
+  const aiEnable = document.getElementById('rb-ai-enable') as HTMLInputElement | null;
+  const aiKey = document.getElementById('rb-ai-key') as HTMLInputElement | null;
+  if (aiEnable && aiKey) {
+    aiEnable.checked = isAiEnabled();
+    aiKey.value = getAiKey();
+    aiEnable.addEventListener('change', () => setAiEnabled(aiEnable.checked));
+    aiKey.addEventListener('change', () => {
+      setAiKey(aiKey.value.trim());
+      // A key without the checkbox on does nothing; a checkbox without a key does nothing.
+      if (aiKey.value.trim() && !aiEnable.checked) {
+        aiEnable.checked = true;
+        setAiEnabled(true);
+      }
+    });
+  }
 
   el('rb-import-use').addEventListener('click', () => {
     if (!imported) return;

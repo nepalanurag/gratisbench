@@ -44,6 +44,13 @@ export const TOOL_GROUPS: { name: string; tools: ToolEntry[] }[] = [
       { href: '/unlock-pdf', name: 'Unlock PDF', desc: 'Remove password protection when you know the password.', group: 'PDF', tag: 'PDF' },
       { href: '/protect-pdf', name: 'Protect PDF', desc: 'Add password encryption to a PDF. Only people with the password can open it.', group: 'PDF', tag: 'PDF' },
       { href: '/pdf-to-word', name: 'PDF to Word', desc: 'Extract text and images into an editable .docx. Headings get real Word styles, bold and italic are kept; layouts are not preserved.', group: 'PDF', tag: 'DOCX' },
+      { href: '/ocr-pdf', name: 'OCR PDF', desc: 'Make scanned PDFs searchable with an invisible text layer.', group: 'PDF', tag: 'PDF' },
+      { href: '/extract-images', name: 'Extract Images', desc: 'Pull embedded images out of a PDF; download one by one or as a ZIP.', group: 'PDF', tag: 'JPG · PNG' },
+      { href: '/extract-text', name: 'Extract Text', desc: 'Copy the text out of a PDF as plain text or a .txt file.', group: 'PDF', tag: 'TXT' },
+      { href: '/edit-pdf-metadata', name: 'Edit PDF Metadata', desc: 'Change a PDF\u2019s title, author, subject, and keywords.', group: 'PDF', tag: 'PDF' },
+      { href: '/fill-pdf-form', name: 'Fill PDF Form', desc: 'Type into PDF form fields in your browser, then save.', group: 'PDF', tag: 'PDF' },
+      { href: '/flatten-pdf', name: 'Flatten PDF', desc: 'Bake form fields into the page so they cannot be edited.', group: 'PDF', tag: 'PDF' },
+      { href: '/repair-pdf', name: 'Repair PDF', desc: 'Rebuild a damaged PDF. Fixes some files, not all.', group: 'PDF', tag: 'PDF' },
     ],
   },
   {

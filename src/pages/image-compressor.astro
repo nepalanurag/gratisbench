@@ -17,8 +17,8 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
   crumbs={[{ label: 'Image tools', href: '/image-tools' }, { label: 'Image compressor', href: '/image-compressor' }]}
   toolName="TruePDF Image Compressor"
   intro={[
-    'Image files are heavy because cameras and screenshots err on the side of too much data: a phone photo can be 5 MB when 800 KB would look identical on screen. Most online compressors solve this by uploading your photos to a server, queuing them, and making you wait. This one re-encodes each image right here in your browser, so a batch of twenty photos compresses in seconds with nobody else ever seeing them.',
-    'The honest part first: compression is a trade-off, and the trade-off depends on the format. JPEG and WebP are lossy, which means lower quality settings genuinely throw away detail to save space. PNG is lossless, which means re-encoding a PNG as a PNG barely changes its size at all. If you feed this tool a PNG and pick "keep original", expect almost no savings; switch the output to JPEG or WebP and the file will shrink properly.',
+    'Image files are heavy because cameras and screenshots err on the side of too much data: a phone photo can be 5 MB when 800 KB would look identical on screen. Most online compressors solve this by uploading your photos to a server, queuing them, and making you wait. This one shrinks each image right here in your browser, so a batch of twenty photos compresses in seconds with nobody else ever seeing them.',
+    'The honest part first: compression is a trade-off, and the trade-off depends on the format. JPEG and WebP are lossy, which means lower quality settings genuinely throw away detail to save space. PNG is lossless, which means saving a PNG as a PNG again barely changes its size at all. If you feed this tool a PNG and pick "keep original", expect almost no savings; switch the output to JPEG or WebP and the file will shrink properly.',
     'You stay in control of the whole process. The quality slider sets how aggressive the compression is, the format choice decides whether you keep the original type or convert, and every file shows its original and compressed size side by side with the percentage saved. If a result looks too soft, move the slider up and run it again. Nothing is final until you download.',
   ]}
   steps={[
@@ -47,7 +47,7 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
     },
     {
       q: 'Why did my PNG barely get smaller?',
-      a: 'Because PNG is a lossless format: it already stores your image as compactly as it can without losing data. Re-encoding it as PNG just rearranges the same information. Real savings come from switching to a lossy format. Convert that PNG to WebP at quality 80 and it will usually drop to a fraction of its size while still looking sharp.',
+      a: 'Because PNG is a lossless format: it already stores your image as compactly as it can without losing data. Saving it as PNG again just rearranges the same information. Real savings come from switching to a lossy format. Convert that PNG to WebP at quality 80 and it will usually drop to a fraction of its size while still looking sharp.',
     },
     {
       q: 'Does compressing reduce image quality?',
@@ -55,7 +55,7 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
     },
     {
       q: 'What does the quality slider actually change?',
-      a: 'It sets the encoder quality from 5 (tiny files, visibly rough) to 100 (near-original, barely smaller). The setting applies to JPEG and WebP output; PNG ignores it because PNG has no quality setting. A good rule of thumb: 80 for photos going on the web, 60 to 70 when file size matters more than fine detail, and 90 or above for images you plan to edit further.',
+      a: 'It sets the quality from 5 (tiny files, visibly rough) to 100 (near-original, barely smaller). The setting applies to JPEG and WebP output; PNG ignores it because PNG has no quality setting. A good rule of thumb: 80 for photos going on the web, 60 to 70 when file size matters more than fine detail, and 90 or above for images you plan to edit further.',
     },
     {
       q: 'Are my images uploaded anywhere?',
@@ -106,7 +106,7 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
         <label class="radio-card"><input type="radio" name="out-format" value="jpeg" /><span><strong>JPEG</strong><small>Smallest for photos; no transparency</small></span></label>
         <label class="radio-card"><input type="radio" name="out-format" value="webp" /><span><strong>WebP</strong><small>Modern and small; keeps transparency</small></span></label>
       </div>
-      <p class="hint">PNG is lossless, so re-encoding a PNG as PNG rarely shrinks it. Convert to JPEG or WebP for real savings.</p>
+      <p class="hint">PNG is lossless, so saving a PNG as PNG again rarely shrinks it. Convert to JPEG or WebP for real savings.</p>
     </div>
 
     <div id="jpeg-fill-block" class="field" hidden>

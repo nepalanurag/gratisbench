@@ -17,12 +17,12 @@ const lede = 'Cut the silence off a recording, pull a clip out of a song, or sho
   crumbs={[{ label: 'Media tools', href: '/media-tools' }, { label: 'Audio trimmer', href: '/audio-trimmer' }]}
   toolName="TruePDF Audio Trimmer"
   intro={[
-    'Cutting a piece out of an audio file should be a thirty-second job, but the usual online trimmers turn it into an ordeal: upload queues, accounts before download, and a watermark or a paywall waiting at the end. This trimmer skips all of that. Your file is decoded on your own device, you see the waveform, you drag the handles to the exact spot, and the cut happens right there in the tab.',
+    'Cutting a piece out of an audio file should be a thirty-second job, but the usual online trimmers turn it into an ordeal: upload queues, accounts before download, and a watermark or a paywall waiting at the end. This trimmer skips all of that. Your file stays on your own device, you see the waveform, you drag the handles to the exact spot, and the cut happens right there in the tab.',
     'Precision matters here, so the trimmer shows a real waveform and reads times out to a tenth of a second. Click anywhere on the waveform to move the playhead, drag the brick-colored handles to set the start and end, or type times directly if you know them. A preview button plays just your selection, so you can check the cut sounds right before you commit to it.',
-    'Export gives you two honest choices. WAV is instant and lossless, encoded directly in the page with no extra downloads. MP3 is encoded with a real MP3 encoder (lamejs) at the bitrate you pick. What you do not get is a fake format button that produces a renamed file: the format on the button is the format in the download.',
+    'Export gives you two honest choices. WAV is instant and keeps full quality, with no extra downloads. MP3 is smaller, at the bitrate you pick. The format on the button is the format in the download.',
   ]}
   steps={[
-    'Drop your audio file onto the box above, or click it to browse. MP3, WAV, OGG, and M4A all decode in the browser.',
+    'Drop your audio file onto the box above, or click it to browse. MP3, WAV, OGG, and M4A all work in the browser.',
     'Drag the handles on the waveform to mark your start and end, or type exact times. Click the waveform to move the playhead.',
     'Press "Play selection" to hear exactly what you will keep. Adjust the handles until it sounds right.',
     'Export as WAV for a lossless cut, or pick an MP3 bitrate and export as MP3. The trimmed file downloads immediately.',
@@ -32,10 +32,10 @@ const lede = 'Cut the silence off a recording, pull a clip out of a song, or sho
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['Input formats', 'Anything your browser can decode: MP3, WAV, OGG, M4A, FLAC in most browsers'],
+    ['Input formats', 'MP3, WAV, OGG, M4A, FLAC (depends on your browser)'],
     ['Precision', 'Handles snap to 0.1 second'],
-    ['WAV export', 'Instant, lossless, 16-bit PCM'],
-    ['MP3 export', 'Real MP3 encoding at 128, 192, or 320 kbps'],
+    ['WAV export', 'Instant, full quality'],
+    ['MP3 export', 'At 128, 192, or 320 kbps'],
     ['Works offline', 'Yes, once the page has loaded'],
   ]}
   faqs={[
@@ -45,7 +45,7 @@ const lede = 'Cut the silence off a recording, pull a clip out of a song, or sho
     },
     {
       q: 'Is my audio uploaded to a server?',
-      a: 'No. Your file is decoded, displayed, cut, and re-encoded entirely in your browser. Nothing is sent anywhere, which also means voice memos and unreleased recordings stay private. Closing the tab removes all trace of the file.',
+      a: 'No. Your file is cut entirely in your browser. Nothing is sent anywhere, which also means voice memos and unreleased recordings stay private. Closing the tab removes all trace of the file.',
     },
     {
       q: 'Which is better for export, WAV or MP3?',
@@ -57,11 +57,11 @@ const lede = 'Cut the silence off a recording, pull a clip out of a song, or sho
     },
     {
       q: 'Does trimming reduce the audio quality?',
-      a: 'WAV export keeps every sample of your selection exactly, so there is no quality change. MP3 export re-encodes the selection, which loses a little quality the way any MP3 conversion does, but at 192 or 320 kbps the difference is inaudible to most listeners.',
+      a: 'WAV export keeps every sample of your selection exactly, so there is no quality change. MP3 export compresses the selection, which loses a little quality the way any MP3 does, but at 192 or 320 kbps the difference is inaudible to most listeners.',
     },
     {
-      q: 'The page says it cannot decode my file. Why?',
-      a: 'Decoding uses your browser\'s built-in audio engine, so formats the browser cannot play cannot be trimmed here. MP3, WAV, OGG, and M4A work everywhere. Some FLAC and less common formats depend on the browser; Chrome and Edge handle the most. Convert the file to MP3 or WAV first and try again.',
+      q: 'The page says it cannot read my file. Why?',
+      a: 'Some formats only work in certain browsers. MP3, WAV, OGG, and M4A work everywhere. Some FLAC and less common formats depend on the browser; Chrome and Edge handle the most. Convert the file to MP3 or WAV first and try again.',
     },
     {
       q: 'Can I trim a video\'s audio with this?',
@@ -137,7 +137,7 @@ const lede = 'Cut the silence off a recording, pull a clip out of a song, or sho
         <button id="export-wav-btn" class="btn">Export WAV</button>
         <button id="export-mp3-btn" class="btn btn-secondary">Export MP3</button>
       </div>
-      <p class="honest-note"><strong>WAV is instant.</strong> MP3 loads a small encoder (about 150KB) on first use, then encodes on your device. The heavy 30MB video engine is never needed here.</p>
+      <p class="honest-note"><strong>WAV is instant.</strong> MP3 downloads a small helper (about 150KB) on first use, then converts on your device. The heavy 30MB video download is never needed here.</p>
 
       <div id="result" class="result" hidden>
         <h3>Trimmed</h3>

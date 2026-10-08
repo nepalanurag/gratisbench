@@ -10,10 +10,10 @@ const description =
 const toolsRaw = [
   { href: '/audio-trimmer', name: 'Audio trimmer', desc: 'Cut audio with a waveform editor, precise to a tenth of a second. Export WAV or MP3.' },
   { href: '/audio-merger', name: 'Audio merger', desc: 'Join multiple clips into one file, with fade in/out at each join.' },
-  { href: '/audio-converter', name: 'Audio converter', desc: 'Convert between MP3, WAV, and OGG Vorbis with a real encoder.' },
+  { href: '/audio-converter', name: 'Audio converter', desc: 'Convert between MP3, WAV, and OGG.' },
   { href: '/video-compressor', name: 'Video compressor', desc: 'Shrink video to a target size: 25MB for chat apps, 10MB for email, or custom.' },
-  { href: '/video-trimmer', name: 'Video trimmer', desc: 'Cut a section out of a video. Fast keyframe cuts or precise re-encoded cuts.' },
-  { href: '/video-converter', name: 'Video converter', desc: 'Convert video between MP4 (H.264), WebM (VP8), and MOV.' },
+  { href: '/video-trimmer', name: 'Video trimmer', desc: 'Cut a section out of a video. Quick cuts or frame-accurate cuts.' },
+  { href: '/video-converter', name: 'Video converter', desc: 'Convert video between MP4, WebM, and MOV.' },
   { href: '/screen-recorder', name: 'Screen recorder', desc: 'Record a tab, window, or screen. No time cap, no watermark, mic optional.' },
 ] as const;
 
@@ -66,10 +66,9 @@ const jsonLd = {
         The audio tools cover the small jobs: <a href={basePath("/audio-trimmer")}>Audio trimmer</a> cuts
         a section out of a recording with a waveform editor, <a href={basePath("/audio-merger")}>Audio merger</a> joins
         several clips with smooth fades at each join, and <a href={basePath("/audio-converter")}>Audio converter</a> moves
-        files between MP3, WAV, and OGG. The video tools handle the heavy jobs with a real ffmpeg encoder running
-        in your browser: <a href={basePath("/video-compressor")}>Video compressor</a> shrinks a file to the size a chat
+        files between MP3, WAV, and OGG. The video tools handle the heavy jobs, all on your device: <a href={basePath("/video-compressor")}>Video compressor</a> shrinks a file to the size a chat
         app or email will accept, <a href={basePath("/video-trimmer")}>Video trimmer</a> cuts out a section, and{' '}
-        <a href={basePath("/video-converter")}>Video converter</a> changes containers and codecs.
+        <a href={basePath("/video-converter")}>Video converter</a> changes the format.
         <a href={basePath("/screen-recorder")}>Screen recorder</a> captures a tab, window, or screen with no time cap.
       </p>
       <p>
@@ -83,19 +82,19 @@ const jsonLd = {
       <dl>
         <div class="faq">
           <dt>Are these media tools free?</dt>
-          <dd>Yes. All seven tools are free with no limits, no watermarks, and no account. The video tools download a roughly 30MB encoder on first use, which your browser caches; the tools themselves cost nothing.</dd>
+          <dd>Yes. All seven tools are free with no limits, no watermarks, and no account. The video tools download roughly 30MB of software on first use, which your browser caches; the tools themselves cost nothing.</dd>
         </div>
         <div class="faq">
           <dt>Do my files get uploaded?</dt>
-          <dd>No. All seven tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded. The honest exception is the first load of the video encoder, which downloads code, not your files.</dd>
+          <dd>No. All seven tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded. The one exception is the video tools' first load, which downloads the tool's own code, not your files.</dd>
         </div>
         <div class="faq">
           <dt>Why is video encoding slow?</dt>
-          <dd>Video encoding in a browser runs without the hardware acceleration that desktop apps use, so it is roughly five to fifty times slower than native software. Short clips take minutes; long 4K files can take a very long time. The tools show progress bars and ask you to keep the tab open.</dd>
+          <dd>Video work in a browser is much slower than in a desktop app. Short clips take minutes; long 4K files can take a very long time. The tools show progress bars and ask you to keep the tab open.</dd>
         </div>
         <div class="faq">
           <dt>Will my files lose quality?</dt>
-          <dd>It depends on the job. Trimming and converting audio to WAV are lossless. Compressing video, converting video, and encoding MP3 all trade some quality for size; the tools use high-quality settings and say plainly where the tradeoff is. Fast video trim copies the stream with zero quality change.</dd>
+          <dd>It depends on the job. Trimming and converting audio to WAV are lossless. Compressing video, converting video, and making MP3s all trade some quality for size; the tools use high-quality settings and say plainly where the tradeoff is. Fast video trim copies the video with zero quality change.</dd>
         </div>
       </dl>
     </div>

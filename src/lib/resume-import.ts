@@ -647,6 +647,38 @@ function bodyToBullets(bodyLines: string[]): string[] {
   return bullets;
 }
 
+/**
+ * Join wrapped bullet continuations at the line level (markers still intact).
+ * A non-bullet line that follows a bullet is a continuation of that bullet
+ * when: the bullet doesn't end with terminal punctuation, and the line looks
+ * like mid-sentence text (starts lowercase, or the bullet ends with , or -),
+ * and it isn't a date, year, location, or section header.
+ */
+function joinBulletContinuations(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const line of lines) {
+    const prev = out[out.length - 1];
+    const prevBullet = prev !== undefined ? stripBullet(prev) : null;
+    const curBullet = stripBullet(line);
+    if (
+      prevBullet !== null &&
+      curBullet === null &&
+      !/[.!?:]$/.test(prevBullet.trim()) &&
+      !detectSection(line) &&
+      !DATE_RANGE_RE.test(line) &&
+      !isYearLike(line.trim()) &&
+      !LOCATION_RE.test(line) &&
+      !LOCATION_RE2.test(line) &&
+      (/^[a-z]/.test(line.trim()) || /[,-]$/.test(prevBullet.trim()))
+    ) {
+      out[out.length - 1] = `${prev} ${line.trim()}`;
+    } else {
+      out.push(line);
+    }
+  }
+  return out;
+}
+
 function parseExperience(lines: string[]): ParsedWorkEntry[] {
   return splitEntries(lines).map((block) => {
     const { start, end, current, location: dateLoc } = parseDateLine(block.dateLine);
@@ -670,9 +702,10 @@ function parseExperience(lines: string[]): ParsedWorkEntry[] {
 
 function parseEducation(lines: string[]): ParsedEducationEntry[] {
   return splitEntries(lines).map((block) => {
-    const { start, end, location: dateLoc } = parseDateLine(block.dateLine);
+    const { start, end: dateEnd, location: dateLoc } = parseDateLine(block.dateLine);
     let degree = '';
     let school = '';
+    let endYear = dateEnd;
     let location = dateLoc || block.trailingLocation;
     if (block.headerLines.length >= 2) {
       degree = block.headerLines[0].trim();
@@ -696,7 +729,22 @@ function parseEducation(lines: string[]): ParsedEducationEntry[] {
         const lastComma = line.lastIndexOf(',');
         if (lastComma > 0) {
           degree = line.slice(0, lastComma).trim();
-          school = line.slice(lastComma + 1).trim();
+          const tail = line.slice(lastComma + 1).trim();
+          // A trailing year ("B.S. Computer Science, State University, 2019")
+          // is the graduation year, not the school.
+          if (/^(19|20)\d{2}$/.test(tail)) {
+            endYear = tail;
+            const prevComma = degree.lastIndexOf(',');
+            if (prevComma > 0) {
+              school = degree.slice(prevComma + 1).trim();
+              degree = degree.slice(0, prevComma).trim();
+            } else {
+              school = degree;
+              degree = '';
+            }
+          } else {
+            school = tail;
+          }
         } else {
           school = line.trim();
         }
@@ -709,7 +757,7 @@ function parseEducation(lines: string[]): ParsedEducationEntry[] {
       })
       .filter(Boolean)
       .join(' ');
-    return { degree, school, location, start, end, detail };
+    return { degree, school, location, start, end: endYear, detail };
   }).filter((e) => e.degree || e.school);
 }
 
@@ -772,7 +820,23 @@ function parseProjects(lines: string[]): ParsedProjectEntry[] {
   return projects.filter((p) => p.name);
 }
 
-/** Strip one leading bullet/list marker; plain lines come back trimmed. */
+/** Lines that are really awards, even when they appear under Education. */
+const AWARD_LINE_RE = /\b(award|prize|honou?rs?|distinction|fellowship|scholarship|dean'?s list|cum laude)\b/i;
+const DEGREE_RE = /\b(B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D\.?|bachelor'?s?|master'?s?|doctorate|MBA)\b/i;
+
+/** Pull award-like lines out of a section's lines (they belong in Awards).
+ * Only standalone lines (no bullet marker): a bulleted "Graduated with
+ * honors" is an education detail, while a bare "Distinguished Graduate
+ * Award, 2019" is an award. */
+function pullAwardLines(lines: string[]): { kept: string[]; awards: string[] } {
+  const kept: string[] = [];
+  const awards: string[] = [];
+  for (const line of lines) {
+    if (stripBullet(line) === null && AWARD_LINE_RE.test(line) && !DEGREE_RE.test(line)) awards.push(line);
+    else kept.push(line);
+  }
+  return { kept, awards };
+}
 function stripLineBullet(l: string): string {
   const b = stripBullet(l);
   return (b !== null ? b : l).trim();
@@ -891,10 +955,14 @@ export function parseResumeText(text: string): ParsedResume {
     .filter((l) => l.length > 0 && !/^[-_=*#]{4,}$/.test(l) && !/^pages?\s+\d+(\s+of\s+\d+)?$/i.test(l));
   if (lines.length === 0) return out;
 
+  // Join wrapped bullet continuations before section detection, while the
+  // bullet markers are still intact.
+  const joined = joinBulletContinuations(lines);
+
   const sections = new Map<SectionKey, string[]>();
   const contactLines: string[] = [];
   let current: SectionKey | null = null;
-  for (const line of lines) {
+  for (const line of joined) {
     const section = detectSection(line);
     if (section) {
       current = section;
@@ -922,7 +990,16 @@ export function parseResumeText(text: string): ParsedResume {
   const experience = sections.get('experience');
   if (experience) out.experience = parseExperience(experience);
   const education = sections.get('education');
-  if (education) out.education = parseEducation(education);
+  if (education) {
+    // Awards often hide in the education section ("Distinguished Graduate
+    // Award, 2019"). Pull them out so they land in Awards, not Education.
+    const { kept, awards: eduAwards } = pullAwardLines(education);
+    out.education = parseEducation(kept);
+    if (eduAwards.length > 0) {
+      const existing = sections.get('awards') ?? [];
+      sections.set('awards', [...existing, ...eduAwards]);
+    }
+  }
   const skills = sections.get('skills');
   if (skills) out.skills = parseSkills(skills);
   const projects = sections.get('projects');

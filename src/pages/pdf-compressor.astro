@@ -4,9 +4,9 @@ import Icon from '../components/Icon.astro';
 
 const title = 'Compress PDF - Free Online PDF Compressor';
 const description =
-  'Reduce a PDF file size for free, right in your browser. Embedded images are downsampled while text stays sharp and selectable. No signup, no watermark.';
+  'Reduce a PDF file size for free, right in your browser. Embedded images are shrunk while text stays sharp and selectable. No signup, no watermark.';
 const h1 = 'Compress PDF files';
-const lede = 'Make a PDF smaller by downsampling its images. Text stays sharp and selectable. Free, no account, no watermark.';
+const lede = 'Make a PDF smaller by shrinking its images. Text stays sharp and selectable. Free, no account, no watermark.';
 ---
 <ToolPage
   title={title}
@@ -17,13 +17,13 @@ const lede = 'Make a PDF smaller by downsampling its images. Text stays sharp an
   toolName="TruePDF Compress PDF"
   intro={[
     'PDFs get heavy fast. A scanned contract, a slide deck exported with full-resolution images, a phone scan saved at maximum quality: each one can be tens of megabytes, which is awkward when the email server caps attachments at 10 MB or the upload form rejects anything bigger. The usual fix is an online compressor, and the usual price is your document sitting on someone else\u2019s server.',
-    'This compressor takes a different approach from most. Instead of rebuilding every page as a flat image, it opens the PDF\u2019s structure and downsamples only the embedded images \u2014 photos, scans, screenshots \u2014 then re-encodes them as efficient JPEGs. Text, vector graphics, fonts, and links are left exactly as they are, so the result stays sharp at any zoom and the text remains selectable and searchable.',
-    'Everything happens on your device. The images are downsampled locally, the smaller PDF is built locally, and nothing is uploaded anywhere. Your original file is never modified; the download is a separate new file, so you can compare the two and keep whichever you prefer.',
+    'This compressor takes a different approach from most. Instead of rebuilding every page as a flat image, it shrinks only the embedded images \u2014 photos, scans, screenshots \u2014 and leaves everything else exactly as it is. Text, vector graphics, fonts, and links stay sharp at any zoom, and the text remains selectable and searchable.',
+    'Everything happens on your device. The images are shrunk locally, the smaller PDF is built locally, and nothing is uploaded anywhere. Your original file is never modified; the download is a separate new file, so you can compare the two and keep whichever you prefer.',
   ]}
   steps={[
     'Drop your PDF onto the box above, or click it to browse. One file at a time.',
     'Choose a level: Light keeps images up to 2400px, Medium up to 1600px, Heavy up to 1000px.',
-    'Click "Compress PDF". Each oversized image is downsampled and re-encoded, with a progress bar.',
+    'Click "Compress PDF". Each large image is shrunk, with a progress bar.',
     'Compare the original and compressed sizes shown in the result, then download the smaller file.',
   ]}
   specs={[
@@ -31,8 +31,8 @@ const lede = 'Make a PDF smaller by downsampling its images. Text stays sharp an
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None. The output is your pages, nothing added.'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['How it shrinks files', 'Embedded images larger than the level\u2019s pixel budget are downsampled and re-encoded as JPEG'],
-    ['Text selection', 'Preserved. Text stays as vectors: selectable, searchable, copyable.'],
+    ['How it shrinks files', 'Shrinks the images inside the PDF; text and links stay untouched'],
+    ['Text selection', 'Preserved. Selectable, searchable, copyable.'],
     ['Best for', 'PDFs with large photos, scans, or screenshots'],
     ['Less useful for', 'Text-only PDFs, which are usually already small'],
     ['Quality levels', 'Light (2400px), Medium (1600px), or Heavy (1000px) longest side'],
@@ -41,11 +41,11 @@ const lede = 'Make a PDF smaller by downsampling its images. Text stays sharp an
   faqs={[
     {
       q: 'Will compressing make my PDF blurry?',
-      a: 'Text and vector graphics are never touched, so they stay perfectly sharp at any zoom. Only embedded images are downsampled: Light (2400px) is barely noticeable, Medium (1600px) is the sweet spot for screen reading and email, and Heavy (1000px) trades some visible softness on close zoom for the smallest files.',
+      a: 'Text and vector graphics are never touched, so they stay perfectly sharp at any zoom. Only embedded images are shrunk: Light (2400px) is barely noticeable, Medium (1600px) is the sweet spot for screen reading and email, and Heavy (1000px) trades some visible softness on close zoom for the smallest files.',
     },
     {
       q: 'Is the text still selectable after compression?',
-      a: 'Yes. This compressor never rasterizes pages: it downsamples the embedded images and leaves the text layer exactly as it was. Text stays selectable, searchable, and copyable in the output.',
+      a: 'Yes. This compressor never flattens pages: it shrinks the embedded images and leaves the text exactly as it was. Text stays selectable, searchable, and copyable in the output.',
     },
     {
       q: 'Why did my file barely get smaller?',
@@ -61,7 +61,7 @@ const lede = 'Make a PDF smaller by downsampling its images. Text stays sharp an
     },
     {
       q: 'Are my PDFs uploaded to a server?',
-      a: 'No. The downsampling and rebuilding both run in your browser using code that ships with this page. Your files never leave your device, which also means the tool keeps working offline once the page has loaded.',
+      a: 'No. The shrinking happens entirely in your browser. Your files never leave your device, which also means the tool keeps working offline once the page has loaded.',
     },
     {
       q: 'Can it compress a password-protected PDF?',
@@ -80,6 +80,26 @@ const lede = 'Make a PDF smaller by downsampling its images. Text stays sharp an
     <p id="file-info" class="count-label"></p>
 
     <div class="field">
+      <label>How should it shrink?</label>
+      <div class="radio-cards" role="radiogroup" aria-label="Compression mode">
+        <label class="radio-card">
+          <input type="radio" name="cmode" value="quality" checked />
+          <span><strong>Pick a quality</strong><small>Light, Medium, or Heavy below.</small></span>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="cmode" value="target" />
+          <span><strong>Hit a file size</strong><small>Type a size, we aim under it.</small></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field" id="target-size-field" hidden>
+      <label for="target-mb">Target size (MB)</label>
+      <input type="number" id="target-mb" min="0.1" step="0.1" value="2" style="max-width: 160px" />
+      <p class="hint">We try lighter settings first and go stronger until the file fits. If it cannot fit, we tell you the smallest we managed.</p>
+    </div>
+
+    <div class="field" id="quality-field">
       <label>Quality</label>
       <div class="radio-cards" role="radiogroup" aria-label="Compression level">
         <label class="radio-card">

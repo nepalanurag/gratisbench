@@ -18,7 +18,7 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
   toolName="TruePDF Image Converter"
   intro={[
     'Image formats are a compatibility puzzle: a designer sends a WebP that your old software cannot open, a website demands JPEGs under 200 KB, an archive of BMP scans eats gigabytes for no reason. Converting used to mean installing something or uploading files to a stranger. This converter redraws each image onto a canvas in your browser and saves it in the format you pick, so the round trip takes seconds and your files stay yours.',
-    'Two honest limitations shape this tool. First, JPEG has no transparency: converting a transparent PNG or WebP to JPEG forces a background color, and the tool warns you and offers a white fill rather than silently turning those areas black. Second, AVIF output only appears when your browser can actually encode it; the option is feature-detected, not promised, because pretending every browser supports AVIF would just produce broken downloads.',
+    'Two honest limitations shape this tool. First, JPEG has no transparency: converting a transparent PNG or WebP to JPEG forces a background color, and the tool warns you and offers a white fill rather than silently turning those areas black. Second, AVIF output only appears when your browser supports it; pretending every browser supports AVIF would just produce broken downloads.',
     'Conversion is not compression, but it often shrinks files anyway: BMP and TIFF are effectively uncompressed, so almost any target format makes them dramatically smaller. Animated GIFs are the one casualty; they convert as a single still frame, because this tool works with still images. What you get is a faithful still of your picture in the format you chose.',
   ]}
   steps={[
@@ -34,7 +34,7 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
     ['Watermark', 'None. The output is your image, nothing added.'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Input formats', 'PNG, JPEG, WebP, GIF, BMP, TIFF'],
-    ['Output formats', 'PNG, JPEG, WebP; AVIF only when the browser can encode it'],
+    ['Output formats', 'PNG, JPEG, WebP; AVIF only when your browser supports it'],
     ['Quality control', 'Slider from 5 to 100 for JPEG, WebP, and AVIF'],
     ['Batch + ZIP', 'Yes. Convert many files, download individually or as one ZIP.'],
     ['Transparency', 'Kept for PNG, WebP, and AVIF. JPEG has no transparency; a white fill is offered with a warning.'],
@@ -44,7 +44,7 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
   faqs={[
     {
       q: 'Which formats can I convert between?',
-      a: 'Inputs: PNG, JPEG, WebP, GIF, BMP, and TIFF. Outputs: PNG, JPEG, and WebP in every browser, plus AVIF when your browser can encode it. GIF, BMP, and TIFF are read-only inputs; browsers cannot save images back into those formats, so they are not offered as outputs. Conversion runs entirely on your device with no uploads.',
+      a: 'Inputs: PNG, JPEG, WebP, GIF, BMP, and TIFF. Outputs: PNG, JPEG, and WebP in every browser, plus AVIF when your browser supports it. GIF, BMP, and TIFF can only be inputs; browsers cannot save images in those formats, so they are not offered as outputs. Conversion runs entirely on your device with no uploads.',
     },
     {
       q: 'Will converting to JPEG ruin my transparent PNG?',
@@ -52,11 +52,11 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
     },
     {
       q: 'What is AVIF, and why do I not see it as an option?',
-      a: 'AVIF is the newest common image format and usually produces the smallest files, often half the size of an equivalent JPEG. But browser support for encoding AVIF is uneven: Chrome and Firefox can do it, Safari historically cannot. The converter tests your browser when the page loads and only shows AVIF when the test passes. A missing option means your browser failed that test.',
+      a: 'AVIF is the newest common image format and usually produces the smallest files, often half the size of an equivalent JPEG. But not every browser supports AVIF yet: Chrome and Firefox do, Safari historically does not. The AVIF option only appears when your browser supports it.',
     },
     {
       q: 'Does converting change image quality?',
-      a: 'Converting to PNG is lossless and changes nothing visible. Converting to JPEG, WebP, or AVIF re-encodes with the quality slider you set, so quality 100 is near-identical and lower values trade detail for size. Converting a lossy JPEG to PNG does not restore the detail the JPEG already lost; it just stores the current pixels losslessly in a bigger file.',
+      a: 'Converting to PNG is lossless and changes nothing visible. Converting to JPEG, WebP, or AVIF uses the quality slider you set, so quality 100 is near-identical and lower values trade detail for size. Converting a lossy JPEG to PNG does not restore the detail the JPEG already lost; it just stores the current image without quality loss in a bigger file.',
     },
     {
       q: 'Can I convert animated GIFs?',
@@ -64,7 +64,7 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
     },
     {
       q: 'Are my images uploaded to a server?',
-      a: 'No. The conversion happens entirely in your browser: each image is drawn to a canvas and re-encoded locally. Nothing is sent anywhere, nothing is stored, and the tool keeps working offline once the page has loaded. Closing the tab removes every trace of your files.',
+      a: 'No. The conversion happens entirely in your browser: each image is converted locally. Nothing is sent anywhere, nothing is stored, and the tool keeps working offline once the page has loaded. Closing the tab removes every trace of your files.',
     },
     {
       q: 'Why is my converted file bigger than the original?',

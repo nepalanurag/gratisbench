@@ -5,20 +5,29 @@ import { ALL_TOOLS } from '../lib/tools';
 
 const title = 'PDF Tools - Free Online PDF Utilities | TruePDF';
 const description =
-  'Free online PDF tools: merge PDFs, split PDFs by page range, convert images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, unlock PDF, and convert PDF to Word. No signup, no watermark. Everything runs in your browser.';
+  'Free online PDF tools: merge PDFs, split PDFs by page range, convert images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, unlock PDF, protect PDF, convert PDF to Word, OCR scanned PDFs, extract images and text, edit metadata, fill forms, flatten forms, and repair damaged PDFs. No signup, no watermark. Everything runs in your browser.';
 
 const toolsRaw = [
+  { href: '/pdf-editor', name: 'PDF Editor', desc: 'One workspace: reorder, rotate, delete, edit text, watermark, number pages, crop, protect.' },
   { href: '/merge-pdf', name: 'Merge PDF', desc: 'Combine multiple PDFs into one document, in whatever order you choose.' },
   { href: '/split-pdf', name: 'Split PDF', desc: 'Extract pages by number. One range per file, or several files at once.' },
   { href: '/images-to-pdf', name: 'Images to PDF', desc: 'Turn JPG, PNG, and WebP images into a single PDF with page-size control.' },
   { href: '/jpg-to-pdf', name: 'JPG to PDF', desc: 'Convert JPG photos into a single PDF at full quality, in your chosen order.' },
-  { href: '/pdf-compressor', name: 'Compress PDF', desc: 'Downsample embedded images to shrink a PDF. Text stays selectable.' },
+  { href: '/pdf-compressor', name: 'Compress PDF', desc: 'Shrink the images in a PDF to make it smaller. Text stays selectable.' },
   { href: '/pdf-to-jpg', name: 'PDF to JPG', desc: 'Render PDF pages as JPG or PNG images at 72, 150, 300, or 600 DPI.' },
   { href: '/pdf-redactor', name: 'Redact PDF', desc: 'Black out sensitive areas permanently; unmarked pages stay untouched.' },
   { href: '/pdf-esignature', name: 'Sign PDF', desc: 'Draw or type your signature and place it on any page.' },
   { href: '/unlock-pdf', name: 'Unlock PDF', desc: 'Remove password protection when you know the password.' },
   { href: '/protect-pdf', name: 'Protect PDF', desc: 'Add password encryption to a PDF. Only people with the password can open it.' },
   { href: '/pdf-to-word', name: 'PDF to Word', desc: 'Extract text and images into an editable Word document. Headings keep their levels; layouts are not preserved.' },
+  { href: '/ocr-pdf', name: 'OCR PDF', desc: 'Make scanned PDFs searchable with an invisible text layer; pages with text are left alone.' },
+  { href: '/extract-images', name: 'Extract Images', desc: 'Pull embedded pictures out of a PDF at original resolution; download singly or as a ZIP.' },
+  { href: '/extract-text', name: 'Extract Text', desc: 'Read every page and copy the plain text, or download it as a .txt file.' },
+  { href: '/edit-pdf-metadata', name: 'Edit PDF Metadata', desc: 'Change the title, author, subject, and keywords stored inside a PDF.' },
+  { href: '/fill-pdf-form', name: 'Fill PDF Form', desc: 'Type into a PDF form\u2019s fields in your browser, then save; optionally lock the answers.' },
+  { href: '/flatten-pdf', name: 'Flatten PDF', desc: 'Bake form fields into the page so answers can no longer be edited.' },
+  { href: '/repair-pdf', name: 'Repair PDF', desc: 'Rebuild a damaged PDF\u2019s structure. Fixes some files, not all.' },
+  { href: '/pdf-to-handwriting', name: 'PDF to Handwriting', desc: 'Turn a PDF or pasted text into realistic handwriting. Three styles, ink colors, notebook paper.' },
 ] as const;
 
 const tagByHref = new Map(ALL_TOOLS.map((t) => [t.href, t.tag]));
@@ -40,9 +49,11 @@ const jsonLd = {
       </nav>
       <h1>PDF tools</h1>
       <p class="lede">
-        Ten utilities for everyday PDF jobs: combining files, extracting pages, turning images
+        Seventeen utilities for everyday PDF jobs: combining files, extracting pages, turning images
         into documents, shrinking files, converting pages to images, redacting sensitive parts,
-        signing documents, and removing password protection. All free, all private, all in your browser.
+        signing documents, removing password protection, making scans searchable, pulling out images
+        and text, editing metadata, filling and flattening forms, and repairing damaged files.
+        All free, all private, all in your browser.
       </p>
       <p class="privacy-line">Your files never leave your device.</p>
     </div>
@@ -79,22 +90,28 @@ const jsonLd = {
         email, <a href={basePath("/pdf-compressor")}>Compress PDF</a> shrinks it; when you need pages as images,
         <a href={basePath("/pdf-to-jpg")}>PDF to JPG</a> renders them. <a href={basePath("/pdf-redactor")}>Redact PDF</a>
         permanently blacks out sensitive parts before sharing, and <a href={basePath("/pdf-esignature")}>Sign PDF</a>
-        places your drawn or typed signature on any page. Everything stays on your device the whole way through.
+        places your drawn or typed signature on any page. Scanned pages become searchable with
+        <a href={basePath("/ocr-pdf")}>OCR PDF</a>; <a href={basePath("/extract-text")}>Extract Text</a> and
+        <a href={basePath("/extract-images")}>Extract Images</a> pull content out of documents;
+        <a href={basePath("/edit-pdf-metadata")}>Edit PDF Metadata</a> fixes titles and authors;
+        <a href={basePath("/fill-pdf-form")}>Fill PDF Form</a> and <a href={basePath("/flatten-pdf")}>Flatten PDF</a>
+        handle forms; and <a href={basePath("/repair-pdf")}>Repair PDF</a> attempts damaged files.
+        Everything stays on your device the whole way through.
       </p>
 
       <h2>Common questions</h2>
       <dl>
         <div class="faq">
           <dt>Are these PDF tools free?</dt>
-          <dd>Yes. All ten tools are free with no limits, no watermarks, and no account.</dd>
+          <dd>Yes. All seventeen tools are free with no limits, no watermarks, and no account.</dd>
         </div>
         <div class="faq">
           <dt>Do my PDFs get uploaded?</dt>
-          <dd>No. All ten tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded.</dd>
+          <dd>No. All seventeen tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded.</dd>
         </div>
         <div class="faq">
           <dt>Will the quality of my PDFs change?</dt>
-          <dd>It depends on the tool. Merge, split, image-to-PDF, redaction of unmarked pages, and signing copy pages as-is, so text stays selectable and quality is unchanged. Compress PDF downsamples only embedded images and leaves text as vectors, so text stays selectable there too. PDF to JPG and redacted pages deliberately turn pages into images, which is stated on each of those pages before you run them.</dd>
+          <dd>It depends on the tool. Merge, split, image-to-PDF, redaction of unmarked pages, and signing copy pages as-is, so text stays selectable and quality is unchanged. Compress PDF shrinks only embedded images and leaves text untouched, so text stays selectable there too. PDF to JPG and redacted pages deliberately turn pages into images, which is stated on each of those pages before you run them. OCR PDF rebuilds scanned pages as the same image with an invisible text layer; pages that already have text are copied unchanged. Extract Images and Extract Text only read the file, metadata editing changes only the file's description, and flattening only affects form fields.</dd>
         </div>
         <div class="faq">
           <dt>What about password-protected PDFs?</dt>

@@ -93,6 +93,19 @@ const lede =
         <button id="rb-start-blank" class="btn btn-secondary" type="button">Start from a blank resume</button>
         <span class="stamp">Your files never leave your device</span>
       </div>
+      <details class="rb-ai-details">
+        <summary>Better reading with AI (optional)</summary>
+        <p class="hint">Messy or badly formatted resume? AI reads it more accurately. This uses your own free Gemini API key, stored only in this browser. Your resume text is sent to Google only when you import, and only if you turn this on.</p>
+        <div class="field checkline">
+          <input type="checkbox" id="rb-ai-enable" />
+          <label for="rb-ai-enable">Use AI to read my resume</label>
+        </div>
+        <div class="field">
+          <label for="rb-ai-key">Gemini API key</label>
+          <input type="password" id="rb-ai-key" autocomplete="off" placeholder="Paste your key here" />
+          <p class="hint">Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. If AI reading fails, the standard reader is used instead.</p>
+        </div>
+      </details>
       <div id="rb-import-review" hidden>
         <p class="mono-label">Check what was found</p>
         <p>Your file was read on this device. Look over the details, then use them or discard and start blank.</p>
@@ -159,7 +172,16 @@ const lede =
   <script>
     import { initResumeBuilder } from '../tools/resume-builder';
     import { initResumeImport } from '../tools/resume-import-ui';
-    initResumeBuilder();
-    initResumeImport();
+    // Each init is independent: a failure in one must never break the other.
+    try {
+      initResumeBuilder();
+    } catch (err) {
+      console.error('Resume builder failed to start:', err);
+    }
+    try {
+      initResumeImport();
+    } catch (err) {
+      console.error('Resume import failed to start:', err);
+    }
   </script>
 </ToolPage>

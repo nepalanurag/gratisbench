@@ -58,7 +58,7 @@ const lede = 'Capture a tab, a window, or your whole screen. No time cap, no wat
     },
     {
       q: 'What format is the download?',
-      a: 'WebM, which plays in Chrome, Edge, Firefox, and Safari 14.1 and later. If you need MP4 for a specific tool, run the result through the video converter on this site. WebM was chosen because it is what browsers can record natively without plugins.',
+      a: 'WebM, which plays in Chrome, Edge, Firefox, and Safari 14.1 and later. If you need MP4 for a specific tool, run the result through the video converter on this site.',
     },
     {
       q: 'Why does my browser not offer screen capture?',
@@ -70,7 +70,8 @@ const lede = 'Capture a tab, a window, or your whole screen. No time cap, no wat
     },
   ]}
 >
-  <section class="tool-card" slot="tool" aria-label="Screen recorder tool">
+  <section class="tool-card" slot="tool" aria-label="Screen recorder tool" id="recorder-tool">
+    <p id="recorder-unavailable" class="honest-note" hidden><strong>Screen recording needs a desktop browser.</strong> Phones and tablets can't capture the screen, so this tool is unavailable here. Try it on a desktop computer instead.</p>
     <div class="rec-bar">
       <span id="rec-dot" class="rec-dot" hidden></span>
       <span id="rec-timer" class="rec-timer">0:00.0</span>

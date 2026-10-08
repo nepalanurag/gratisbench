@@ -31,33 +31,30 @@ const { tabs, current } = Astro.props;
 <style>
   .toolkit-tabs {
     display: flex;
-    gap: 4px;
+    gap: 2px;
     margin: 0 0 24px;
-    padding: 4px;
-    background: var(--hatch-widget-surface-muted, #f4f1ea);
-    border: 1px solid var(--hatch-widget-border, #e2ddd0);
-    border-radius: 10px;
+    padding: 0;
+    border-bottom: 1px solid var(--line);
     overflow-x: auto;
   }
   .toolkit-tab {
     flex: 1 0 auto;
     text-align: center;
     padding: 10px 16px;
-    border-radius: 7px;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
     font-size: 14px;
     font-weight: 600;
-    color: var(--hatch-widget-muted, #6b6257);
+    color: var(--muted);
     text-decoration: none;
     white-space: nowrap;
-    transition: background 0.15s, color 0.15s;
+    transition: color 0.15s, border-color 0.15s;
   }
   .toolkit-tab:hover {
-    color: var(--hatch-widget-text, #1a1611);
-    background: rgba(0, 0, 0, 0.04);
+    color: var(--ink);
   }
   .toolkit-tab.active {
-    background: var(--hatch-widget-surface, #fff);
-    color: var(--hatch-widget-text, #1a1611);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    color: var(--ink);
+    border-bottom-color: var(--accent);
   }
 </style>

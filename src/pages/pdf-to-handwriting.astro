@@ -1,0 +1,155 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+
+const title = 'PDF to Handwriting Free — Turn Typed Text into Realistic Handwriting';
+const description =
+  'Convert a PDF or pasted text into realistic handwriting. Three handwriting styles, ink colors, ruled notebook paper or your original layout. Free, no signup, files never leave your device.';
+const h1 = 'PDF to Handwriting';
+const lede = 'Turn typed pages into pages that look handwritten. Pick a style, pick an ink, and download a PDF that looks like you wrote it by hand.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'PDF to Handwriting', href: '/pdf-to-handwriting' }]}
+  toolName="TruePDF PDF to Handwriting"
+  intro={[
+    'Some things just read better handwritten: a letter, class notes, a quote for a gift. This tool takes a PDF or any text you paste and rewrites it in a handwriting style, letter by letter, with the small wobbles and tilts that keep it from looking like a plain font.',
+    'Choose from three styles, pick an ink color, and decide whether the words keep their original layout or flow onto ruled notebook paper. Everything renders in your browser, so your words never go to a server.',
+  ]}
+  steps={[
+    'Drop a PDF or paste your text into the box above.',
+    'Pick a handwriting style, ink color, and paper. The preview updates as you change things.',
+    'Click "Make handwriting". Each page is drawn letter by letter in your browser.',
+    'Download the PDF. It looks handwritten on every device, with no fonts to install.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Inputs', 'PDF files or pasted/typed text'],
+    ['Styles', 'Casual, neat, and cursive handwriting'],
+    ['Paper', 'Ruled notebook or your original page layout'],
+    ['Output', 'PDF, one handwritten page per input page'],
+    ['Works offline', 'Yes, once the page and fonts have loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this really free?',
+      a: 'Yes. No paid tier, no watermark, no limits. The handwriting is drawn in your browser with code that ships with this page.',
+    },
+    {
+      q: 'Are my documents uploaded anywhere?',
+      a: 'No. Your PDF or text never leaves your device. The whole conversion runs locally.',
+    },
+    {
+      q: 'Why does it look more real than a handwriting font?',
+      a: 'A font repeats every letter identically, which the eye catches quickly. This tool draws each letter separately with slight differences in tilt, size, and spacing, the way actual handwriting varies.',
+    },
+    {
+      q: 'What is the difference between the two paper modes?',
+      a: '"Notebook paper" reflows your text onto ruled lines, like writing in a notebook. "Keep original layout" puts the handwriting where the typed text was on your PDF pages.',
+    },
+    {
+      q: 'Can I use this for school assignments?',
+      a: 'That is up to you and your school. Many teachers consider submitting machine-made handwriting as your own to be dishonest, so check before you use it that way.',
+    },
+  ]}
+  usecases={[
+    { h: 'A letter that feels personal', p: 'Type it, pick the cursive style and blue ink, download a letter that looks penned by hand.' },
+    { h: 'Study notes', p: 'Paste your typed notes and get notebook pages that are easier on the eyes for revision.' },
+    { h: 'Quotes and gifts', p: 'Turn a favorite quote into a handwritten page for framing.' },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="PDF to handwriting tool">
+    <div id="error-box" class="error-box" hidden></div>
+
+    <div class="hw-source-tabs" role="tablist" aria-label="Input type">
+      <button type="button" id="hw-tab-pdf" class="btn btn-secondary active" role="tab" aria-selected="true">PDF file</button>
+      <button type="button" id="hw-tab-text" class="btn btn-secondary" role="tab" aria-selected="false">Paste text</button>
+    </div>
+
+    <div id="hw-pdf-pane">
+      <div id="hw-dropzone" class="dropzone" role="button" tabindex="0" aria-label="Drop a PDF here or click to browse">
+        <p class="dz-title">Drop your PDF here</p>
+        <p class="dz-sub">or click to browse — files never leave your device</p>
+        <input type="file" id="hw-file-input" accept="application/pdf,.pdf" hidden />
+      </div>
+      <p id="hw-file-info" class="count-label"></p>
+    </div>
+    <div id="hw-text-pane" hidden>
+      <textarea id="hw-text-input" rows="8" placeholder="Paste or type your text here…"></textarea>
+    </div>
+    <p id="size-note" class="hint" hidden></p>
+
+    <div class="hw-options">
+      <div class="field">
+        <label>Handwriting style</label>
+        <div class="hw-styles" role="radiogroup" aria-label="Handwriting style">
+          <label class="hw-style"><input type="radio" name="hw-style" value="casual" checked /><span class="hw-swatch" style="font-family:'Caveat',cursive">Ag</span><small>Casual</small></label>
+          <label class="hw-style"><input type="radio" name="hw-style" value="neat" /><span class="hw-swatch" style="font-family:'Kalam',cursive">Ag</span><small>Neat</small></label>
+          <label class="hw-style"><input type="radio" name="hw-style" value="cursive" /><span class="hw-swatch" style="font-family:'Dancing Script',cursive">Ag</span><small>Cursive</small></label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Ink color</label>
+        <div class="hw-inks" role="radiogroup" aria-label="Ink color">
+          <label class="hw-ink"><input type="radio" name="hw-ink" value="#1a2a6c" checked /><span style="background:#1a2a6c"></span><small>Blue</small></label>
+          <label class="hw-ink"><input type="radio" name="hw-ink" value="#111111" /><span style="background:#111111"></span><small>Black</small></label>
+          <label class="hw-ink"><input type="radio" name="hw-ink" value="#b3242c" /><span style="background:#b3242c"></span><small>Red</small></label>
+          <label class="hw-ink"><input type="radio" name="hw-ink" value="#1e6b3a" /><span style="background:#1e6b3a"></span><small>Green</small></label>
+          <label class="hw-ink"><input type="radio" name="hw-ink" value="#6b3fa0" /><span style="background:#6b3fa0"></span><small>Purple</small></label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Paper</label>
+        <div class="hw-papers" role="radiogroup" aria-label="Paper">
+          <label class="hw-style"><input type="radio" name="hw-paper" value="ruled" checked /><span class="hw-swatch hw-ruled"></span><small>Notebook</small></label>
+          <label class="hw-style"><input type="radio" name="hw-paper" value="plain" /><span class="hw-swatch hw-plain"></span><small>Plain</small></label>
+          <label class="hw-style"><input type="radio" name="hw-paper" value="layout" /><span class="hw-swatch hw-layout"></span><small>Original layout</small></label>
+        </div>
+        <p class="hint">"Original layout" needs a PDF. It keeps your text where it was on the page.</p>
+      </div>
+      <div class="field">
+        <label for="hw-size">Text size</label>
+        <input type="range" id="hw-size" min="18" max="42" value="28" />
+      </div>
+      <div class="field">
+        <label for="hw-slant">Slant</label>
+        <input type="range" id="hw-slant" min="-12" max="12" value="0" />
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="hw-make" class="btn" type="button" disabled>Make handwriting</button>
+    </div>
+    <div id="hw-progress" class="progress-wrap" hidden>
+      <div class="progress-label" id="hw-progress-label"></div>
+      <div class="progress-track"><div class="progress-bar" id="hw-progress-bar"></div></div>
+    </div>
+
+    <div id="hw-result" class="result" hidden>
+      <h3>Your handwriting is ready</h3>
+      <div id="hw-preview" class="hw-preview"></div>
+      <p id="hw-result-info" class="count-label"></p>
+      <div class="btn-row">
+        <button id="hw-download" class="btn" type="button">Download PDF</button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    import { initHandwriting } from '../tools/pdf-handwriting';
+    try {
+      initHandwriting();
+    } catch (err) {
+      const box = document.getElementById('error-box');
+      if (box) {
+        box.hidden = false;
+        box.textContent = 'The handwriting tool could not start in this browser. Please use a recent version of Chrome, Edge, Firefox, or Safari.';
+      }
+    }
+  </script>
+</ToolPage>

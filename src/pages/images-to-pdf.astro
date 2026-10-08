@@ -52,7 +52,7 @@ const lede = 'Turn a set of images into one PDF. Pick the page size, arrange the
     },
     {
       q: 'Will my images lose quality?',
-      a: 'PNG and JPEG files are embedded exactly as they are, with no recompression. WebP, GIF, and BMP are decoded and stored as PNG, which is lossless. Nothing is downscaled unless you choose A4 or Letter and the image is larger than the page.',
+      a: 'PNG and JPEG files are kept exactly as they are, with no quality loss. WebP, GIF, and BMP are converted to PNG, which keeps full quality. Nothing is shrunk unless you choose A4 or Letter and the image is larger than the page.',
     },
     {
       q: 'How many images can I convert at once?',

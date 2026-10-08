@@ -19,7 +19,7 @@ const lede =
   intro={[
     'WiseStamp\u2019s free tier puts their branding on your signature: a small "created with WiseStamp" line under your name in every email you send. It is a clever trade, because your professional correspondence becomes their billboard, and the paid tier removes it, which is the point. You are not buying signature features. You are buying back your own name, one monthly payment at a time.',
     'This generator has no branding to remove, because there is no company renting you the signature. It builds the HTML in your browser, you copy it, you paste it into Gmail or Outlook, and that is the entire transaction. No account, no badge, no upsell, and nothing contacting a server when your signature renders.',
-    'The HTML it produces is the boring kind that actually works in email: tables for layout, inline styles on everything, no classes, no external stylesheets. That is the format email clients have rendered reliably for twenty years, because Gmail and Outlook strip anything fancier. You get three layouts (stacked, two-column, minimal), six tasteful accent colors instead of a garish color wheel, optional photo and social links, and every character you type is escaped so a stray angle bracket can never break the markup.',
+    'The signature is built the way email clients actually render: simple and compatible with Gmail and Outlook. You get three layouts (stacked, two-column, minimal), six tasteful accent colors instead of a garish color wheel, and optional photo and social links.',
   ]}
   steps={[
     'Fill in your details: name, title, company, phone, email, website, and address. Only the name is required; everything else appears only if you fill it in.',
@@ -55,11 +55,11 @@ const lede =
     },
     {
       q: 'Why does the HTML look so old-fashioned? Tables and inline styles?',
-      a: 'Because email clients are stuck in 2005. Gmail strips <style> blocks and class attributes, and Outlook uses Word\u2019s rendering engine for HTML. Tables with inline styles are the one format every major client renders consistently. A modern-looking signature built with flexbox and CSS classes would look great in your browser and fall apart in your recipient\u2019s inbox. Boring markup is a feature here.',
+      a: 'Because email clients are stuck in 2005. Fancy modern formatting looks great in your browser and falls apart in your recipient\u2019s inbox. The simple format renders consistently in every major email client, so boring is a feature here.',
     },
     {
       q: 'What is the difference between "Copy HTML" and "Copy rich text"?',
-      a: '"Copy HTML" copies the raw source code, useful if you want to inspect it, hand-edit it, or paste it into a system that takes HTML directly. "Copy rich text" copies the rendered signature, which is what you want for Gmail and Outlook: their signature boxes are rich-text editors, so pasting the rendered version keeps the formatting, colors, and links without you touching any code.',
+      a: '"Copy HTML" gives you the code itself, useful if you want to edit it or paste it into a system that takes HTML directly. "Copy rich text" copies the finished signature, which is what you want for Gmail and Outlook: pasting it into their signature settings keeps the formatting, colors, and links without you touching any code.',
     },
     {
       q: 'Will my signature work on phones?',

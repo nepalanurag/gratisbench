@@ -53,6 +53,19 @@ export function initAudioTrimmer(): void {
     return audioCtx;
   }
 
+  // iOS Safari only lets an AudioContext start inside a user gesture. Create
+  // (and resume) it on the first tap/keypress so playback works on the first
+  // Play click instead of silently staying muted.
+  function warmCtx(): void {
+    try {
+      getCtx();
+    } catch {
+      /* audio unavailable — decode paths handle errors */
+    }
+  }
+  window.addEventListener('pointerdown', warmCtx, { once: true });
+  window.addEventListener('keydown', warmCtx, { once: true });
+
   function themeColors(): { wave: string; marker: string; region: string; playhead: string } {
     // Canvas sits on var(--paper): #ffffff light, #1b1b1b dark. Pick colors
     // with real contrast on both; repaint when the theme flips.

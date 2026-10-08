@@ -1,0 +1,139 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+
+const title = 'Edit PDF Free — Reorder, Rotate, Edit Text, Watermark, Page Numbers';
+const description =
+  'A full PDF workspace in your browser: reorder pages by dragging, rotate, delete, edit text in place, add watermarks, page numbers, headers, crop pages, protect with a password. Free, no signup, files never leave your device.';
+const h1 = 'PDF Editor';
+const lede = 'One workspace for everything you do to PDFs. Drop a file, arrange its pages, fix the text, stamp it, number it, lock it. Free, no account, no watermark.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'PDF Editor', href: '/pdf-editor' }]}
+  toolName="TruePDF PDF Editor"
+  intro={[
+    'Most PDF jobs are not one action. You merge two scans, then realize page three is upside down, then notice a typo on page one, then need page numbers before sending. The usual answer is five different tools on five different sites, each with its own upload, its own limits, and its own watermark.',
+    'This editor puts the whole job on one screen. Your pages appear as thumbnails you can drag into order, rotate, or delete. Click any page to edit its text directly, add a watermark or page numbers, crop the margins, or lock the file with a password. Everything happens in your browser: the file never goes to a server, and when the tab closes nothing remains but your download.',
+  ]}
+  steps={[
+    'Drop a PDF onto the box below, or click it to browse. You can add more PDFs any time; their pages join the same workspace.',
+    'Drag thumbnails to reorder. Hover a page for rotate and delete. Click pages to select several at once, then act on all of them.',
+    'Use the toolbar for the rest: edit text, watermark, page numbers, headers and footers, crop, password protection.',
+    'Click "Download PDF". Your pages, in your order, with every change applied, save to your device.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None, unless you add your own.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Text editing', 'Click text on a page and type; the replacement matches the original size and position'],
+    ['Page operations', 'Reorder, rotate, delete, extract, merge more files in'],
+    ['Stamping', 'Text watermark, page numbers, headers and footers'],
+    ['Protection', 'Password-protect the download'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this PDF editor really free?',
+      a: 'Yes. There is no paid tier, no daily quota, and no watermark. Editing runs entirely in your browser, so there is nothing to charge for.',
+    },
+    {
+      q: 'Are my PDFs uploaded anywhere?',
+      a: 'No. Every operation runs locally in your browser. Your documents never leave your device, which makes this safe for contracts, medical records, and anything else sensitive.',
+    },
+    {
+      q: 'How does the text editing work?',
+      a: 'Open a page, click the text you want to change, and type. The replacement is drawn at the same size and position as the original. It works best for short fixes like names, dates, and typos; reflowing whole paragraphs is beyond what in-place PDF editing can do cleanly.',
+    },
+    {
+      q: 'Can I undo a change?',
+      a: 'Yes. Reorders, rotations, deletions, and added files can all be undone with the Undo button or Ctrl+Z, right up until you download.',
+    },
+    {
+      q: 'What happens to links and form fields in my PDF?',
+      a: 'Page order, rotation, and deletion keep the pages themselves intact. Text edits cover the old text with the new text, so links sitting exactly under edited text may be covered too.',
+    },
+    {
+      q: 'Can I edit a password-protected PDF?',
+      a: 'Unlock it first with the unlock tool, then open it here.',
+    },
+  ]}
+  usecases={[
+    { h: 'Fix a contract before signing', p: 'Correct a name or date directly on the page instead of asking for a new copy.' },
+    { h: 'Assemble a report', p: 'Merge scans, drop the blank pages, rotate the sideways ones, add page numbers, download.' },
+    { h: 'Prepare a scan to share', p: 'Crop the dark scanner margins, stamp it confidential, lock it with a password.' },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="PDF editor workspace">
+    <div id="error-box" class="error-box" hidden></div>
+
+    <div id="ws-dropzone" class="dropzone" role="button" tabindex="0" aria-label="Drop PDF files here or click to browse">
+      <p class="dz-title">Drop your PDFs here</p>
+      <p class="dz-sub">or click to browse — files never leave your device</p>
+      <input type="file" id="ws-file-input" accept="application/pdf,.pdf" multiple hidden />
+    </div>
+    <p id="size-note" class="hint" hidden></p>
+
+    <div id="ws-toolbar" class="ws-toolbar" hidden>
+      <div class="ws-toolbar-row">
+        <button id="ws-add" class="btn btn-secondary" type="button">Add PDFs</button>
+        <button id="ws-undo" class="btn btn-secondary" type="button" disabled>Undo</button>
+        <span class="ws-sep"></span>
+        <button id="ws-rotate" class="btn btn-secondary" type="button" disabled>Rotate</button>
+        <button id="ws-delete" class="btn btn-secondary" type="button" disabled>Delete</button>
+        <button id="ws-extract" class="btn btn-secondary" type="button" disabled>Save selected as new PDF</button>
+        <span class="ws-sep"></span>
+        <button id="ws-text" class="btn btn-secondary" type="button" disabled>Edit text</button>
+        <button id="ws-crop" class="btn btn-secondary" type="button" disabled>Crop</button>
+      </div>
+      <div class="ws-toolbar-row">
+        <button id="ws-watermark" class="btn btn-secondary" type="button">Watermark</button>
+        <button id="ws-pagenum" class="btn btn-secondary" type="button">Page numbers</button>
+        <button id="ws-headerfooter" class="btn btn-secondary" type="button">Header / footer</button>
+        <button id="ws-protect" class="btn btn-secondary" type="button">Password</button>
+        <span class="ws-sep"></span>
+        <button id="ws-download" class="btn" type="button">Download PDF</button>
+      </div>
+      <p id="ws-status" class="ws-status"></p>
+    </div>
+
+    <div id="ws-grid" class="ws-grid" hidden aria-label="Page thumbnails"></div>
+
+    <div id="ws-pageview" class="ws-pageview" hidden>
+      <div class="ws-pv-bar">
+        <button id="ws-pv-back" class="btn btn-secondary" type="button">Back to pages</button>
+        <span id="ws-pv-label" class="ws-pv-label"></span>
+        <button id="ws-pv-crop" class="btn btn-secondary" type="button">Crop this page</button>
+      </div>
+      <p class="hint" id="ws-pv-hint">Click any text on the page to edit it.</p>
+      <div id="ws-pv-stage" class="ws-pv-stage"></div>
+    </div>
+
+    <div id="ws-dialog" class="ws-dialog" hidden>
+      <div class="ws-dialog-card" role="dialog" aria-modal="true" aria-labelledby="ws-dialog-title">
+        <h3 id="ws-dialog-title"></h3>
+        <div id="ws-dialog-body"></div>
+        <div class="btn-row">
+          <button id="ws-dialog-ok" class="btn" type="button">Apply</button>
+          <button id="ws-dialog-cancel" class="btn btn-secondary" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    import { initPdfWorkspace } from '../tools/pdf-workspace';
+    try {
+      initPdfWorkspace();
+    } catch (err) {
+      const box = document.getElementById('error-box');
+      if (box) {
+        box.hidden = false;
+        box.textContent = 'The PDF editor could not start in this browser. Please use a recent version of Chrome, Edge, Firefox, or Safari.';
+      }
+    }
+  </script>
+</ToolPage>

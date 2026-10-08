@@ -1,0 +1,120 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Fill PDF Form Free — Type into PDF Forms in Your Browser, No Signup';
+const description =
+  'Fill a PDF form for free, in your browser. Type into text fields, tick checkboxes, pick from dropdowns, then save. No signup, no watermark, your file stays on your device.';
+const h1 = 'Fill PDF Form';
+const lede = 'Type into a PDF form without printing it. Text fields, checkboxes, dropdowns, and lists become a plain web form you fill in and save.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Fill PDF Form', href: '/fill-pdf-form' }]}
+  toolName="TruePDF Fill PDF Form"
+  intro={[
+    'Plenty of official documents arrive as PDFs with fillable fields: application forms, tax paperwork, registration forms. The usual options are printing and handwriting (slow, ugly) or expensive software. This tool turns the PDF\u2019s fields into a plain web form: type, tick, choose, save.',
+    'The filled result is a normal PDF with your answers in it. Save it with the fields still fillable if you want to edit later, or tick "lock the fields" to bake your answers in permanently so nobody can change them. The file never leaves your device, which matters when the form holds personal details.',
+  ]}
+  steps={[
+    'Drop your PDF form onto the box above, or click it to browse. Its fields appear as a plain form.',
+    'Fill in the fields: type into text boxes, tick checkboxes, pick from dropdowns.',
+    'Tick "Lock the fields" if you want the answers baked in so they cannot be changed later.',
+    'Click "Save and download". Open the result to check your answers landed in the right places.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None.'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Field types', 'Text fields, checkboxes, dropdowns, lists, radio buttons'],
+    ['Locking', 'Optional: bake answers into the page so they cannot be edited'],
+    ['Output filename', 'Your original name with "-filled" added'],
+    ['PDFs with no form fields', 'The tool says so plainly. Scanned forms need OCR PDF first, then a form built in a PDF editor.'],
+    ['Password-protected PDFs', 'Not supported. Remove the password first, then fill.'],
+  ]}
+  faqs={[
+    {
+      q: 'My PDF has no fillable fields. What can I do?',
+      a: 'Some "forms" are just printed lines on a page with no real fields behind them. This tool can only fill actual form fields. For those files, the Sign PDF tool can place typed text on the page as a workaround.',
+    },
+    {
+      q: 'Should I lock the fields?',
+      a: 'Lock them when the form is finished and you want the answers permanent: sending a signed application, archiving a record. Leave them fillable when you or someone else may still edit the answers.',
+    },
+    {
+      q: 'Will my answers print correctly?',
+      a: 'Yes. The answers are written into the PDF itself using the field\u2019s own font and position, so the printed page looks like the form was filled in a PDF reader.',
+    },
+    {
+      q: 'Can I sign the form here too?',
+      a: 'Not on this page. Fill the form here first, then open the result in the Sign PDF tool to place your signature on it.',
+    },
+    {
+      q: 'The field labels look like gibberish. Is that normal?',
+      a: 'Sometimes. Form field names are set by whoever built the PDF and can be codes like "f1_07". The tool shows a cleaned-up version; if a label is unclear, compare with the field\u2019s position in the original PDF.',
+    },
+    {
+      q: 'Is my personal data uploaded anywhere?',
+      a: 'No. Filling happens entirely in your browser. Forms with names, addresses, and ID numbers are exactly the kind of file that should never be uploaded, and here they are not.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Filling in applications',
+      p: 'Job applications, school forms, and registration PDFs get typed answers instead of handwriting. Tidy, readable, and fast.',
+    },
+    {
+      h: 'Completing official paperwork',
+      p: 'Tax forms, permits, and government PDFs filled in on screen, then printed or emailed. No printer needed until the end.',
+    },
+    {
+      h: 'Preparing a form for signature',
+      p: 'Fill every field here, lock the answers, then place your signature with the Sign PDF tool. The result is a finished, unchangeable document.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Fill PDF form tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF form to fill in">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+      <div class="dz-title">Drop a PDF form here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <p id="size-note" class="hint" hidden></p>
+    <div id="error-box" class="error-box" hidden></div>
+
+    <p class="honest-note">
+      <strong>How this works:</strong> the PDF\u2019s fillable fields are listed as a plain form.
+      Your answers are written into the real PDF when you save.
+    </p>
+
+    <p id="file-info" class="hint" hidden></p>
+    <p id="no-fields" class="empty-state" hidden>No form fields yet. Add a PDF form above.</p>
+
+    <div id="form-wrap" hidden>
+      <div id="fields-list" class="form-fields"></div>
+      <div class="checkline" style="margin-top:1rem;">
+        <input type="checkbox" id="opt-flatten" />
+        <label for="opt-flatten">Lock the fields after filling (answers cannot be changed later)</label>
+      </div>
+      <div class="btn-row">
+        <button id="save-btn" class="btn">Save and download</button>
+        <span id="count-label" class="count-label"></span>
+      </div>
+    </div>
+
+    <div id="result" class="result" hidden>
+      <h3>Form saved</h3>
+      <p id="result-info"></p>
+      <button id="download-btn" class="btn">Download PDF</button>
+    </div>
+  </section>
+  <script>
+    import { initFillPdfForm } from '../tools/fill-pdf-form';
+    initFillPdfForm();
+  </script>
+</ToolPage>

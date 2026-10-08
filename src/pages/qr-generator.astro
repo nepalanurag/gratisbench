@@ -17,7 +17,7 @@ const lede = 'Make a QR code for a link or any text. Add your logo, tune the col
   intro={[
     'QR codes are one of those things that should be simple and usually are not. You want a code for your menu, your Wi-Fi password, or a link on a flyer, and the first result on Google wants an account before it will let you download, or stamps its own logo on your code unless you pay. A QR code is just an encoding of some text. There is no reason it needs an account.',
     'This generator makes standard static QR codes directly in your browser. Type a link or any text, and the code updates as you type. You can add a center logo (error correction is raised automatically so the code still scans), change the colors, and download the result as a PNG for screens or as an SVG for print, where it scales to any size without going blurry.',
-    'Static means the code encodes your text directly and works forever. There is no redirect service in the middle, so nothing can expire, break, or start charging you next year. If you need to change where the code points later, generate a new one; that is the honest trade-off of a code with no middleman.',
+    'Static means the code stores your text directly and works forever. There is no redirect service in the middle, so nothing can expire, break, or start charging you next year. If you need to change where the code points later, generate a new one; that is the honest trade-off of a code with no middleman.',
   ]}
   steps={[
     'Type or paste your link or text into the box. The preview updates automatically.',
@@ -29,7 +29,7 @@ const lede = 'Make a QR code for a link or any text. Add your logo, tune the col
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None'],
     ['Where codes are generated', 'In your browser, on your device'],
-    ['Code type', 'Static QR (encodes your text directly, works forever)'],
+    ['Code type', 'Static QR (stores your text directly, works forever)'],
     ['Max input', 'About 4,000 characters; shorter inputs make easier-to-scan codes'],
     ['Sizes', '512, 1024, or 2048 px PNG; SVG scales to any size'],
     ['Center logo', 'Supported on PNG; error correction is raised to High automatically'],
@@ -46,7 +46,7 @@ const lede = 'Make a QR code for a link or any text. Add your logo, tune the col
     },
     {
       q: 'Will my QR code expire?',
-      a: 'No. These are static codes: your text is encoded directly into the pattern, with no redirect service in between. It works as long as the link or text it contains is valid. The trade-off is that you cannot change the destination later; you would generate a new code instead.',
+      a: 'No. These are static codes: your text is stored directly in the pattern, with no redirect service in between. It works as long as the link or text it contains is valid. The trade-off is that you cannot change the destination later; you would generate a new code instead.',
     },
     {
       q: 'What is error correction, and which level should I pick?',
