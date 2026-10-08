@@ -93,7 +93,10 @@ export function initMergePdf(): void {
       // Yield so the busy state paints before the heavy work starts.
       await new Promise((r) => setTimeout(r, 30));
       const out = await mergePdfs(items.map((i) => i.bytes));
-      const name = items.length === 1 ? 'merged.pdf' : `merged-${items.length}-files.pdf`;
+      const name =
+        items.length === 1
+          ? `${items[0].file.name.replace(/\.pdf$/i, '') || 'merged'}-merged.pdf`
+          : `merged-${items.length}-files.pdf`;
       result.hidden = false;
       el('result-info').textContent = `${formatBytes(out.length)} · ${items.reduce((a, b) => a + b.pages, 0)} pages`;
       const dl = el<HTMLButtonElement>('download-btn');
