@@ -264,12 +264,14 @@ function drawThumbOverlays(canvas: HTMLCanvasElement, item: PageItem, scale: num
     ctx.restore();
   }
 
-  // Page numbers
+  // Page numbers (offset to avoid clashing with header/footer)
   if (pageNumbers && pageIdx >= 0) {
     const num = pageNumbers.start + pageIdx;
     const text = pageNumbers.format === 'n-of-n'
       ? `${num} of ${pageNumbers.start + pages.length - 1}`
       : pageNumbers.format === 'page-n' ? `Page ${num}` : String(num);
+    const hasFooter = headerFooter?.footer.trim();
+    const hasHeader = headerFooter?.header.trim();
     ctx.save();
     ctx.fillStyle = '#595959';
     ctx.font = `${pageNumbers.size * scale}px sans-serif`;
@@ -279,11 +281,12 @@ function drawThumbOverlays(canvas: HTMLCanvasElement, item: PageItem, scale: num
     let x = W / 2 - tw / 2;
     let y = H - m;
     const pos = pageNumbers.pos;
-    if (pos === 'top-center') { y = m + pageNumbers.size * scale * 0.8; }
+    if (pos === 'bottom-center' && hasFooter) y = H - m - 14 * scale;
+    if (pos === 'top-center') { y = hasHeader ? m + pageNumbers.size * scale * 0.8 + 14 * scale : m + pageNumbers.size * scale * 0.8; }
     else if (pos === 'bottom-left') { x = m; }
     else if (pos === 'bottom-right') { x = W - tw - m; }
-    else if (pos === 'top-left') { x = m; y = m + pageNumbers.size * scale * 0.8; }
-    else if (pos === 'top-right') { x = W - tw - m; y = m + pageNumbers.size * scale * 0.8; }
+    else if (pos === 'top-left') { x = m; y = hasHeader ? m + pageNumbers.size * scale * 0.8 + 14 * scale : m + pageNumbers.size * scale * 0.8; }
+    else if (pos === 'top-right') { x = W - tw - m; y = hasHeader ? m + pageNumbers.size * scale * 0.8 + 14 * scale : m + pageNumbers.size * scale * 0.8; }
     ctx.fillText(text, x, y);
     ctx.restore();
   }
@@ -925,6 +928,8 @@ function applyWatermark(out: PDFDocument, font: import('pdf-lib').PDFFont): void
 
 function applyPageNumbers(out: PDFDocument, count: number, font: import('pdf-lib').PDFFont): void {
   if (!pageNumbers) return;
+  const hasFooter = headerFooter?.footer.trim();
+  const hasHeader = headerFooter?.header.trim();
   for (let i = 0; i < count; i++) {
     const page = out.getPage(i);
     const { width, height } = page.getSize();
@@ -934,11 +939,13 @@ function applyPageNumbers(out: PDFDocument, count: number, font: import('pdf-lib
     const tw = font.widthOfTextAtSize(text, pageNumbers.size);
     let x = width / 2 - tw / 2;
     let y = 36;
-    if (pageNumbers.pos === 'top-center') y = height - 36;
+    // Avoid clashing with footer/header when both are set
+    if (pageNumbers.pos === 'bottom-center' && hasFooter) y = 48;
+    if (pageNumbers.pos === 'top-center') y = hasHeader ? height - 48 : height - 36;
     else if (pageNumbers.pos === 'bottom-left') x = 36;
     else if (pageNumbers.pos === 'bottom-right') x = width - tw - 36;
-    else if (pageNumbers.pos === 'top-left') { x = 36; y = height - 36; }
-    else if (pageNumbers.pos === 'top-right') { x = width - tw - 36; y = height - 36; }
+    else if (pageNumbers.pos === 'top-left') { x = 36; y = hasHeader ? height - 48 : height - 36; }
+    else if (pageNumbers.pos === 'top-right') { x = width - tw - 36; y = hasHeader ? height - 48 : height - 36; }
     page.drawText(text, { x, y, size: pageNumbers.size, font, color: rgb(0.35, 0.35, 0.35) });
   }
 }
@@ -1028,8 +1035,11 @@ async function openPageView(pageUid: string): Promise<void> {
       const w = ti.width * scale;
       const h = Math.max(ti.height * scale, size * scale * 0.9);
       const cls = classifyFont(ti.fontName || '');
+      // Position the hit area so its top aligns with the text ascender top.
+      // Use 0.8*size as the ascender estimate (more reliable than ti.height).
+      const ascender = size * scale * 0.8;
       items.push({
-        str: ti.str, x, y: yTop - h * 0.15, w, h: h * 1.25,
+        str: ti.str, x, y: yTop - ascender, w, h: h * 1.25,
         pdfX: e, pdfY: f - size * 0.2, size,
         font: cls.font, bold: cls.bold, italic: cls.italic,
       });
@@ -1151,6 +1161,8 @@ function startTextEdit(wrap: HTMLElement, t: TextItem, scale: number): void {
         item.thumb = null;
         void renderThumb(item).then((url) => {
           item.thumb = url;
+          const img = document.querySelector<HTMLImageElement>(`img[data-uid="${item.uid}"]`);
+          if (img) img.src = url;
         });
       }
       setStatus('Text updated. It will appear in the download.');
