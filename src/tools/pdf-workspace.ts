@@ -292,6 +292,17 @@ function renderGrid(): void {
     });
     hover.appendChild(rotBtn);
     hover.appendChild(delBtn);
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'ws-iconbtn ws-edit';
+    editBtn.title = 'Open page editor';
+    editBtn.setAttribute('aria-label', `Edit page ${idx + 1}`);
+    editBtn.textContent = '✎';
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      void openPageView(item.uid);
+    });
+    hover.appendChild(editBtn);
     card.appendChild(hover);
 
     card.addEventListener('click', (e) => {
@@ -954,10 +965,53 @@ async function openPageView(pageUid: string): Promise<void> {
     for (const e2 of textEdits.filter((x) => x.pageUid === pageUid)) {
       paintEditOverlay(wrap, e2, scale, base.height);
     }
+    paintStampOverlays(wrap, idx, scale, viewport.width, viewport.height);
   } catch {
     stage.innerHTML = '';
     showError('error-box', 'Could not open that page. Please try again.');
     closePageView();
+  }
+}
+
+function paintStampOverlays(wrap: HTMLElement, pageIdx: number, scale: number, w: number, h: number): void {
+  if (watermark && watermark.text.trim()) {
+    const wm = document.createElement('div');
+    wm.className = 'ws-pv-watermark';
+    wm.textContent = watermark.text;
+    wm.style.fontSize = `${watermark.size * scale}px`;
+    wm.style.opacity = String(watermark.opacity);
+    if (watermark.angle) wm.style.transform = 'translate(-50%, -50%) rotate(-45deg)';
+    wrap.appendChild(wm);
+  }
+  if (pageNumbers) {
+    const num = pageNumbers.start + pageIdx;
+    const text = pageNumbers.format === 'n-of-n' ? `${num} of ${pageNumbers.start + pages.length - 1}` : pageNumbers.format === 'page-n' ? `Page ${num}` : String(num);
+    const pn = document.createElement('div');
+    pn.className = 'ws-pv-pagenum';
+    pn.textContent = text;
+    pn.style.fontSize = `${pageNumbers.size * scale}px`;
+    const pos = pageNumbers.pos;
+    if (pos.includes('top')) pn.style.top = '12px'; else pn.style.bottom = '12px';
+    if (pos.includes('left')) pn.style.left = '16px';
+    else if (pos.includes('right')) pn.style.right = '16px';
+    else { pn.style.left = '50%'; pn.style.transform = 'translateX(-50%)'; }
+    wrap.appendChild(pn);
+  }
+  if (headerFooter) {
+    if (headerFooter.header.trim()) {
+      const hd = document.createElement('div');
+      hd.className = 'ws-pv-header';
+      hd.textContent = headerFooter.header;
+      hd.style.fontSize = `${headerFooter.size * scale}px`;
+      wrap.appendChild(hd);
+    }
+    if (headerFooter.footer.trim()) {
+      const ft = document.createElement('div');
+      ft.className = 'ws-pv-footer';
+      ft.textContent = headerFooter.footer;
+      ft.style.fontSize = `${headerFooter.size * scale}px`;
+      wrap.appendChild(ft);
+    }
   }
 }
 
