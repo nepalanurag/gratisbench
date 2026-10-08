@@ -1,6 +1,11 @@
 // Subtitle editor: DOM glue. The user types captions, times them against a
 // local video preview, and downloads an SRT file. No ffmpeg needed — the
 // video element is only a timing reference, and SRT is plain text.
+//
+// The timeline shows a waveform of the video's audio (decoded in-browser with
+// the Web Audio API) with cue blocks on top. Click the timeline to seek, drag
+// a block to move it, drag its edges to resize, zoom with the buttons or
+// Ctrl+wheel. [ and ] set the selected caption's start/end at the playhead.
 import {
   el,
   downloadBytes,
@@ -38,16 +43,28 @@ function formatClock(s: number): string {
   return `${m}:${sec}`;
 }
 
+const PEAK_COUNT = 2000;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 8;
+
 export function initSubtitleEditor(): void {
   let fileName = '';
   let duration = 0;
   let cues: Cue[] = [];
   let idSeq = 0;
+  let selectedId: string | null = null;
+  let zoom = 1;
+  let peaks: number[] | null = null;
+
   const video = el<HTMLVideoElement>('preview');
   const overlay = el('subtitle-overlay');
+  const timelineScroll = el('cue-timeline-scroll');
+  const timeline = el('cue-timeline');
+  const waveform = el<HTMLCanvasElement>('waveform');
   const track = el('cue-track');
   const playhead = el('cue-playhead');
   const cueList = el('cue-list');
+  const zoomLabel = el('zoom-label');
 
   function sortedCues(): Cue[] {
     return [...cues].sort((a, b) => a.start - b.start || a.end - b.end);
@@ -60,12 +77,33 @@ export function initSubtitleEditor(): void {
     return null;
   }
 
+  /** Convert a pointer x-position on the timeline to seconds (zoom-aware). */
+  function toTime(clientX: number): number {
+    if (duration <= 0) return 0;
+    const r = timeline.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    return Math.round(frac * duration * 10) / 10;
+  }
+
+  function positionPlayhead(): void {
+    const pct = duration > 0 ? (video.currentTime / duration) * 100 : 0;
+    playhead.style.left = `${pct}%`;
+    // Keep the playhead in view while playing on a zoomed timeline.
+    if (!video.paused && zoom > 1 && duration > 0) {
+      const px = (video.currentTime / duration) * timeline.scrollWidth;
+      const sl = timelineScroll.scrollLeft;
+      const vw = timelineScroll.clientWidth;
+      if (px < sl + 30 || px > sl + vw - 30) {
+        timelineScroll.scrollLeft = Math.max(0, px - vw / 2);
+      }
+    }
+  }
+
   function renderOverlay(): void {
     const c = activeCue(video.currentTime);
     overlay.textContent = c ? c.text : '';
     overlay.style.display = c ? 'block' : 'none';
-    const pct = duration > 0 ? (video.currentTime / duration) * 100 : 0;
-    playhead.style.left = `${pct}%`;
+    positionPlayhead();
   }
 
   function cueSize(): string {
@@ -116,17 +154,34 @@ export function initSubtitleEditor(): void {
     return `hsl(${hues[i % hues.length]} 70% 55%)`;
   }
 
+  /** Highlight the selected cue in the list and on the timeline. */
+  function selectCue(id: string | null): void {
+    selectedId = id;
+    cueList.querySelectorAll('.cue-row').forEach((r) => {
+      r.classList.toggle('selected', (r as HTMLElement).dataset.id === id);
+    });
+    track.querySelectorAll('.cue-block').forEach((b) => {
+      b.classList.toggle('selected', (b as HTMLElement).dataset.id === id);
+    });
+  }
+
+  function positionBlock(block: HTMLElement, c: Cue): void {
+    block.style.left = `${(c.start / duration) * 100}%`;
+    block.style.width = `${Math.max(0.5, ((c.end - c.start) / duration) * 100)}%`;
+  }
+
   function renderTimeline(): void {
+    if (duration <= 0) return;
     track.innerHTML = '';
     const list = sortedCues();
     list.forEach((c, i) => {
       const block = document.createElement('div');
       block.className = 'cue-block';
-      block.style.left = `${(c.start / duration) * 100}%`;
-      block.style.width = `${Math.max(1, ((c.end - c.start) / duration) * 100)}%`;
       block.style.background = cueColor(i);
       block.title = `${formatClock(c.start)} – ${formatClock(c.end)}: ${c.text.slice(0, 60)}`;
       block.dataset.id = c.id;
+      if (c.id === selectedId) block.classList.add('selected');
+      positionBlock(block, c);
 
       const left = document.createElement('div');
       left.className = 'cue-resize cue-resize-left';
@@ -135,46 +190,92 @@ export function initSubtitleEditor(): void {
       block.append(left, right);
       track.appendChild(block);
 
-      let mode: 'left' | 'right' | null = null;
-      const toTime = (clientX: number): number => {
-        const r = track.getBoundingClientRect();
-        const frac = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
-        return Math.round(frac * duration * 10) / 10;
+      const commit = () => {
+        renderTimeline();
+        renderList();
+        renderOverlay();
+        selectCue(selectedId);
       };
-      const onMove = (e: PointerEvent) => {
+
+      // Edge drag: resize start/end.
+      let mode: 'left' | 'right' | null = null;
+      const onResizeMove = (e: PointerEvent) => {
         if (!mode) return;
         const t = toTime(e.clientX);
         if (mode === 'left') c.start = Math.min(t, c.end - 0.5);
         else c.end = Math.max(t, c.start + 0.5);
         c.start = Math.max(0, c.start);
         c.end = Math.min(duration, c.end);
-        renderTimeline();
-        renderList();
-        renderOverlay();
+        positionBlock(block, c);
       };
-      const onUp = () => {
+      const onResizeUp = () => {
         mode = null;
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointermove', onResizeMove);
+        window.removeEventListener('pointerup', onResizeUp);
+        commit();
       };
       left.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
+        selectCue(c.id);
         mode = 'left';
-        window.addEventListener('pointermove', onMove);
-        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointermove', onResizeMove);
+        window.addEventListener('pointerup', onResizeUp);
       });
       right.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
+        selectCue(c.id);
         mode = 'right';
+        window.addEventListener('pointermove', onResizeMove);
+        window.addEventListener('pointerup', onResizeUp);
+      });
+
+      // Body drag: move the whole cue. A plain click seeks to its start.
+      block.addEventListener('pointerdown', (e) => {
+        if ((e.target as HTMLElement).closest('.cue-resize')) return;
+        e.preventDefault();
+        selectCue(c.id);
+        const cueLen = c.end - c.start;
+        const startX = e.clientX;
+        const startT = c.start;
+        let moved = false;
+        const onMove = (ev: PointerEvent) => {
+          const r = timeline.getBoundingClientRect();
+          const dt = ((ev.clientX - startX) / r.width) * duration;
+          if (Math.abs(dt * duration) > 0.5) moved = true;
+          let ns = Math.round((startT + dt) * 10) / 10;
+          ns = Math.max(0, Math.min(duration - cueLen, ns));
+          c.start = ns;
+          c.end = Math.min(duration, ns + cueLen);
+          positionBlock(block, c);
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          commit();
+          if (!moved) video.currentTime = c.start;
+        };
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', onUp);
       });
-      block.addEventListener('click', (e) => {
-        e.stopPropagation();
-        video.currentTime = c.start;
-      });
     });
     updateOverlapNote();
+  }
+
+  function duplicateCue(c: Cue): void {
+    const cueLen = c.end - c.start;
+    let start = c.end + 0.1;
+    if (start + cueLen > duration) start = Math.max(0, duration - cueLen);
+    const copy: Cue = {
+      id: `cue-${++idSeq}`,
+      start: Math.round(start * 10) / 10,
+      end: Math.round(Math.min(duration, start + cueLen) * 10) / 10,
+      text: c.text,
+    };
+    cues.push(copy);
+    renderTimeline();
+    renderList();
+    renderOverlay();
+    selectCue(copy.id);
   }
 
   function renderList(): void {
@@ -187,28 +288,71 @@ export function initSubtitleEditor(): void {
     list.forEach((c, i) => {
       const row = document.createElement('div');
       row.className = 'cue-row';
+      row.dataset.id = c.id;
+      if (c.id === selectedId) row.classList.add('selected');
       row.innerHTML = `
-        <span class="cue-num">${i + 1}</span>
+        <span class="cue-num drag-handle" draggable="true" title="Drag onto another caption to swap their timings">⠿</span>
         <span class="cue-time">${formatClock(c.start)} → ${formatClock(c.end)}</span>
         <textarea rows="2" aria-label="Subtitle ${i + 1} text">${c.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea>
         <button type="button" class="icon-btn" data-act="jump" aria-label="Jump to subtitle ${i + 1}">▶</button>
+        <button type="button" class="icon-btn" data-act="dup" aria-label="Duplicate subtitle ${i + 1}">⧉</button>
         <button type="button" class="icon-btn" data-act="del" aria-label="Delete subtitle ${i + 1}">✕</button>
       `;
+      row.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('textarea, button')) return;
+        selectCue(c.id);
+      });
       const ta = row.querySelector('textarea')!;
       ta.addEventListener('input', () => {
         c.text = ta.value;
         renderOverlay();
       });
+      ta.addEventListener('focus', () => selectCue(c.id));
       row.querySelector('[data-act="jump"]')!.addEventListener('click', () => {
+        selectCue(c.id);
         video.currentTime = c.start;
         video.play().catch(() => {});
       });
+      row.querySelector('[data-act="dup"]')!.addEventListener('click', () => duplicateCue(c));
       row.querySelector('[data-act="del"]')!.addEventListener('click', () => {
         cues = cues.filter((x) => x.id !== c.id);
+        if (selectedId === c.id) selectedId = null;
         renderTimeline();
         renderList();
         renderOverlay();
       });
+
+      // Drag a row's handle onto another row to swap their time ranges.
+      const handle = row.querySelector('.drag-handle')!;
+      handle.addEventListener('dragstart', (e) => {
+        (e as DragEvent).dataTransfer!.setData('text/plain', c.id);
+        (e as DragEvent).dataTransfer!.effectAllowed = 'move';
+        row.classList.add('dragging');
+      });
+      handle.addEventListener('dragend', () => row.classList.remove('dragging'));
+      row.addEventListener('dragover', (e) => {
+        if (!(e as DragEvent).dataTransfer?.types.includes('text/plain')) return;
+        e.preventDefault();
+        (e as DragEvent).dataTransfer!.dropEffect = 'move';
+      });
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const srcId = (e as DragEvent).dataTransfer?.getData('text/plain');
+        if (!srcId || srcId === c.id) return;
+        const src = cues.find((x) => x.id === srcId);
+        if (!src) return;
+        const s = src.start;
+        const en = src.end;
+        src.start = c.start;
+        src.end = c.end;
+        c.start = s;
+        c.end = en;
+        renderTimeline();
+        renderList();
+        renderOverlay();
+        selectCue(selectedId);
+      });
+
       cueList.appendChild(row);
     });
     updateOverlapNote();
@@ -218,19 +362,135 @@ export function initSubtitleEditor(): void {
     if (duration <= 0) return;
     const t = Math.round(video.currentTime * 10) / 10;
     const start = Math.min(t, Math.max(0, duration - 2));
-    cues.push({
+    const cue: Cue = {
       id: `cue-${++idSeq}`,
       start,
       end: Math.min(duration, start + 2),
       text: '',
-    });
+    };
+    cues.push(cue);
     renderTimeline();
     renderList();
+    renderOverlay();
+    selectCue(cue.id);
     // Focus the new cue's textarea.
     const rows = cueList.querySelectorAll('.cue-row');
     const last = rows[rows.length - 1];
     last?.querySelector('textarea')?.focus();
   }
+
+  /** [ and ] set the selected (or active) cue's start/end at the playhead. */
+  document.addEventListener('keydown', (e) => {
+    const t = e.target as HTMLElement;
+    if (t.closest('textarea, input, [contenteditable="true"]')) return;
+    if (el('editor').hidden) return;
+    if (e.key !== '[' && e.key !== ']') return;
+    e.preventDefault();
+    const cur = Math.round(video.currentTime * 10) / 10;
+    let cue = cues.find((c) => c.id === selectedId) || activeCue(video.currentTime);
+    if (!cue) {
+      if (e.key === '[') addCue();
+      return;
+    }
+    if (e.key === '[') {
+      cue.start = Math.max(0, Math.min(cur, cue.end - 0.5));
+    } else {
+      cue.end = Math.min(duration, Math.max(cur, cue.start + 0.5));
+    }
+    renderTimeline();
+    renderList();
+    renderOverlay();
+    selectCue(cue.id);
+  });
+
+  // ---- Waveform ----
+
+  /** Decode the video's audio and downsample it to peaks for drawing. */
+  async function computePeaks(file: File): Promise<void> {
+    peaks = null;
+    try {
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      const actx = new AC();
+      const buf = await file.arrayBuffer();
+      const audio = await actx.decodeAudioData(buf);
+      const ch = audio.getChannelData(0);
+      const step = Math.max(1, Math.floor(ch.length / PEAK_COUNT));
+      const out: number[] = [];
+      for (let i = 0; i < ch.length; i += step) {
+        let max = 0;
+        const end = Math.min(ch.length, i + step);
+        for (let j = i; j < end; j += 8) {
+          const v = Math.abs(ch[j]);
+          if (v > max) max = v;
+        }
+        out.push(Math.min(1, max));
+      }
+      peaks = out;
+      await actx.close().catch(() => {});
+    } catch {
+      // Some containers fail to decode; the timeline still works without a waveform.
+      peaks = null;
+    }
+    drawWaveform();
+  }
+
+  function drawWaveform(): void {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = timeline.clientWidth;
+    const h = timeline.clientHeight;
+    if (w <= 0 || h <= 0) return;
+    waveform.width = Math.round(w * dpr);
+    waveform.height = Math.round(h * dpr);
+    const ctx = waveform.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+    if (!peaks || peaks.length === 0) return;
+    const mid = h / 2;
+    const amp = (h / 2) * 0.9;
+    ctx.fillStyle = 'rgba(125, 135, 155, 0.5)';
+    for (let x = 0; x < w; x++) {
+      const idx = Math.min(peaks.length - 1, Math.floor((x / w) * peaks.length));
+      const ph = Math.max(1, peaks[idx] * amp);
+      ctx.fillRect(x, mid - ph / 2, 1, ph);
+    }
+  }
+
+  // ---- Zoom ----
+
+  function applyZoom(): void {
+    if (duration <= 0) return;
+    const w = Math.max(1, Math.round(timelineScroll.clientWidth * zoom));
+    timeline.style.width = `${w}px`;
+    drawWaveform();
+    renderTimeline();
+    positionPlayhead();
+  }
+
+  function setZoom(z: number): void {
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(z * 2) / 2));
+    zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+    applyZoom();
+  }
+
+  el('zoom-in').addEventListener('click', () => setZoom(zoom + 0.5));
+  el('zoom-out').addEventListener('click', () => setZoom(zoom - 0.5));
+  el('zoom-reset').addEventListener('click', () => setZoom(1));
+  timelineScroll.addEventListener(
+    'wheel',
+    (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoom(zoom + (e.deltaY < 0 ? 0.5 : -0.5));
+    },
+    { passive: false },
+  );
+  window.addEventListener('resize', () => {
+    if (!el('editor').hidden) applyZoom();
+  });
+
+  // ---- Wiring ----
 
   function toSrt(): string {
     return (
@@ -253,11 +513,9 @@ export function initSubtitleEditor(): void {
 
   el('add-cue-btn').addEventListener('click', addCue);
 
-  el('cue-timeline').addEventListener('click', (e) => {
+  timeline.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('.cue-block')) return;
-    const r = track.getBoundingClientRect();
-    const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-    video.currentTime = frac * duration;
+    video.currentTime = toTime(e.clientX);
   });
 
   el('download-btn').addEventListener('click', () => {
@@ -278,6 +536,7 @@ export function initSubtitleEditor(): void {
 
   video.addEventListener('timeupdate', renderOverlay);
   video.addEventListener('seeked', renderOverlay);
+  video.addEventListener('play', positionPlayhead);
   applyAppearance();
 
   setupDropzone('dropzone', 'file-input', async (files) => {
@@ -292,15 +551,20 @@ export function initSubtitleEditor(): void {
     fileName = f.name;
     cues = [];
     idSeq = 0;
+    selectedId = null;
+    zoom = 1;
+    peaks = null;
+    zoomLabel.textContent = '100%';
     el('editor').hidden = false;
     el('file-info').textContent = f.name;
     video.src = URL.createObjectURL(f);
     video.onloadedmetadata = () => {
       duration = video.duration || 0;
       el('file-info').textContent = `${f.name} · ${formatClock(duration)}`;
-      renderTimeline();
+      applyZoom();
       renderList();
       renderOverlay();
+      void computePeaks(f);
     };
   });
 }

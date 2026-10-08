@@ -1,0 +1,237 @@
+/* PdfViewer component styles — shared PDF reader (preview mode, etc.) */
+.pdf-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 500px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.pdf-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.pv-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.pv-btn:hover {
+  background: var(--paper-2);
+}
+
+.pv-page-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.pv-page-input {
+  width: 52px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  text-align: center;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.pv-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--line);
+}
+
+.pv-zoom {
+  font-size: 14px;
+  min-width: 52px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-search {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 14px;
+  width: 150px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.pv-search-status {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pdf-viewer-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pdf-viewer-sidebar {
+  width: 120px;
+  overflow-y: auto;
+  background: var(--paper-2);
+  border-right: 1px solid var(--line);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pv-thumb {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #fff;
+}
+
+.pv-thumb:hover {
+  border-color: var(--accent);
+}
+
+.pv-thumb.active {
+  border-color: var(--accent);
+}
+
+.pv-thumb.pv-match {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.pdf-viewer-canvas-wrap {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  background: var(--paper-2);
+}
+
+/* Positions the canvas and its text layer together. */
+.pv-page {
+  position: relative;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+.pdf-viewer-canvas {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  max-width: 100%;
+  height: auto;
+  background: #fff;
+}
+
+/* Invisible-but-selectable text over the rendered page. */
+.pdf-viewer-text-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.pdf-viewer-text-layer span {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: left top;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.pdf-viewer-text-layer span::selection {
+  background: rgba(66, 133, 244, 0.35);
+}
+
+/* ---------- Preview overlay (pdf-editor "Preview" mode) ---------- */
+.ws-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-preview-overlay[hidden] {
+  display: none;
+}
+
+.ws-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-2);
+  flex-shrink: 0;
+}
+
+.ws-preview-title {
+  font-weight: 600;
+}
+
+.ws-preview-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-preview-host .pdf-viewer {
+  border: 0;
+  border-radius: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.ws-preview-loading {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+}
+
+@media (max-width: 768px) {
+  .pdf-viewer-sidebar {
+    width: 84px;
+  }
+
+  .pv-search {
+    width: 110px;
+  }
+
+  .pdf-viewer-canvas-wrap {
+    padding: 12px;
+  }
+}

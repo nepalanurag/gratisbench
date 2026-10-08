@@ -438,15 +438,6 @@ input[type="checkbox"] { width: 1.05rem; height: 1.05rem; accent-color: var(--ac
 .content th { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; font-weight: 600; }
 .steps { padding-left: 1.35rem; margin: 0.8rem 0; }
 .steps li { margin-bottom: 0.55rem; }
-/* Collapsible SEO intro: keeps the page clean while the text stays in the DOM. */
-.intro-more { margin: 1.2rem 0 0; border: 1px solid var(--line); border-radius: var(--radius); }
-.intro-more summary { cursor: pointer; padding: 0.7rem 1rem; font-size: 0.9rem; color: var(--muted); list-style: none; transition: color 0.14s ease; }
-.intro-more summary::-webkit-details-marker { display: none; }
-.intro-more summary::before { content: "+"; display: inline-block; width: 1.2em; color: var(--accent); font-weight: 600; }
-.intro-more[open] summary::before { content: "–"; }
-.intro-more summary:hover { color: var(--ink); }
-.intro-more > p { padding: 0 1rem; }
-.intro-more > p:last-child { padding-bottom: 1rem; }
 .steps li::marker { color: var(--accent); font-weight: 700; }
 .faq { border-top: 1px solid var(--line); padding: 1rem 0; }
 .faq:last-child { border-bottom: 1px solid var(--line); }
@@ -498,24 +489,6 @@ input[type="checkbox"] { width: 1.05rem; height: 1.05rem; accent-color: var(--ac
 /* Tool index: a plain list, grouped. The group heads carry the structure;
    rows scan fast: number, name + one-line description, tag, arrow. */
 .tool-index { margin: 3rem 0 0; }
-/* "Pick up where you left off" card on the homepage. Hidden until JS fills it. */
-.resume-tool {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  margin: 2.2rem 0 0; padding: 1rem 1.2rem;
-  border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
-}
-.resume-tool-label { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.resume-tool-link {
-  display: inline-flex; align-items: center; gap: 10px;
-  font-weight: 600; color: var(--ink); text-decoration: none;
-  padding: 0.45rem 1rem; border: 1px solid var(--accent); border-radius: var(--radius);
-  transition: background 0.14s ease, transform 0.08s ease;
-}
-.resume-tool-link:hover { background: var(--accent-tint); transform: translateY(-1px); }
-.resume-tool-link .arrow { color: var(--accent); }
-/* "What next?" cross-tool suggestions after a successful download. */
-.next-steps { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.next-steps-label { margin: 0; font-size: 0.85rem; color: var(--muted); }
 .tool-group { margin-bottom: 3rem; }
 .tool-group-head { display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--rule); padding-bottom: 8px; margin-bottom: 2px; }
 .tool-group-head h2 { font-size: 1.05rem; margin: 0; letter-spacing: -0.01em; }
@@ -1098,9 +1071,43 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
 .ws-thumb:hover { border-color: var(--faint); }
 .ws-thumb.selected { border-color: var(--accent); }
 .ws-thumb img { width: 100%; height: 100%; object-fit: contain; background: #fff; pointer-events: none; }
-.ws-thumb.dragging { opacity: 0.4; }
-.ws-thumb.drop-before { box-shadow: -6px 0 0 var(--accent); }
-.ws-thumb.drop-after { box-shadow: 6px 0 0 var(--accent); }
+/* Cards allow vertical scroll-start on touch; long-press begins a drag. */
+.ws-thumb { touch-action: pan-y; }
+/* Lifted cards keep their grid slot hidden while the gap shows the target. */
+.ws-thumb.ws-lifted { visibility: hidden; }
+/* The drop gap: a real placeholder showing exactly where pages will land. */
+.ws-gap {
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-tint);
+  aspect-ratio: 3 / 4;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent); font-weight: 700; font-size: 13px;
+  animation: ws-gap-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ws-gap-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+/* Floating drag ghost that follows the pointer. */
+.ws-ghost {
+  position: fixed; left: 0; top: 0; z-index: 9999;
+  pointer-events: none;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  overflow: hidden; background: #fff;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+.ws-ghost img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.ws-ghost-count {
+  position: absolute; right: 6px; top: 6px;
+  background: var(--accent); color: #fff;
+  font-size: 13px; font-weight: 800; padding: 3px 10px; border-radius: 12px;
+}
+/* While dragging: no text selection, grabbing cursor, no touch scrolling. */
+body.ws-dragging, body.ws-dragging * { user-select: none !important; -webkit-user-select: none !important; }
+body.ws-dragging { cursor: grabbing; }
+body.ws-dragging .ws-grid { touch-action: none; }
 .ws-num {
   position: absolute; left: 6px; bottom: 6px;
   background: rgba(0,0,0,0.65); color: #fff;
@@ -1554,18 +1561,26 @@ html[data-a11y-motion="1"] .compare-handle, html[data-a11y-motion="1"] .compare-
 .video-wrap { position: relative; margin: 16px 0; border-radius: var(--radius); overflow: hidden; background: #000; }
 .video-wrap .preview-video { display: block; width: 100%; max-height: 420px; }
 .subtitle-overlay { position: absolute; left: 0; right: 0; bottom: 8%; text-align: center; padding: 0 12px; font-size: 1.15rem; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7); pointer-events: none; display: none; line-height: 1.35; }
-.cue-timeline { position: relative; height: 56px; margin: 12px 0 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); cursor: pointer; overflow: hidden; }
-.cue-track { position: absolute; inset: 8px 4px; }
+.cue-timeline-scroll { overflow-x: auto; margin: 12px 0 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.cue-timeline { position: relative; height: 104px; min-width: 100%; cursor: pointer; overflow: hidden; }
+.waveform { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cue-track { position: absolute; left: 4px; right: 4px; bottom: 10px; height: 36px; }
 .cue-block { position: absolute; top: 0; bottom: 0; border-radius: 4px; opacity: 0.85; cursor: default; min-width: 8px; }
 .cue-block:hover { opacity: 1; }
+.cue-block.selected { outline: 2px solid #fff; outline-offset: -2px; opacity: 1; }
+.timeline-controls { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; }
+.zoom-label { font-size: 0.85rem; color: var(--muted); min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
+.cue-row.selected { border-color: var(--accent); }
+.drag-handle { cursor: grab; touch-action: none; color: var(--muted); }
+.cue-row.dragging { opacity: 0.5; }
 .cue-resize { position: absolute; top: 0; bottom: 0; width: 10px; cursor: ew-resize; }
 .cue-resize-left { left: -2px; }
 .cue-resize-right { right: -2px; }
 .cue-resize::after { content: ''; position: absolute; top: 20%; bottom: 20%; left: 4px; width: 2px; background: rgba(255,255,255,0.8); border-radius: 1px; }
 .cue-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; z-index: 2; }
 .cue-list { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
-.cue-row { display: grid; grid-template-columns: 28px 150px 1fr 36px 36px; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.cue-row { display: grid; grid-template-columns: 28px 150px 1fr 36px 36px 36px; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
 .cue-num { font-weight: 700; color: var(--accent); text-align: center; }
 .cue-time { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cue-row textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 0.9rem; resize: vertical; background: var(--bg); color: var(--ink); }
-@media (max-width: 640px) { .cue-row { grid-template-columns: 24px 1fr 36px 36px; } .cue-time { grid-column: 2; } .cue-row textarea { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .cue-row { grid-template-columns: 24px 1fr 36px 36px 36px; } .cue-time { grid-column: 2; } .cue-row textarea { grid-column: 1 / -1; } }

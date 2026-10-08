@@ -82,16 +82,13 @@ let nextDocId = 1;
 let nextUid = 1;
 let textEdits: TextEdit[] = [];
 let crops = new Map<string, CropRect>();
-type Watermark =
-  | { kind: 'text'; text: string; opacity: number; size: number; angle: boolean }
-  | { kind: 'image'; bytes: Uint8Array; opacity: number; scale: number; position: string };
-let watermark: Watermark | null = null;
+let watermark: { text: string; opacity: number; size: number; angle: boolean } | null = null;
 let pageNumbers: { pos: string; format: string; start: number; size: number } | null = null;
 let headerFooter: { header: string; footer: string; size: number } | null = null;
 let protectPassword: string | null = null;
 let pageViewUid: string | null = null;
 
-const THUMB_W = 240;
+const THUMB_W = 168;
 
 function uid(): string {
   return `p${nextUid++}`;
@@ -202,134 +199,6 @@ async function renderThumbsIncremental(): Promise<void> {
   }
 }
 
-/* ---------------- stamp preview: draw watermarks / page numbers /
-   headers onto thumbnails so the preview matches the download ---------------- */
-
-let wmImgEl: HTMLImageElement | null = null;
-let wmImgBytes: Uint8Array | null = null;
-
-async function watermarkImage(): Promise<HTMLImageElement | null> {
-  if (!watermark || watermark.kind !== 'image') {
-    wmImgEl = null;
-    wmImgBytes = null;
-    return null;
-  }
-  if (wmImgEl && wmImgBytes === watermark.bytes) return wmImgEl;
-  const url = URL.createObjectURL(new Blob([watermark.bytes as BlobPart], { type: 'image/png' }));
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const im = new Image();
-      im.onload = () => resolve(im);
-      im.onerror = () => reject(new Error('bad watermark image'));
-      im.src = url;
-    });
-    wmImgEl = img;
-    wmImgBytes = watermark.bytes;
-    return img;
-  } catch {
-    wmImgEl = null;
-    wmImgBytes = null;
-    return null;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-/** Draw text watermark, page numbers, and header/footer onto a thumbnail
- *  canvas. Mirrors applyWatermark/applyPageNumbers/applyHeaderFooter. */
-function drawTextStamps(
-  ctx: CanvasRenderingContext2D,
-  cw: number,
-  ch: number,
-  pageW: number, // PDF points (rotated space)
-  pageH: number,
-  pageIdx: number
-): void {
-  const s = cw / pageW; // canvas px per PDF point
-  if (watermark?.kind === 'text' && watermark.text.trim()) {
-    ctx.save();
-    ctx.globalAlpha = watermark.opacity;
-    ctx.fillStyle = '#808080';
-    ctx.font = `${Math.max(4, watermark.size * s)}px Helvetica, Arial, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.translate(cw / 2, ch / 2);
-    if (watermark.angle) ctx.rotate(-Math.PI / 4);
-    ctx.fillText(watermark.text, 0, 0);
-    ctx.restore();
-  }
-  if (pageNumbers) {
-    const num = pageNumbers.start + pageIdx;
-    const count = pages.length;
-    const text =
-      pageNumbers.format === 'n-of-n'
-        ? `${num} of ${pageNumbers.start + count - 1}`
-        : pageNumbers.format === 'page-n'
-          ? `Page ${num}`
-          : String(num);
-    ctx.save();
-    ctx.font = `${Math.max(4, pageNumbers.size * s)}px Helvetica, Arial, sans-serif`;
-    ctx.fillStyle = '#595959';
-    ctx.textBaseline = 'alphabetic';
-    const tw = ctx.measureText(text).width;
-    const m = 36 * s;
-    let x = cw / 2 - tw / 2;
-    let y = ch - m;
-    const pos = pageNumbers.pos;
-    if (pos === 'top-center') y = m;
-    else if (pos === 'bottom-left') x = m;
-    else if (pos === 'bottom-right') x = cw - tw - m;
-    else if (pos === 'top-left') { x = m; y = m; }
-    else if (pos === 'top-right') { x = cw - tw - m; y = m; }
-    ctx.fillText(text, x, y);
-    ctx.restore();
-  }
-  if (headerFooter) {
-    ctx.save();
-    ctx.font = `${Math.max(4, headerFooter.size * s)}px Helvetica, Arial, sans-serif`;
-    ctx.fillStyle = '#595959';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    if (headerFooter.header.trim()) ctx.fillText(headerFooter.header, cw / 2, 30 * s);
-    if (headerFooter.footer.trim()) ctx.fillText(headerFooter.footer, cw / 2, ch - 24 * s);
-    ctx.restore();
-  }
-}
-
-/** Draw the image watermark onto a thumbnail canvas. Mirrors applyWatermark. */
-async function drawImageWatermark(
-  ctx: CanvasRenderingContext2D,
-  cw: number,
-  ch: number,
-  pageW: number
-): Promise<void> {
-  if (!watermark || watermark.kind !== 'image') return;
-  const img = await watermarkImage();
-  if (!img || !img.naturalWidth) return;
-  const s = cw / pageW;
-  ctx.save();
-  ctx.globalAlpha = watermark.opacity;
-  const wScale = (pageW * watermark.scale) / img.naturalWidth;
-  const w = img.naturalWidth * wScale * s;
-  const h = img.naturalHeight * wScale * s;
-  let x = cw / 2 - w / 2;
-  let y = ch / 2 - h / 2;
-  const m = 36 * s;
-  if (watermark.position === 'top-left') { x = m; y = m; }
-  else if (watermark.position === 'top-right') { x = cw - w - m; y = m; }
-  else if (watermark.position === 'bottom-left') { x = m; y = ch - h - m; }
-  else if (watermark.position === 'bottom-right') { x = cw - w - m; y = ch - h - m; }
-  ctx.drawImage(img, x, y, w, h);
-  ctx.restore();
-}
-
-/** Re-render every thumbnail (used when a global stamp changes). */
-function refreshAllThumbs(): void {
-  for (const p of pages) p.thumb = null;
-  renderGrid();
-  void renderThumbsIncremental();
-}
-
 async function renderThumb(item: PageItem): Promise<string> {
   const doc = docOf(item);
   const page = await doc.jsDoc.getPage(item.pageIndex + 1);
@@ -342,15 +211,7 @@ async function renderThumb(item: PageItem): Promise<string> {
   const viewport = page.getViewport({ scale, rotation: item.rotation });
   const canvas = await renderPageToCanvas(page, scale * 72, item.rotation);
   page.cleanup();
-  // Composite stamps onto the thumbnail so it shows what the download will
-  // look like: watermark, page numbers, header/footer.
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    const pageIdx = pages.findIndex((p) => p.uid === item.uid);
-    drawTextStamps(ctx, canvas.width, canvas.height, base.width, base.height, pageIdx < 0 ? 0 : pageIdx);
-    await drawImageWatermark(ctx, canvas.width, canvas.height, base.width);
-  }
-  if (!crops.get(item.uid)) return canvas.toDataURL('image/jpeg', 0.85);
+  if (!crops.get(item.uid)) return canvas.toDataURL('image/jpeg', 0.8);
   const crop = crops.get(item.uid)!;
   // Map the crop rect (stored in un-rotated PDF points) into the rendered
   // canvas through the viewport, so it stays correct on rotated pages.
@@ -363,11 +224,11 @@ async function renderThumb(item: PageItem): Promise<string> {
   const out = document.createElement('canvas');
   out.width = Math.max(1, Math.round(sw));
   out.height = Math.max(1, Math.round(sh));
-  const octx = out.getContext('2d');
-  if (!octx) return canvas.toDataURL('image/jpeg', 0.8);
-  octx.fillStyle = '#ffffff';
-  octx.fillRect(0, 0, out.width, out.height);
-  octx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+  const ctx = out.getContext('2d');
+  if (!ctx) return canvas.toDataURL('image/jpeg', 0.8);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
   return out.toDataURL('image/jpeg', 0.8);
 }
 
@@ -379,7 +240,6 @@ function renderGrid(): void {
   pages.forEach((item, idx) => {
     const card = document.createElement('div');
     card.className = 'ws-thumb' + (selected.has(item.uid) ? ' selected' : '');
-    card.draggable = true;
     card.dataset.uid = item.uid;
     card.tabIndex = 0;
     card.setAttribute('role', 'option');
@@ -435,6 +295,7 @@ function renderGrid(): void {
     card.appendChild(hover);
 
     card.addEventListener('click', (e) => {
+      if (suppressClick) return;
       const me = e as MouseEvent;
       if (me.shiftKey && pages.length) {
         const anchorIdx = pages.findIndex((p) => selected.has(p.uid));
@@ -457,34 +318,7 @@ function renderGrid(): void {
       if (e.key === 'Delete' || e.key === 'Backspace') deleteItems([item.uid]);
     });
 
-    card.addEventListener('dragstart', (e) => {
-      const dt = (e as DragEvent).dataTransfer;
-      if (!dt) return;
-      dt.setData('text/ws-uid', item.uid);
-      dt.effectAllowed = 'move';
-      card.classList.add('dragging');
-    });
-    card.addEventListener('dragend', () => {
-      card.classList.remove('dragging');
-      grid.querySelectorAll('.drop-before, .drop-after').forEach((n) => n.classList.remove('drop-before', 'drop-after'));
-    });
-    card.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      const rect = card.getBoundingClientRect();
-      const before = (e as DragEvent).clientX < rect.left + rect.width / 2;
-      card.classList.toggle('drop-before', before);
-      card.classList.toggle('drop-after', !before);
-    });
-    card.addEventListener('dragleave', () => card.classList.remove('drop-before', 'drop-after'));
-    card.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const dt = (e as DragEvent).dataTransfer;
-      const moving = dt?.getData('text/ws-uid');
-      if (!moving || moving === item.uid) return;
-      const rect = card.getBoundingClientRect();
-      const before = (e as DragEvent).clientX < rect.left + rect.width / 2;
-      moveItem(moving, item.uid, before);
-    });
+    card.addEventListener('pointerdown', (e) => onCardPointerDown(e, item, card));
 
     grid.appendChild(card);
   });
@@ -511,16 +345,328 @@ function updateCount(): void {
   );
 }
 
-function moveItem(movingUid: string, targetUid: string, before: boolean): void {
-  const from = pages.findIndex((p) => p.uid === movingUid);
-  const to = pages.findIndex((p) => p.uid === targetUid);
-  if (from < 0 || to < 0) return;
-  pushUndo('Reorder pages');
-  const [item] = pages.splice(from, 1);
-  const at = pages.findIndex((p) => p.uid === targetUid) + (before ? 0 : 1);
-  pages.splice(at, 0, item);
+/* ---------------- smooth drag & drop (pointer-based) ----------------
+ * Replaces HTML5 drag-and-drop with a pointer-event system that gives:
+ * - FLIP-animated reflow: cards glide aside as the drop gap moves
+ * - A real gap indicator showing exactly where pages will land
+ * - Touch drag (long-press to start, so vertical scroll still works)
+ * - Multi-select drag: dragging one selected page moves the whole selection
+ * - A floating ghost that follows the pointer
+ */
+
+interface WsDrag {
+  uids: string[];
+  ghost: HTMLElement;
+  gap: HTMLElement;
+  insertIndex: number;
+  pointerId: number;
+}
+
+interface WsPending {
+  uid: string;
+  card: HTMLElement;
+  startX: number;
+  startY: number;
+  pointerId: number;
+  isTouch: boolean;
+  timer: number | null;
+}
+
+let activeDrag: WsDrag | null = null;
+let pendingDrag: WsPending | null = null;
+/** Set on drop so the click that follows pointerup doesn't toggle selection. */
+let suppressClick = false;
+
+const DRAG_THRESHOLD_PX = 6;
+const LONG_PRESS_MS = 350;
+const REDUCED_MOTION =
+  typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function onCardPointerDown(e: PointerEvent, item: PageItem, card: HTMLElement): void {
+  if (e.button !== 0 && e.pointerType === 'mouse') return;
+  if ((e.target as HTMLElement).closest('button, input, a')) return;
+  if (activeDrag || pendingDrag) return;
+  const isTouch = e.pointerType === 'touch';
+  const p: WsPending = {
+    uid: item.uid,
+    card,
+    startX: e.clientX,
+    startY: e.clientY,
+    pointerId: e.pointerId,
+    isTouch,
+    timer: null,
+  };
+  if (isTouch) {
+    // Long-press to start on touch so a normal swipe still scrolls the page.
+    p.timer = window.setTimeout(() => {
+      if (pendingDrag === p) beginDrag(p, p.startX, p.startY);
+    }, LONG_PRESS_MS);
+  }
+  pendingDrag = p;
+  window.addEventListener('pointermove', onDragPointerMove, { passive: false });
+  window.addEventListener('pointerup', onDragPointerUp);
+  window.addEventListener('pointercancel', onDragPointerCancel);
+}
+
+function onDragPointerMove(e: PointerEvent): void {
+  const p = pendingDrag;
+  if (p && !activeDrag) {
+    if (e.pointerId !== p.pointerId) return;
+    const dx = e.clientX - p.startX;
+    const dy = e.clientY - p.startY;
+    if (p.isTouch) {
+      // Any real movement before the long-press fires means "scroll", not "drag".
+      if (Math.hypot(dx, dy) > 10) cancelPending();
+      return;
+    }
+    if (Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) beginDrag(p, e.clientX, e.clientY);
+    return;
+  }
+  const d = activeDrag;
+  if (!d || e.pointerId !== d.pointerId) return;
+  if (e.cancelable) e.preventDefault();
+  moveGhost(d, e.clientX, e.clientY);
+  updateDropGap(d, e.clientX, e.clientY);
+  autoScroll(e.clientY);
+}
+
+function onDragPointerUp(e: PointerEvent): void {
+  if (pendingDrag && !activeDrag) {
+    // Plain click: leave selection to the card's click handler.
+    cancelPending();
+    return;
+  }
+  const d = activeDrag;
+  if (!d || e.pointerId !== d.pointerId) return;
+  endDrag(true);
+}
+
+function onDragPointerCancel(): void {
+  if (activeDrag) endDrag(false);
+  else cancelPending();
+}
+
+function cancelPending(): void {
+  if (pendingDrag?.timer) window.clearTimeout(pendingDrag.timer);
+  pendingDrag = null;
+  window.removeEventListener('pointermove', onDragPointerMove);
+  window.removeEventListener('pointerup', onDragPointerUp);
+  window.removeEventListener('pointercancel', onDragPointerCancel);
+}
+
+/** Which pages travel with this drag: the whole selection if the grabbed
+ *  card is selected, otherwise just the grabbed card. */
+function dragUids(grabbedUid: string): string[] {
+  if (selected.has(grabbedUid)) return pages.filter((p) => selected.has(p.uid)).map((p) => p.uid);
+  return [grabbedUid];
+}
+
+function beginDrag(p: WsPending, x: number, y: number): void {
+  if (p.timer) window.clearTimeout(p.timer);
+  pendingDrag = null;
+  const grid = el('ws-grid');
+  const uids = dragUids(p.uid);
+
+  // If the grabbed card wasn't selected, it becomes the selection now.
+  if (!selected.has(p.uid)) {
+    selected.clear();
+    for (const u of uids) selected.add(u);
+    grid.querySelectorAll('.ws-thumb.selected').forEach((c) => {
+      c.classList.remove('selected');
+      c.setAttribute('aria-selected', 'false');
+    });
+    p.card.classList.add('selected');
+    p.card.setAttribute('aria-selected', 'true');
+    updateToolbar();
+  }
+
+  // Lift the dragged cards out of flow (slots stay hidden) and put a visible
+  // gap where the block currently sits.
+  const lifted = new Set(uids);
+  grid.querySelectorAll<HTMLElement>('.ws-thumb').forEach((c) => {
+    if (c.dataset.uid && lifted.has(c.dataset.uid)) c.classList.add('ws-lifted');
+  });
+  const gap = document.createElement('div');
+  gap.className = 'ws-gap';
+  gap.setAttribute('aria-hidden', 'true');
+  if (uids.length > 1) {
+    const label = document.createElement('span');
+    label.textContent = `${uids.length} pages`;
+    gap.appendChild(label);
+  }
+  const firstLifted = grid.querySelector('.ws-thumb.ws-lifted');
+  grid.insertBefore(gap, firstLifted);
+
+  // Floating ghost that follows the pointer.
+  const ghost = document.createElement('div');
+  ghost.className = 'ws-ghost';
+  const w = p.card.offsetWidth || 150;
+  const h = p.card.offsetHeight || 200;
+  ghost.style.width = `${w}px`;
+  ghost.style.height = `${h}px`;
+  const img = p.card.querySelector('img');
+  if (img) {
+    const g = document.createElement('img');
+    g.src = (img as HTMLImageElement).src;
+    g.alt = '';
+    g.draggable = false;
+    ghost.appendChild(g);
+  }
+  if (uids.length > 1) {
+    const badge = document.createElement('span');
+    badge.className = 'ws-ghost-count';
+    badge.textContent = `×${uids.length}`;
+    ghost.appendChild(badge);
+  }
+  document.body.appendChild(ghost);
+
+  activeDrag = { uids, ghost, gap, insertIndex: dropIndexFromDom(grid, gap), pointerId: p.pointerId };
+  document.body.classList.add('ws-dragging');
+  grid.querySelectorAll<HTMLElement>('.ws-thumb.ws-lifted').forEach((c) =>
+    c.setAttribute('aria-grabbed', 'true')
+  );
+  moveGhost(activeDrag, x, y);
+  window.addEventListener('keydown', onDragKeyDown);
+}
+
+function moveGhost(d: WsDrag, x: number, y: number): void {
+  const w = d.ghost.offsetWidth;
+  const h = d.ghost.offsetHeight;
+  d.ghost.style.transform = `translate(${x - w / 2}px, ${y - h / 2}px) rotate(2deg)`;
+}
+
+/** Count of non-lifted cards before the gap = index into the remaining list. */
+function dropIndexFromDom(grid: HTMLElement, gap: HTMLElement): number {
+  let n = 0;
+  for (const kid of Array.from(grid.children)) {
+    if (kid === gap) break;
+    if (kid.classList.contains('ws-thumb') && !kid.classList.contains('ws-lifted')) n++;
+  }
+  return n;
+}
+
+/** Find where the pointer sits in reading order and slide the gap there,
+ *  FLIP-animating the other cards out of the way. */
+function updateDropGap(d: WsDrag, x: number, y: number): void {
+  const grid = el('ws-grid');
+  const cards = Array.from(grid.querySelectorAll<HTMLElement>('.ws-thumb:not(.ws-lifted)'));
+  let index = cards.length;
+  for (let i = 0; i < cards.length; i++) {
+    const r = cards[i].getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    if (y < cy - r.height * 0.15) {
+      index = i;
+      break;
+    }
+    if (Math.abs(y - cy) <= r.height * 0.65 && x < cx) {
+      index = i;
+      break;
+    }
+  }
+  if (index === d.insertIndex) return;
+  d.insertIndex = index;
+  flipGrid(grid, () => {
+    const ref = cards[index] ?? null;
+    grid.insertBefore(d.gap, ref);
+  });
+}
+
+/** Animate a DOM mutation with FLIP: snapshot positions, mutate, invert,
+ *  then play the transition. Cards glide instead of jumping. */
+function flipGrid(grid: HTMLElement, mutate: () => void): void {
+  if (REDUCED_MOTION) {
+    mutate();
+    return;
+  }
+  const cards = Array.from(grid.querySelectorAll<HTMLElement>('.ws-thumb:not(.ws-lifted)'));
+  const before = new Map<string, DOMRect>();
+  for (const c of cards) {
+    if (c.dataset.uid) before.set(c.dataset.uid, c.getBoundingClientRect());
+  }
+  mutate();
+  const animated: HTMLElement[] = [];
+  for (const c of cards) {
+    const b = c.dataset.uid ? before.get(c.dataset.uid) : undefined;
+    if (!b) continue;
+    const a = c.getBoundingClientRect();
+    const dx = b.left - a.left;
+    const dy = b.top - a.top;
+    if (dx !== 0 || dy !== 0) {
+      c.style.transition = 'none';
+      c.style.transform = `translate(${dx}px, ${dy}px)`;
+      animated.push(c);
+    }
+  }
+  if (!animated.length) return;
+  void grid.offsetHeight; // force reflow so the inversion takes hold
+  requestAnimationFrame(() => {
+    for (const c of animated) {
+      c.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.7, 0.3, 1)';
+      c.style.transform = '';
+    }
+    window.setTimeout(() => {
+      for (const c of animated) {
+        c.style.transition = '';
+        c.style.transform = '';
+      }
+    }, 260);
+  });
+}
+
+let scrollRaf = 0;
+function autoScroll(clientY: number): void {
+  if (scrollRaf) return;
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0;
+    const edge = 70;
+    if (clientY < edge) window.scrollBy(0, -16);
+    else if (clientY > window.innerHeight - edge) window.scrollBy(0, 16);
+  });
+}
+
+function onDragKeyDown(e: KeyboardEvent): void {
+  if (e.key === 'Escape' && activeDrag) endDrag(false);
+}
+
+function endDrag(commit: boolean): void {
+  const d = activeDrag;
+  activeDrag = null;
+  window.removeEventListener('keydown', onDragKeyDown);
+  window.removeEventListener('pointermove', onDragPointerMove);
+  window.removeEventListener('pointerup', onDragPointerUp);
+  window.removeEventListener('pointercancel', onDragPointerCancel);
+  document.body.classList.remove('ws-dragging');
+  if (!d) return;
+
+  d.ghost.remove();
+  d.gap.remove();
+  el('ws-grid')
+    .querySelectorAll('.ws-thumb.ws-lifted')
+    .forEach((c) => {
+      c.classList.remove('ws-lifted');
+      c.removeAttribute('aria-grabbed');
+    });
+
+  if (commit) {
+    const moving = pages.filter((pg) => d.uids.includes(pg.uid));
+    const rest = pages.filter((pg) => !d.uids.includes(pg.uid));
+    const at = Math.max(0, Math.min(d.insertIndex, rest.length));
+    const next = [...rest.slice(0, at), ...moving, ...rest.slice(at)];
+    const changed = next.length !== pages.length || next.some((pg, i) => pg.uid !== pages[i].uid);
+    if (changed) {
+      pushUndo(moving.length > 1 ? `Move ${moving.length} pages` : 'Reorder pages');
+      pages = next;
+    }
+  }
   renderGrid();
   updateToolbar();
+
+  // Swallow the click that the browser fires after pointerup.
+  suppressClick = true;
+  window.setTimeout(() => {
+    suppressClick = false;
+  }, 50);
 }
 
 function updateToolbar(): void {
@@ -645,7 +791,7 @@ async function buildPdf(items: PageItem[], opts: BuildOpts): Promise<Uint8Array>
   });
 
   if (!opts.skipStamps) {
-    await applyWatermark(out, fonts.sans);
+    applyWatermark(out, fonts.sans);
     applyPageNumbers(out, items.length, fonts.sans);
     applyHeaderFooter(out, items.length, fonts.sans);
   }
@@ -658,53 +804,22 @@ async function buildPdf(items: PageItem[], opts: BuildOpts): Promise<Uint8Array>
   return out.save();
 }
 
-async function applyWatermark(out: PDFDocument, font: import('pdf-lib').PDFFont): Promise<void> {
-  if (!watermark) return;
+function applyWatermark(out: PDFDocument, font: import('pdf-lib').PDFFont): void {
+  if (!watermark || !watermark.text.trim()) return;
   const n = out.getPageCount();
-  if (watermark.kind === 'text') {
-    if (!watermark.text.trim()) return;
-    for (let i = 0; i < n; i++) {
-      const page = out.getPage(i);
-      const { width, height } = page.getSize();
-      const tw = font.widthOfTextAtSize(watermark.text, watermark.size);
-      page.drawText(watermark.text, {
-        x: width / 2 - tw / 2,
-        y: height / 2,
-        size: watermark.size,
-        font,
-        color: rgb(0.5, 0.5, 0.5),
-        opacity: watermark.opacity,
-        rotate: watermark.angle ? degrees(-45) : degrees(0),
-      });
-    }
-    return;
-  }
-  // Image watermark: embed once, stamp every page.
-  let img: import('pdf-lib').PDFImage;
-  try {
-    img = await out.embedPng(watermark.bytes);
-  } catch {
-    try {
-      img = await out.embedJpg(watermark.bytes);
-    } catch {
-      return;
-    }
-  }
-  const iw = img.width;
-  const ih = img.height;
   for (let i = 0; i < n; i++) {
     const page = out.getPage(i);
     const { width, height } = page.getSize();
-    const s = (width * watermark.scale) / iw;
-    const w = iw * s;
-    const h = ih * s;
-    let x = width / 2 - w / 2;
-    let y = height / 2 - h / 2;
-    if (watermark.position === 'top-left') { x = 36; y = height - h - 36; }
-    else if (watermark.position === 'top-right') { x = width - w - 36; y = height - h - 36; }
-    else if (watermark.position === 'bottom-left') { x = 36; y = 36; }
-    else if (watermark.position === 'bottom-right') { x = width - w - 36; y = 36; }
-    page.drawImage(img, { x, y, width: w, height: h, opacity: watermark.opacity });
+    const tw = font.widthOfTextAtSize(watermark.text, watermark.size);
+    page.drawText(watermark.text, {
+      x: width / 2 - tw / 2,
+      y: height / 2,
+      size: watermark.size,
+      font,
+      color: rgb(0.5, 0.5, 0.5),
+      opacity: watermark.opacity,
+      rotate: watermark.angle ? degrees(-45) : degrees(0),
+    });
   }
 }
 
@@ -783,7 +898,7 @@ async function openPageView(pageUid: string): Promise<void> {
   const idx = pages.indexOf(item);
   el('ws-pv-label').textContent = `Page ${idx + 1} of ${pages.length}`;
   const stage = el('ws-pv-stage');
-  stage.innerHTML = '<p class="hint" role="status"><span class="spinner" aria-hidden="true"></span> Loading page…</p>';
+  stage.innerHTML = '<p class="hint">Loading page…</p>';
   try {
     await ensurePdfjs();
     const doc = docOf(item);
@@ -1045,37 +1160,12 @@ function textInput(value: string, placeholder = ''): HTMLInputElement {
 
 function openWatermarkDialog(): void {
   const body = document.createElement('div');
-
-  // Words vs picture toggle
-  const kindWrap = document.createElement('div');
-  kindWrap.className = 'field';
-  const kindLabel = document.createElement('span');
-  kindLabel.textContent = 'Type: ';
-  const kindText = document.createElement('label');
-  const kindTextRadio = document.createElement('input');
-  kindTextRadio.type = 'radio';
-  kindTextRadio.name = 'wm-kind';
-  kindTextRadio.value = 'text';
-  kindTextRadio.checked = !watermark || watermark.kind === 'text';
-  kindText.append(kindTextRadio, ' Words');
-  const kindImg = document.createElement('label');
-  const kindImgRadio = document.createElement('input');
-  kindImgRadio.type = 'radio';
-  kindImgRadio.name = 'wm-kind';
-  kindImgRadio.value = 'image';
-  kindImgRadio.checked = !!watermark && watermark.kind === 'image';
-  kindImg.append(kindImgRadio, ' Picture');
-  kindWrap.append(kindLabel, kindText, ' ', kindImg);
-  body.append(kindWrap);
-
-  // --- text controls ---
-  const textPane = document.createElement('div');
-  const text = textInput(watermark?.kind === 'text' ? watermark.text : 'Confidential', 'e.g. Confidential');
+  const text = textInput(watermark?.text ?? 'Confidential', 'e.g. Confidential');
   const op = document.createElement('input');
   op.type = 'range';
   op.min = '10';
   op.max = '80';
-  op.value = String(Math.round(((watermark?.kind === 'text' ? watermark.opacity : 0.25)) * 100));
+  op.value = String(Math.round((watermark?.opacity ?? 0.25) * 100));
   const opVal = document.createElement('span');
   opVal.textContent = `${op.value}%`;
   op.addEventListener('input', () => (opVal.textContent = `${op.value}%`));
@@ -1083,94 +1173,22 @@ function openWatermarkDialog(): void {
   size.type = 'range';
   size.min = '24';
   size.max = '120';
-  size.value = String(watermark?.kind === 'text' ? watermark.size : 64);
+  size.value = String(watermark?.size ?? 64);
   const angle = document.createElement('input');
   angle.type = 'checkbox';
-  angle.checked = watermark?.kind !== 'text' || watermark.angle;
+  angle.checked = watermark?.angle ?? true;
   const angleLab = document.createElement('label');
   angleLab.append('Diagonal ', angle);
-  textPane.append(field('Words', text));
+  body.append(field('Text', text));
   const opWrap = document.createElement('div');
   opWrap.className = 'field';
   opWrap.append('Lightness ', op, ' ', opVal);
-  textPane.append(opWrap);
+  body.append(opWrap);
   const sizeWrap = document.createElement('div');
   sizeWrap.className = 'field';
   sizeWrap.append('Size ', size);
-  textPane.append(sizeWrap);
-  textPane.append(angleLab);
-  body.append(textPane);
-
-  // --- image controls ---
-  const imgPane = document.createElement('div');
-  imgPane.hidden = kindTextRadio.checked;
-  const fileBtn = document.createElement('input');
-  fileBtn.type = 'file';
-  fileBtn.accept = 'image/png,image/jpeg';
-  const fileNote = document.createElement('p');
-  fileNote.className = 'hint';
-  fileNote.textContent = 'A logo or stamp works best with a transparent background.';
-  let imgBytes: Uint8Array | null =
-    watermark?.kind === 'image' ? watermark.bytes : null;
-  const imgName = document.createElement('p');
-  imgName.className = 'hint';
-  imgName.textContent = imgBytes ? 'Picture loaded.' : '';
-  fileBtn.addEventListener('change', async () => {
-    const f = fileBtn.files?.[0];
-    if (!f) return;
-    imgBytes = new Uint8Array(await f.arrayBuffer());
-    imgName.textContent = `Loaded: ${f.name}`;
-  });
-  const posSel = document.createElement('select');
-  for (const [v, label] of [
-    ['center', 'Middle of the page'],
-    ['top-left', 'Top left'],
-    ['top-right', 'Top right'],
-    ['bottom-left', 'Bottom left'],
-    ['bottom-right', 'Bottom right'],
-  ] as const) {
-    const o = document.createElement('option');
-    o.value = v;
-    o.textContent = label;
-    if (watermark?.kind === 'image' && watermark.position === v) o.selected = true;
-    posSel.appendChild(o);
-  }
-  const iop = document.createElement('input');
-  iop.type = 'range';
-  iop.min = '10';
-  iop.max = '80';
-  iop.value = String(Math.round((watermark?.kind === 'image' ? watermark.opacity : 0.25) * 100));
-  const iopVal = document.createElement('span');
-  iopVal.textContent = `${iop.value}%`;
-  iop.addEventListener('input', () => (iopVal.textContent = `${iop.value}%`));
-  const iscale = document.createElement('input');
-  iscale.type = 'range';
-  iscale.min = '5';
-  iscale.max = '60';
-  iscale.value = String(Math.round((watermark?.kind === 'image' ? watermark.scale : 0.2) * 100));
-  const iscaleVal = document.createElement('span');
-  iscaleVal.textContent = `${iscale.value}% of page width`;
-  iscale.addEventListener('input', () => (iscaleVal.textContent = `${iscale.value}% of page width`));
-  imgPane.append(field('Picture', fileBtn), fileNote, imgName);
-  const iopWrap = document.createElement('div');
-  iopWrap.className = 'field';
-  iopWrap.append('Lightness ', iop, ' ', iopVal);
-  imgPane.append(iopWrap);
-  const iscaleWrap = document.createElement('div');
-  iscaleWrap.className = 'field';
-  iscaleWrap.append('Size ', iscale, ' ', iscaleVal);
-  imgPane.append(iscaleWrap, field('Position', posSel));
-  body.append(imgPane);
-
-  const syncPanes = (): void => {
-    const isText = kindTextRadio.checked;
-    textPane.hidden = !isText;
-    imgPane.hidden = isText;
-  };
-  kindTextRadio.addEventListener('change', syncPanes);
-  kindImgRadio.addEventListener('change', syncPanes);
-  syncPanes();
-
+  body.append(sizeWrap);
+  body.append(angleLab);
   const clear = document.createElement('button');
   clear.type = 'button';
   clear.className = 'btn btn-secondary';
@@ -1183,26 +1201,10 @@ function openWatermarkDialog(): void {
   });
   body.append(clear);
   openDialog('Watermark', body, () => {
-    if (kindImgRadio.checked) {
-      if (!imgBytes) {
-        watermark = null;
-        setStatus('No picture chosen — watermark removed.');
-        return;
-      }
-      watermark = {
-        kind: 'image',
-        bytes: imgBytes,
-        opacity: Number(iop.value) / 100,
-        scale: Number(iscale.value) / 100,
-        position: posSel.value,
-      };
-      setStatus('Picture watermark set. It stamps every page on download.');
-    } else {
-      watermark = text.value.trim()
-        ? { kind: 'text', text: text.value.trim(), opacity: Number(op.value) / 100, size: Number(size.value), angle: angle.checked }
-        : null;
-      setStatus(watermark ? 'Watermark set. It stamps every page on download.' : 'Watermark removed.');
-    }
+    watermark = text.value.trim()
+      ? { text: text.value.trim(), opacity: Number(op.value) / 100, size: Number(size.value), angle: angle.checked }
+      : null;
+    setStatus(watermark ? 'Watermark set. It stamps every page on download.' : 'Watermark removed.');
   });
 }
 

@@ -94,16 +94,25 @@ const lede =
         <span class="stamp">Your files never leave your device</span>
       </div>
       <details class="rb-ai-details">
-        <summary>Better reading with AI (optional)</summary>
-        <p class="hint">Messy or badly formatted resume? AI reads it more accurately. This uses your own free Gemini API key, stored only in this browser. Your resume text is sent to Google only when you import, and only if you turn this on.</p>
+        <summary>Smarter reading (optional)</summary>
+        <p class="hint">Messy or badly formatted resume? Smarter reading finds more of the details. Choose how:</p>
         <div class="field checkline">
-          <input type="checkbox" id="rb-ai-enable" />
-          <label for="rb-ai-enable">Use AI to read my resume</label>
+          <input type="radio" name="rb-parse-mode" id="rb-mode-local" value="local" />
+          <label for="rb-mode-local">Read on this device (recommended)</label>
         </div>
-        <div class="field">
+        <p class="hint">Downloads a one-time ~430 MB reading model, then works offline. Your resume never leaves this device.</p>
+        <div class="field checkline">
+          <input type="radio" name="rb-parse-mode" id="rb-mode-gemini" value="gemini" />
+          <label for="rb-mode-gemini">Use my Gemini API key</label>
+        </div>
+        <div class="field" id="rb-gemini-key-field">
           <label for="rb-ai-key">Gemini API key</label>
           <input type="password" id="rb-ai-key" autocomplete="off" placeholder="Paste your key here" />
-          <p class="hint">Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. If AI reading fails, the standard reader is used instead.</p>
+          <p class="hint">Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Your resume text is sent to Google only when you import. If AI reading fails, the standard reader is used instead.</p>
+        </div>
+        <div class="field checkline">
+          <input type="radio" name="rb-parse-mode" id="rb-mode-heuristic" value="heuristic" />
+          <label for="rb-mode-heuristic">Standard reading only</label>
         </div>
       </details>
       <div id="rb-import-review" hidden>

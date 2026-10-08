@@ -13,7 +13,16 @@ import {
 } from '../lib/resume-import.ts';
 import type { ParsedResume } from '../lib/resume-import.ts';
 import type { ResumeData } from '../lib/resume-core.ts';
-import { aiParseResume, isAiEnabled, getAiKey, setAiKey, setAiEnabled } from '../lib/resume-ai-parse.ts';
+import {
+  getAiKey,
+  setAiKey,
+  setAiEnabled,
+  getParseMode,
+  setParseMode,
+  smartParseResume,
+  hasParsedContent,
+} from '../lib/resume-ai-parse.ts';
+import type { ParseMode } from '../lib/resume-ai-parse.ts';
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
@@ -86,15 +95,18 @@ export function initResumeImport(): void {
     el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  /** AI parsing when the user opted in with their own key, else the heuristic parser. */
+  /** Smart parsing when the user picked it, else the heuristic parser. */
   async function parseWithAiOrHeuristic(text: string): Promise<ParsedResume> {
-    if (isAiEnabled()) {
-      showStatus('Reading your resume with AI…', true);
-      const ai = await aiParseResume(text);
-      if (ai && (ai.fullName || ai.experience.length || ai.education.length || ai.skills.length)) {
-        return ai;
+    const mode = getParseMode();
+    if (mode !== 'heuristic') {
+      showStatus(mode === 'local' ? 'Reading your resume on this device…' : 'Reading your resume with AI…', true);
+      const smart = await smartParseResume(text, (fraction, label) => {
+        showStatus(`${label} — ${Math.round(fraction * 100)}%`, true);
+      });
+      if (smart && hasParsedContent(smart)) {
+        return smart;
       }
-      showStatus('AI reading did not work. Using standard reading instead…');
+      showStatus('Smarter reading did not work. Using standard reading instead…');
     }
     return parseResumeText(text);
   }
@@ -184,19 +196,37 @@ export function initResumeImport(): void {
     void handleFile(files[0]);
   });
 
-  // AI opt-in: the user supplies their own Gemini key, kept in localStorage.
-  const aiEnable = document.getElementById('rb-ai-enable') as HTMLInputElement | null;
+  // Reading mode: on-device AI (default), the user's own Gemini key, or the
+  // standard reader. The key field only matters for the Gemini option.
+  const modeRadios = document.querySelectorAll<HTMLInputElement>('input[name="rb-parse-mode"]');
+  const keyField = document.getElementById('rb-gemini-key-field');
   const aiKey = document.getElementById('rb-ai-key') as HTMLInputElement | null;
-  if (aiEnable && aiKey) {
-    aiEnable.checked = isAiEnabled();
+  const syncModeUi = (mode: ParseMode): void => {
+    modeRadios.forEach((r) => {
+      r.checked = r.value === mode;
+    });
+    if (keyField) keyField.hidden = mode !== 'gemini';
+  };
+  if (modeRadios.length > 0) {
+    syncModeUi(getParseMode());
+    modeRadios.forEach((r) => {
+      r.addEventListener('change', () => {
+        if (r.checked) {
+          setParseMode(r.value as ParseMode);
+          syncModeUi(r.value as ParseMode);
+        }
+      });
+    });
+  }
+  if (aiKey) {
     aiKey.value = getAiKey();
-    aiEnable.addEventListener('change', () => setAiEnabled(aiEnable.checked));
     aiKey.addEventListener('change', () => {
       setAiKey(aiKey.value.trim());
-      // A key without the checkbox on does nothing; a checkbox without a key does nothing.
-      if (aiKey.value.trim() && !aiEnable.checked) {
-        aiEnable.checked = true;
+      // A key without the Gemini mode selected does nothing.
+      if (aiKey.value.trim()) {
         setAiEnabled(true);
+        setParseMode('gemini');
+        syncModeUi('gemini');
       }
     });
   }

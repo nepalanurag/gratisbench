@@ -1,6 +1,5 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
-import Icon from '../components/Icon.astro';
 
 const title = 'PDF to Handwriting Free — Turn Typed Text into Realistic Handwriting';
 const description =
@@ -13,6 +12,22 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
     width: 320px; height: 320px; max-width: 100%;
     border: 2px solid var(--line); border-radius: var(--radius);
     background: #fff; touch-action: none; cursor: crosshair;
+  }
+  .hw-draw-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+    gap: 5px; margin: 10px 0; max-width: 480px;
+  }
+  .hw-letter-btn {
+    padding: 6px 0; border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--paper); color: var(--muted); font-size: 15px;
+    cursor: pointer; line-height: 1;
+  }
+  .hw-letter-btn.drawn {
+    background: var(--paper-2); color: var(--ink);
+    border-color: var(--accent);
+  }
+  .hw-letter-btn.current {
+    outline: 2px solid var(--ink); outline-offset: 1px; font-weight: 700;
   }
   .hw-swatch.hw-mine { font-size: 30px; }
   .hw-swatch.hw-grid {
@@ -100,7 +115,6 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
 
     <div id="hw-pdf-pane">
       <div id="hw-dropzone" class="dropzone" role="button" tabindex="0" aria-label="Drop a PDF here or click to browse">
-        <div class="dz-icon"><Icon name="upload" size={30} /></div>
         <p class="dz-title">Drop your PDF here</p>
         <p class="dz-sub">or click to browse — files never leave your device</p>
         <input type="file" id="hw-file-input" accept="application/pdf,.pdf" hidden />
@@ -128,6 +142,7 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
         <p class="hint">Draw each letter once in the box below. Letters you skip fall back to the Casual style. Your drawings stay in this browser only — nothing is uploaded.</p>
         <canvas id="hw-draw-canvas" aria-label="Draw the letter here"></canvas>
         <p id="hw-draw-label" class="count-label"></p>
+        <div class="hw-draw-grid" id="hw-draw-grid" role="listbox" aria-label="Alphabet overview"></div>
         <div class="btn-row">
           <button type="button" id="hw-draw-prev" class="btn btn-secondary">← Previous</button>
           <button type="button" id="hw-draw-next" class="btn btn-secondary">Next →</button>
@@ -138,7 +153,6 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
         <input type="file" id="hw-draw-photo-input" accept="image/*" hidden />
         <p id="hw-draw-count" class="hint" role="status" aria-live="polite"></p>
       </div>
-
       <div class="field">
         <label>Ink color</label>
         <div class="hw-inks" role="radiogroup" aria-label="Ink color">
@@ -162,17 +176,11 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
       </div>
       <div class="field">
         <label for="hw-size">Text size</label>
-        <div class="range-row">
-          <input type="range" id="hw-size" min="18" max="42" value="28" />
-          <span class="range-val" id="hw-size-value">28</span>
-        </div>
+        <input type="range" id="hw-size" min="18" max="42" value="28" />
       </div>
       <div class="field">
         <label for="hw-slant">Slant</label>
-        <div class="range-row">
-          <input type="range" id="hw-slant" min="-12" max="12" value="0" />
-          <span class="range-val" id="hw-slant-value">0</span>
-        </div>
+        <input type="range" id="hw-slant" min="-12" max="12" value="0" />
       </div>
       <div class="field">
         <label for="hw-mess">Natural variation</label>

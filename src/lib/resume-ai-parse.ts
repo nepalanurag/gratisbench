@@ -3,9 +3,72 @@
 // Google's API. No key is shipped with the site. If AI parsing is off, fails,
 // or has no key, the caller falls back to the built-in heuristic parser.
 import type { ParsedResume } from './resume-import.ts';
+import { localAiParseResume } from './resume-local-ai.ts';
 
 const KEY_LS = 'truepdf_gemini_key';
 const ENABLED_LS = 'truepdf_gemini_enabled';
+const MODE_LS = 'truepdf_parse_mode';
+
+/** How the resume import reads a resume: on-device AI, the user's Gemini key, or the plain heuristic reader. */
+export type ParseMode = 'local' | 'gemini' | 'heuristic';
+
+export function getParseMode(): ParseMode {
+  try {
+    const m = localStorage.getItem(MODE_LS);
+    if (m === 'local' || m === 'gemini' || m === 'heuristic') return m;
+    // Migrate the old checkbox: it meant "use my Gemini key".
+    if (localStorage.getItem(ENABLED_LS) === '1' && getAiKey()) return 'gemini';
+  } catch {
+    /* storage unavailable */
+  }
+  return 'local';
+}
+
+export function setParseMode(mode: ParseMode): void {
+  try {
+    localStorage.setItem(MODE_LS, mode);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** True when the parse found something worth showing in the review step. */
+export function hasParsedContent(p: ParsedResume): boolean {
+  return (
+    p.fullName.length > 0 ||
+    p.experience.length > 0 ||
+    p.education.length > 0 ||
+    p.skills.length > 0 ||
+    p.projects.length > 0
+  );
+}
+
+export type SmartParseProgress = (fraction: number, label: string) => void;
+
+/**
+ * Parse with the best available method: on-device AI first (unless the user
+ * picked standard reading only), then the user's Gemini key when enabled,
+ * else null so the caller falls back to the heuristic parser.
+ */
+export async function smartParseResume(
+  text: string,
+  onProgress?: SmartParseProgress
+): Promise<ParsedResume | null> {
+  if (getParseMode() !== 'heuristic') {
+    try {
+      const local = await localAiParseResume(text, onProgress);
+      if (local && hasParsedContent(local)) return local;
+    } catch {
+      // On-device model failed (no network for the download, no WASM, ...):
+      // fall through to the next method.
+    }
+  }
+  if (isAiEnabled()) {
+    const gemini = await aiParseResume(text);
+    if (gemini && hasParsedContent(gemini)) return gemini;
+  }
+  return null;
+}
 
 export function getAiKey(): string {
   try {

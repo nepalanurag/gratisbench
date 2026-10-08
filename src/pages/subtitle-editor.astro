@@ -7,7 +7,7 @@ const title = 'Subtitle Editor - Add Subtitles to Video Online Free | TruePDF';
 const description =
   'Add subtitles to video online for free. Type your captions, time them on the video, preview live, export SRT. No signup, no watermark. Your video never leaves your browser.';
 const h1 = 'Add subtitles to videos';
-const lede = 'Type your captions, set their timing, style how they look, preview them on the video, and download the subtitle file. Free, no account.';
+const lede = 'Type your captions, set their timing, preview them on the video, and download an SRT file. Free, no account.';
 ---
 <ToolPage
   title={title}
@@ -25,14 +25,14 @@ const lede = 'Type your captions, set their timing, style how they look, preview
     'Play the video and click "Add subtitle at current time" to create a caption where the playhead is.',
     'Type the caption text. Drag its edges on the timeline to set when it appears and disappears.',
     'Repeat for each line. The captions preview over the video as you work.',
-    'Click "Download subtitles" to get the subtitle file, named to match your video.',
+    'Click "Download SRT" to get the subtitle file, named to match your video.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['Output', 'SRT or WebVTT subtitle file, named to match your video'],
+    ['Output', 'SRT subtitle file, named to match your video'],
     ['Works offline', 'Yes, once the page has loaded'],
   ]}
   faqs={[
@@ -54,7 +54,7 @@ const lede = 'Type your captions, set their timing, style how they look, preview
     },
     {
       q: 'What subtitle format does it export?',
-      a: 'SRT (SubRip), the most widely supported subtitle format — YouTube, VLC, Plex, and nearly every video player and editor read it. Or choose WebVTT, the format for web video players, which also keeps your top/bottom position choice. SRT files do not carry style, so size and position are up to each player.',
+      a: 'SRT (SubRip), the most widely supported subtitle format. It works with YouTube, VLC, Plex, and nearly every video player and editor.',
     },
   ]}
 >
@@ -83,40 +83,27 @@ const lede = 'Type your captions, set their timing, style how they look, preview
         <div id="subtitle-overlay" class="subtitle-overlay" aria-hidden="true"></div>
       </div>
 
-      <div id="cue-timeline" class="cue-timeline" aria-label="Subtitle timeline">
-        <div id="cue-track" class="cue-track"></div>
-        <div id="cue-playhead" class="cue-playhead"></div>
+      <div class="timeline-controls">
+        <button id="zoom-out" class="btn btn-secondary btn-small" aria-label="Zoom timeline out">−</button>
+        <span id="zoom-label" class="zoom-label">100%</span>
+        <button id="zoom-in" class="btn btn-secondary btn-small" aria-label="Zoom timeline in">+</button>
+        <button id="zoom-reset" class="btn btn-secondary btn-small">Reset</button>
       </div>
-      <p class="hint">Drag a caption's edges to change its timing. Click the timeline to jump the video there.</p>
+      <div id="cue-timeline-scroll" class="cue-timeline-scroll">
+        <div id="cue-timeline" class="cue-timeline" aria-label="Subtitle timeline">
+          <canvas id="waveform" class="waveform" aria-hidden="true"></canvas>
+          <div id="cue-track" class="cue-track"></div>
+          <div id="cue-playhead" class="cue-playhead"></div>
+        </div>
+      </div>
+      <p class="hint">Drag a caption to move it, drag its edges to change timing. Click the timeline to jump there. Zoom with the buttons or Ctrl+scroll. Press <kbd>[</kbd> and <kbd>]</kbd> to set the selected caption's start and end at the playhead.</p>
 
       <div class="btn-row">
         <button id="add-cue-btn" class="btn btn-secondary">Add subtitle at current time</button>
-      </div>
-
-      <h3 class="tool-step">Appearance</h3>
-      <div class="radio-cards" role="radiogroup" aria-label="Caption size">
-        <label class="radio-card"><input type="radio" name="cue-size" value="normal" checked /><span><strong>Normal</strong><small>Comfortable reading size.</small></span></label>
-        <label class="radio-card"><input type="radio" name="cue-size" value="large" /><span><strong>Large</strong><small>Easier to read on phones.</small></span></label>
-        <label class="radio-card"><input type="radio" name="cue-size" value="xlarge" /><span><strong>Extra large</strong><small>Maximum readability.</small></span></label>
-      </div>
-      <div class="radio-cards" role="radiogroup" aria-label="Caption position">
-        <label class="radio-card"><input type="radio" name="cue-pos" value="bottom" checked /><span><strong>Bottom</strong><small>The usual spot.</small></span></label>
-        <label class="radio-card"><input type="radio" name="cue-pos" value="top" /><span><strong>Top</strong><small>When the bottom of the frame is busy.</small></span></label>
-      </div>
-      <p class="hint">Size and position show in the preview above. WebVTT export keeps the position; SRT players use their own style.</p>
-
-      <h3 class="tool-step">File format</h3>
-      <div class="radio-cards" role="radiogroup" aria-label="Subtitle file format">
-        <label class="radio-card"><input type="radio" name="sub-format" value="srt" checked /><span><strong>SRT</strong><small>Works everywhere: YouTube, VLC, Plex.</small></span></label>
-        <label class="radio-card"><input type="radio" name="sub-format" value="vtt" /><span><strong>WebVTT</strong><small>For web players. Keeps the top/bottom position.</small></span></label>
-      </div>
-
-      <div class="btn-row">
-        <button id="download-btn" class="btn">Download subtitles</button>
+        <button id="download-btn" class="btn">Download SRT</button>
       </div>
 
       <div id="cue-list" class="cue-list"></div>
-      <p id="overlap-note" class="hint" hidden></p>
 
       <div id="result" class="result" hidden>
         <h3>Subtitles ready</h3>

@@ -36,7 +36,7 @@ export const TOOL_GROUPS: { name: string; tools: ToolEntry[] }[] = [
       { href: '/merge-pdf', name: 'Merge PDF', desc: 'Combine several PDFs into one, in your order.', group: 'PDF', tag: 'PDF' },
       { href: '/split-pdf', name: 'Split PDF', desc: 'Extract pages by number into new documents.', group: 'PDF', tag: 'PDF' },
       { href: '/images-to-pdf', name: 'Images to PDF', desc: 'Turn JPG, PNG, and WebP images into one PDF.', group: 'PDF', tag: 'PDF' },
-      { href: '/jpg-to-pdf', name: 'JPG to PDF', desc: 'Convert JPG photos into a single PDF, at full quality.', group: 'PDF', tag: 'PDF' },
+      { href: '/images-to-pdf', name: 'JPG to PDF', desc: 'Convert JPG photos into a single PDF, at full quality. (Now part of Images to PDF)', group: 'PDF', tag: 'PDF' },
       { href: '/pdf-compressor', name: 'Compress PDF', desc: 'Shrink PDFs by downsampling embedded images. Text stays sharp and selectable.', group: 'PDF', tag: 'PDF' },
       { href: '/pdf-to-jpg', name: 'PDF to JPG', desc: 'Convert PDF pages to JPG or PNG images.', group: 'PDF', tag: 'JPG · PNG' },
       { href: '/pdf-redactor', name: 'Redact PDF', desc: 'Permanently black out sensitive parts of a PDF.', group: 'PDF', tag: 'PDF' },

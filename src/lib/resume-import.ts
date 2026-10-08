@@ -1092,8 +1092,7 @@ function parseCourses(lines: string[]): ParsedCourseEntry[] {
 }
 
 /** Parse plain resume text into structured fields using line-based heuristics. */
-export function parseResumeText(text: string): ParsedResume {
-  const out = blankParsed();
+export function parseResumeText(text: string): ParsedResume {  const out = blankParsed();
   // Repair words split across lines by hyphenation ("visualiza-\ntion").
   const dehyphenated = text.replace(/([A-Za-z])-\r?\n([A-Za-z])/g, '$1$2');
   const lines = dehyphenated
@@ -1212,9 +1211,53 @@ export function parseResumeText(text: string): ParsedResume {
   return out;
 }
 
+export interface SplitResume {
+  /** Every non-empty line in document order — the same lines parseResumeText sees. */
+  lines: string[];
+  /** Parallel to lines: 'contact', 'header', or a section key. */
+  kinds: string[];
+  contact: string[];
+  sections: Map<string, string[]>;
+}
+
+/**
+ * Split resume text into contact lines and section line groups, using the
+ * same header detection and line cleanup as the heuristic parser. Exported so
+ * the local-AI path can attach NER entities to the right document lines
+ * without duplicating the header list.
+ */
+export function splitResumeSections(text: string): SplitResume {
+  const dehyphenated = text.replace(/([A-Za-z])-\r?\n([A-Za-z])/g, '$1$2');
+  const rawLines = dehyphenated
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+/g, ' ').trim())
+    .filter((l) => l.length > 0 && !/^[-_=*#]{4,}$/.test(l) && !/^pages?\s+\d+(\s+of\s+\d+)?$/i.test(l));
+  const lines = joinBulletContinuations(splitInlineBullets(rawLines));
+  const kinds: string[] = [];
+  const contact: string[] = [];
+  const sections = new Map<string, string[]>();
+  let current: SectionKey | null = null;
+  for (const line of lines) {
+    const section = detectSection(line);
+    if (section) {
+      kinds.push('header');
+      current = section;
+      if (!sections.has(section)) sections.set(section, []);
+      continue;
+    }
+    if (current) {
+      kinds.push(current);
+      sections.get(current)!.push(line);
+    } else {
+      kinds.push('contact');
+      contact.push(line);
+    }
+  }
+  return { lines, kinds, contact, sections };
+}
+
 /** Map parsed fields into the ResumeData shape the builder edits. */
-export function parsedToResumeData(p: ParsedResume): ResumeData {
-  const r = blankResume();
+export function parsedToResumeData(p: ParsedResume): ResumeData {  const r = blankResume();
   r.version = RESUME_SCHEMA_VERSION;
   r.contact = {
     fullName: p.fullName,

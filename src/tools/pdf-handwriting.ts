@@ -481,6 +481,30 @@ function initDrawPanel(): void {
     }
     repaint();
     label();
+    renderGrid();
+  };
+
+  /** Alphabet overview: which letters are drawn, click to jump to one. */
+  const renderGrid = () => {
+    const grid = document.getElementById('hw-draw-grid');
+    if (!grid) return;
+    const store = readGlyphStore();
+    grid.innerHTML = '';
+    DRAW_CHARSET.split('').forEach((ch, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'hw-letter-btn' + (store[ch] ? ' drawn' : '') + (i === idx ? ' current' : '');
+      b.textContent = ch;
+      b.setAttribute('role', 'option');
+      b.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+      b.setAttribute('aria-label', `Letter ${ch}${store[ch] ? ' (drawn)' : ' (not drawn)'}`);
+      b.addEventListener('click', () => {
+        saveLetter(true);
+        idx = i;
+        loadLetter();
+      });
+      grid.appendChild(b);
+    });
   };
 
   const saveLetter = (silent: boolean) => {
@@ -492,6 +516,7 @@ function initDrawPanel(): void {
       scheduleLivePreview();
     }
     label();
+    renderGrid();
   };
 
   const pos = (e: PointerEvent): [number, number] => {
@@ -542,6 +567,7 @@ function initDrawPanel(): void {
     hasInk = false;
     repaint();
     label();
+    renderGrid();
   });
   el('hw-draw-photo').addEventListener('click', () => el<HTMLInputElement>('hw-draw-photo-input').click());
   el<HTMLInputElement>('hw-draw-photo-input').addEventListener('change', (e) => {
@@ -569,7 +595,36 @@ function setStatusLite(msg: string): void {
   }, 1200);
 }
 
-/* ---------------- live preview ---------------- */
+/** Warm the glyph image cache on page load so custom letters render
+ *  in the live preview and in output even before the draw panel is visited.
+ *  Without this, images created lazily by getGlyph() resolve after the first
+ *  render and silently fall back to the Casual font. */
+export function preloadGlyphs(): Promise<void> {
+  const store = readGlyphStore();
+  const chars = Object.keys(store);
+  if (!chars.length) return Promise.resolve();
+  return Promise.all(
+    chars.map(
+      (ch) =>
+        new Promise<void>((resolve) => {
+          const g = getGlyph(ch);
+          if (!g) return resolve();
+          if (g.img.complete) return resolve();
+          const done = () => resolve();
+          g.img.addEventListener('load', done, { once: true });
+          g.img.addEventListener('error', done, { once: true });
+          // Never hang the page on a bad data URL.
+          setTimeout(done, 4000);
+        })
+    )
+  ).then(() => undefined);
+}
+
+function toggleDrawSection(): void {
+  const style = document.querySelector<HTMLInputElement>('input[name="hw-style"]:checked')?.value;
+  const section = document.getElementById('hw-draw-section');
+  if (section) section.hidden = style !== 'custom';
+}
 
 /** A small two-line sample rendered with the current options. */
 function renderLiveSample(opts: HwOpts): string {
@@ -613,12 +668,6 @@ async function renderLivePreview(): Promise<void> {
   } catch {
     /* the preview is a bonus; the real render still works */
   }
-}
-
-function toggleDrawSection(): void {
-  const style = document.querySelector<HTMLInputElement>('input[name="hw-style"]:checked')?.value;
-  const section = document.getElementById('hw-draw-section');
-  if (section) section.hidden = style !== 'custom';
 }
 
 function currentOpts(): HwOpts {
@@ -850,32 +899,37 @@ export function initHandwriting(): void {
   el('hw-make').addEventListener('click', () => void makeHandwriting());
   el('hw-download').addEventListener('click', () => void downloadPdf());
 
-  // Own-handwriting panel: only the alphabet box needs wiring; the panel
-  // itself shows when the "My handwriting" style is picked.
-  initDrawPanel();
-  toggleDrawSection();
-  document.querySelectorAll('input[name="hw-style"]').forEach((r) =>
-    r.addEventListener('change', () => {
-      toggleDrawSection();
-      scheduleLivePreview();
-    })
-  );
+  // Own-handwriting panel: the alphabet box only works when its elements
+  // exist; the panel itself shows when the "My handwriting" style is picked.
+  if (document.getElementById('hw-draw-canvas')) {
+    initDrawPanel();
+    toggleDrawSection();
+    document.querySelectorAll('input[name="hw-style"]').forEach((r) =>
+      r.addEventListener('change', () => {
+        toggleDrawSection();
+        scheduleLivePreview();
+      })
+    );
+    // Warm saved drawings so the preview and output use them on first paint.
+    void preloadGlyphs().then(() => scheduleLivePreview());
+  }
   document.querySelectorAll('input[name="hw-ink"], input[name="hw-paper"]').forEach((r) =>
     r.addEventListener('change', scheduleLivePreview)
   );
   for (const id of ['hw-size', 'hw-slant', 'hw-mess']) {
-    const input = el<HTMLInputElement>(id);
+    const slider = el<HTMLInputElement>(id);
     const syncVal = () => {
       const val = document.getElementById(`${id}-value`);
-      if (val) val.textContent = input.value;
+      if (val) val.textContent = slider.value;
     };
-    input.addEventListener('input', () => {
+    slider.addEventListener('input', () => {
       syncVal();
       scheduleLivePreview();
     });
     syncVal();
   }
-  el<HTMLInputElement>('hw-ink-custom').addEventListener('input', scheduleLivePreview);
+  const customInk = document.getElementById('hw-ink-custom') as HTMLInputElement | null;
+  if (customInk) customInk.addEventListener('input', scheduleLivePreview);
   scheduleLivePreview();
   updateMakeButton();
 }
