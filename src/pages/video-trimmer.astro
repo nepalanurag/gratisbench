@@ -1,6 +1,7 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
+import ToolkitTabs from '../components/ToolkitTabs.astro';
 
 const title = 'Video Trimmer - Cut Video Online Free | TruePDF';
 const description =
@@ -69,6 +70,14 @@ const lede = 'Cut the start, the end, or a middle section out of a video. Fast o
     },
   ]}
 >
+  <ToolkitTabs
+    current="/video-trimmer"
+    tabs={[
+      { href: '/video-compressor', label: 'Compress' },
+      { href: '/video-trimmer', label: 'Trim' },
+      { href: '/video-converter', label: 'Convert' },
+    ]}
+  />
   <section class="tool-card" slot="tool" aria-label="Video trimmer tool">
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a video to trim">
       <div class="dz-icon"><Icon name="video" size={30} /></div>
@@ -80,6 +89,15 @@ const lede = 'Cut the start, the end, or a middle section out of a video. Fast o
     <p id="file-info" class="count-label"></p>
     <div id="preview-wrap" hidden>
       <video id="preview" class="preview-video" controls muted playsinline></video>
+    </div>
+    <div id="timeline-wrap" hidden>
+      <div id="timeline" class="timeline" role="slider" aria-label="Trim range timeline" tabindex="0">
+        <div id="timeline-range" class="timeline-range"></div>
+        <div id="timeline-start" class="timeline-handle"></div>
+        <div id="timeline-end" class="timeline-handle"></div>
+        <div id="timeline-playhead" class="timeline-playhead" hidden></div>
+      </div>
+      <p class="hint">Drag the handles or click the timeline to set cut points. The preview follows.</p>
     </div>
     <p id="engine-status" class="engine-status" hidden></p>
 

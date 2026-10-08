@@ -41,11 +41,88 @@ export function initVideoTrimmer(): void {
       el('range-hint').textContent = '';
     }
   }
-  el('start-input').addEventListener('input', refreshHint);
-  el('end-input').addEventListener('input', refreshHint);
+  el('start-input').addEventListener('input', () => { refreshHint(); syncTimeline(); });
+  el('end-input').addEventListener('input', () => { refreshHint(); syncTimeline(); });
   document.querySelectorAll('input[name="mode"]').forEach((r) => {
     r.addEventListener('change', refreshHint);
   });
+
+  /** Timeline scrubber: visual start/end selection synced with text inputs. */
+  function syncTimeline(): void {
+    if (duration <= 0) return;
+    try {
+      const { start, end } = readRange();
+      const pct = (t: number) => `${(t / duration) * 100}%`;
+      const range = el('timeline-range');
+      range.style.left = pct(start);
+      range.style.width = `calc(${pct(end)} - ${pct(start)})`;
+      el('timeline-start').style.left = pct(start);
+      el('timeline-end').style.left = pct(end);
+    } catch {
+      /* invalid range — leave timeline as-is */
+    }
+  }
+
+  function initTimeline(): void {
+    const timeline = el('timeline');
+    const preview = el<HTMLVideoElement>('preview');
+    let dragging: 'start' | 'end' | null = null;
+
+    const timeFromEvent = (e: PointerEvent): number => {
+      const rect = timeline.getBoundingClientRect();
+      const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+      return (x / rect.width) * duration;
+    };
+
+    const setFromTimeline = (t: number, which: 'start' | 'end') => {
+      try {
+        const { start, end } = readRange();
+        let ns = start, ne = end;
+        if (which === 'start') ns = Math.min(t, ne - 0.1);
+        else ne = Math.max(t, ns + 0.1);
+        el<HTMLInputElement>('start-input').value = formatTime(ns);
+        el<HTMLInputElement>('end-input').value = formatTime(ne);
+        refreshHint();
+        syncTimeline();
+        preview.currentTime = which === 'start' ? ns : ne;
+      } catch {
+        /* ignore */
+      }
+    };
+
+    timeline.addEventListener('pointerdown', (e) => {
+      const t = timeFromEvent(e);
+      try {
+        const { start, end } = readRange();
+        // Grab nearest handle, or start if clicking in the unselected area
+        const distStart = Math.abs(t - start);
+        const distEnd = Math.abs(t - end);
+        dragging = distStart <= distEnd ? 'start' : 'end';
+      } catch {
+        dragging = 'start';
+      }
+      timeline.setPointerCapture(e.pointerId);
+      setFromTimeline(t, dragging);
+    });
+    timeline.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      setFromTimeline(timeFromEvent(e), dragging);
+    });
+    timeline.addEventListener('pointerup', () => {
+      dragging = null;
+    });
+
+    // Playhead follows the preview video
+    preview.addEventListener('timeupdate', () => {
+      const playhead = el('timeline-playhead');
+      if (duration > 0) {
+        playhead.hidden = false;
+        playhead.style.left = `${(preview.currentTime / duration) * 100}%`;
+      }
+    });
+
+    syncTimeline();
+  }
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
@@ -73,6 +150,8 @@ export function initVideoTrimmer(): void {
     el<HTMLInputElement>('start-input').value = '0:00.0';
     el<HTMLInputElement>('end-input').value = formatTime(duration);
     el<HTMLButtonElement>('trim-btn').disabled = false;
+    el('timeline-wrap').hidden = false;
+    initTimeline();
     refreshHint();
     status.hidden = false;
     status.textContent = 'Loading the video engine (about 30MB, first use only)…';
