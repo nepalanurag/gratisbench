@@ -140,6 +140,18 @@ function maskDims(w: number, h: number): { w: number; h: number } {
 }
 
 /** Extract the AI cut-out's alpha channel into a grayscale working mask. */
+function maskHasTransparency(mask: HTMLCanvasElement): boolean {
+  const ctx = mask.getContext('2d');
+  if (!ctx) return false;
+  const data = ctx.getImageData(0, 0, mask.width, mask.height).data;
+  // Sample every 16th pixel; if none are significantly transparent, the AI
+  // did not remove anything.
+  for (let i = 0; i < data.data.length; i += 64) {
+    if (data.data[i] < 128) return true;
+  }
+  return false;
+}
+
 async function extractMask(cutout: Blob, imgW: number, imgH: number): Promise<HTMLCanvasElement> {
   const url = URL.createObjectURL(cutout);
   try {
@@ -358,6 +370,11 @@ function setupTouchup(): void {
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!editorOpen) return;
+    // On touch devices there's no hover; only show the cursor while painting.
+    if (e.pointerType === 'touch' && !painting) {
+      cursor.hidden = true;
+      return;
+    }
     positionCursor(e);
     cursor.hidden = false;
     if (painting) {
@@ -373,6 +390,9 @@ function setupTouchup(): void {
   canvas.addEventListener('pointerup', stopPaint);
   canvas.addEventListener('pointercancel', stopPaint);
   canvas.addEventListener('pointerleave', () => {
+    if (!painting) cursor.hidden = true;
+  });
+  el('mask-editor-wrap').addEventListener('pointerleave', () => {
     if (!painting) cursor.hidden = true;
   });
 
@@ -463,6 +483,7 @@ async function onRemove(): Promise<void> {
     // name `removeBackground` survives esbuild minification.
     setProgress(5, 'Preparing the AI model…');
     cutoutBlob = await removeBackground(currentFile, {
+      model: 'large', // Maximum edge quality. Slower but much better for real photos.
       output: { format: 'image/png', quality: 1 },
       progress: (key: string, current: number, total: number) => {
         if (bgStageFromProgressKey(key) === 'loading-model') {
@@ -478,6 +499,12 @@ async function onRemove(): Promise<void> {
     originalUrl = URL.createObjectURL(currentFile);
     originalImg = await loadImage(originalUrl);
     baseMask = await extractMask(cutoutBlob, originalImg.naturalWidth, originalImg.naturalHeight);
+    // Validate that the AI actually removed something. If the mask is all
+    // opaque, the engine failed to detect a subject — fail clearly instead
+    // of showing the original image with fake transparency padding.
+    if (!maskHasTransparency(baseMask)) {
+      throw new Error('The AI could not find a subject to keep in this image. Try a photo with a clearer foreground subject.');
+    }
     edgeDelta = 0;
     setProgress(92, 'Preparing your download…');
     await rebuildFromMask();
