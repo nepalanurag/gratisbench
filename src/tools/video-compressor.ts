@@ -21,7 +21,9 @@ export function initVideoCompressor(): void {
   function targetMB(): number {
     const checked = document.querySelector<HTMLInputElement>('input[name="preset"]:checked');
     if (checked?.value === 'custom') {
-      return Math.max(1, Number(el<HTMLInputElement>('custom-mb').value) || 25);
+      // Mirror the input's min=1 / max=2000 attributes: clamp garbage and
+      // oversized entries to the allowed range instead of trusting the raw value.
+      return Math.min(2000, Math.max(1, Number(el<HTMLInputElement>('custom-mb').value) || 25));
     }
     return Number(checked?.value || 25);
   }
@@ -90,6 +92,14 @@ export function initVideoCompressor(): void {
     if (!file || duration <= 0) return;
     hideError('error-box');
     el('result').hidden = true;
+    // No point re-encoding when the target is at or above the input size.
+    if (mbToBytes(targetMB()) >= file.size) {
+      showError(
+        'error-box',
+        'This video is already smaller than your target — no need to compress.'
+      );
+      return;
+    }
     setBusy('compress-btn', true, 'Compressing…');
     setProgress(0, 'Starting…');
     // Hoisted so the finally block can clean up MEMFS even on failure.
