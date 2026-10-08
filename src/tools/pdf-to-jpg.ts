@@ -71,9 +71,14 @@ export function initPdfToJpg(): void {
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
+    // A new drop replaces the old run: clear previous results first.
+    images.length = 0;
+    renderList();
     const file = files[0];
     if (!file) return;
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+      fileBytes = null;
+      convertBtn.disabled = true;
       showError('error-box', `"${file.name}" is not a PDF.`);
       return;
     }
@@ -85,6 +90,8 @@ export function initPdfToJpg(): void {
       el('file-info').textContent = `${file.name} · ${pages} page${pages === 1 ? '' : 's'} · ${formatBytes(file.size)}`;
       convertBtn.disabled = false;
     } catch (err) {
+      fileBytes = null;
+      convertBtn.disabled = true;
       showError('error-box', `"${file.name}": ${pdfJsLoadErrorMessage(err)}`);
     }
   });
