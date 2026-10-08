@@ -1,11 +1,13 @@
 // Verification: exercises the same src/lib modules the browser tools use.
 // Run: node scripts/verify-tools.mjs   (exit 0 = all pass)
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, decodePDFRawStream } from 'pdf-lib';
 import { PNG } from 'pngjs';
 import jsqr from 'jsqr';
 import {
   mergePdfs,
   splitPdf,
+  splitEveryPage,
+  splitEveryNPages,
   parsePageRanges,
   imagesToPdf,
   getPageCount,
@@ -13,9 +15,15 @@ import {
 } from '../src/lib/pdf-core.ts';
 import { makeQrPng, makeQrSvg } from '../src/lib/qr-core.ts';
 import {
-  rebuildImagePdf,
-  pageSizeFromBitmap,
-  jpegQualityFromSlider,
+  compressPdfImages,
+  collectImageXObjects,
+  samplesToRgba,
+  reversePredictors,
+  resizeRgba,
+  ascii85Decode,
+  asciiHexDecode,
+  downsampleScale,
+  COMPRESSION_LEVELS,
 } from '../src/lib/pdf-compress.ts';
 import { redactPdf } from '../src/lib/pdf-redact.ts';
 import { signPdf, previewRectToPdf } from '../src/lib/pdf-esign.ts';
@@ -41,17 +49,26 @@ import {
 import {
   RESUME_SCHEMA_VERSION,
   RESUME_STORAGE_KEY,
+  RESUME_BACKUP_KEY,
   TEMPLATES,
+  DEFAULT_SECTION_ORDER,
   isTemplateId,
+  isSectionKey,
   blankResume,
   exampleResume,
   blankWorkEntry,
+  blankAwardEntry,
+  blankPublicationEntry,
+  blankCourseEntry,
   addEntry,
   removeEntry,
   moveEntry,
   validateResume,
   serialize,
   deserialize,
+  deserializeInfo,
+  deserializeWipesStoredBlob,
+  asSectionOrder,
   renderResume,
 } from '../src/lib/resume-core.ts';
 import {
@@ -447,6 +464,22 @@ console.log('== split ==');
   ok('extractPages honors given order', (await PDFDocument.load(pickedOrdered)).getPageCount() === 2);
   await expectThrowAsync('extractPages rejects empty', () => extractPages(src, []), 'at least one page');
   await expectThrowAsync('extractPages rejects out-of-range only', () => extractPages(src, [99]), 'at least one page');
+  const every = await splitEveryPage(src);
+  ok('splitEveryPage: 10 pages -> 10 files', every.length === 10, `got ${every.length}`);
+  ok('splitEveryPage names page-N', every[0].name === 'split-page-1.pdf' && every[9].name === 'split-page-10.pdf');
+  const everyCounts = [];
+  for (const p of every) everyCounts.push((await PDFDocument.load(p.data)).getPageCount());
+  ok('splitEveryPage: 1 page each', everyCounts.every((c) => c === 1), `${everyCounts.slice(0, 4)}…`);
+  const chunks = await splitEveryNPages(src, 4);
+  ok('splitEveryNPages(4): 10 pages -> 3 files', chunks.length === 3, `got ${chunks.length}`);
+  const chunkCounts = [];
+  for (const p of chunks) chunkCounts.push((await PDFDocument.load(p.data)).getPageCount());
+  ok('splitEveryNPages chunk sizes [4,4,2]', JSON.stringify(chunkCounts) === '[4,4,2]', `got ${chunkCounts}`);
+  ok('splitEveryNPages(1) equals every-page count', (await splitEveryNPages(src, 1)).length === 10);
+  await expectThrowAsync('splitEveryNPages rejects 0', () => splitEveryNPages(src, 0), 'whole number');
+  const big = await makePdf(60, 'B');
+  await expectThrowAsync('splitEveryPage caps at 50', () => splitEveryPage(big), 'capped');
+  await expectThrowAsync('splitEveryNPages too many groups', () => splitEveryNPages(big, 1), '50 or fewer');
 }
 
 console.log('== imagesToPdf ==');
@@ -496,35 +529,148 @@ console.log('== QR ==');
   ok('SVG generated', svg.includes('<svg') && svg.includes('</svg>') && svg.length > 500, `len ${svg.length}`);
 }
 
-console.log('== pdf-compress (rebuild from rendered bitmap stand-ins) ==');
+console.log('== pdf-compress (vector-preserving: downsample images, keep text) ==');
 {
-  // pdf.js rendering cannot run in Node; these PNGs stand in for rendered pages.
-  const big = { data: makePng(400, 400, 180, 60, 60), mime: 'image/png', widthPx: 400, heightPx: 400 };
-  const small = { data: makePng(100, 100, 180, 60, 60), mime: 'image/png', widthPx: 100, heightPx: 100 };
+  // The browser codec (canvas) cannot run in Node; this stub stands in for
+  // JPEG decode/encode. Everything else -- enumeration, filter decoding,
+  // predictors, colorspaces, stream surgery -- runs for real.
+  const stubCodec = {
+    async decodeJpeg(bytes) {
+      if (bytes[0] !== 0xff || bytes[1] !== 0xd8) throw new Error('stub: not a JPEG');
+      return { width: 2000, height: 1000, data: new Uint8ClampedArray(2000 * 1000 * 4).fill(200) };
+    },
+    async encodeJpeg(img, quality) {
+      const tag = `STUBJPEG ${img.width}x${img.height} q=${quality}`;
+      return new TextEncoder().encode(tag.padEnd(96, '.'));
+    },
+  };
 
-  const out = await rebuildImagePdf([big, small, big], 100);
+  // Extract page text from content streams (pdf-lib writes hex strings).
+  function contentText(doc, pageIdx) {
+    const contents = doc.getPages()[pageIdx].node.Contents();
+    const refs = typeof contents.size === 'function'
+      ? Array.from({ length: contents.size() }, (_, k) => contents.lookup(k))
+      : [contents];
+    let text = '';
+    for (const r of refs) {
+      const obj = doc.context.lookup(r);
+      const dec = decodePDFRawStream({ dict: obj.dict, contents: obj.getContents() }).decode();
+      text += Buffer.from(dec).toString('latin1');
+    }
+    return text.replace(/<([0-9a-fA-F]+)>/g, (_, h) => Buffer.from(h, 'hex').toString('latin1'));
+  }
+
+  async function pdfWithImage(w, h, label) {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const png = makePng(w, h, 90, 140, 200);
+    const img = await doc.embedPng(png);
+    const page = doc.addPage([595, 842]);
+    page.drawText(label, { x: 50, y: 800, size: 24, font, color: rgb(0, 0, 0) });
+    page.drawImage(img, { x: 50, y: 100, width: 400, height: Math.round((400 * h) / w) });
+    return doc.save();
+  }
+
+  // Big image (1800x1200) exceeds the medium budget (1600) -> downsampled.
+  const input = await pdfWithImage(1800, 1200, 'Hello selectable world');
+  const { data: out, stats } = await compressPdfImages(input, 'medium', stubCodec);
   const doc = await PDFDocument.load(out);
-  ok('3 bitmaps -> 3 pages', doc.getPageCount() === 3, `got ${doc.getPageCount()}`);
-  const p0 = doc.getPage(0).getSize();
-  ok('page size follows bitmap/DPI math (400px @100dpi = 288pt)', Math.abs(p0.width - 288) < 0.01 && Math.abs(p0.height - 288) < 0.01, `${p0.width}x${p0.height}`);
-  const p1 = doc.getPage(1).getSize();
-  ok('smaller bitmap -> smaller page (100px @100dpi = 72pt)', Math.abs(p1.width - 72) < 0.01, `${p1.width}`);
+  ok('page count preserved', doc.getPageCount() === 1, `got ${doc.getPageCount()}`);
+  ok('text layer intact (still in content stream)', contentText(doc, 0).includes('Hello selectable world'));
+  ok('output is smaller', out.length < input.length, `${input.length} -> ${out.length}`);
+  ok('one image replaced', stats.imagesReplaced === 1 && stats.imagesFound === 1, JSON.stringify(stats));
+  const [found] = collectImageXObjects(doc);
+  const d = found.stream.dict;
+  const { PDFName, PDFNumber } = await import('pdf-lib');
+  ok('re-encoded as JPEG', d.lookup(PDFName.of('Filter')).asString() === '/DCTDecode');
+  ok('dict dims follow downsample (1800x1200 -> 1600x1067)',
+    d.lookup(PDFName.of('Width')).asNumber() === 1600 && d.lookup(PDFName.of('Height')).asNumber() === 1067,
+    `${d.lookup(PDFName.of('Width')).asNumber()}x${d.lookup(PDFName.of('Height')).asNumber()}`);
+  ok('stream holds the re-encoded bytes',
+    Buffer.from(found.stream.getContents().slice(0, 8)).toString() === 'STUBJPEG');
 
-  const [w, h] = pageSizeFromBitmap(200, 100, 100);
-  ok('pageSizeFromBitmap 200px@100dpi = 144x72pt', w === 144 && h === 72, `${w}x${h}`);
+  // Small image (200x150) is already under budget -> left untouched.
+  const smallInput = await pdfWithImage(200, 150, 'Tiny image doc');
+  const smallRes = await compressPdfImages(smallInput, 'medium', stubCodec);
+  const smallDoc = await PDFDocument.load(smallRes.data);
+  ok('small image skipped, not upscaled', smallRes.stats.imagesReplaced === 0 && smallRes.stats.imagesSkipped === 1,
+    JSON.stringify(smallRes.stats));
+  ok('text intact on skipped-image doc', contentText(smallDoc, 0).includes('Tiny image doc'));
 
-  // Size-reduction mechanism: the same content at lower resolution -> fewer bytes.
-  const hiRes = await rebuildImagePdf([big], 100);
-  const loRes = await rebuildImagePdf([small], 100);
-  ok('lower-resolution bitmap yields a smaller PDF', loRes.length < hiRes.length, `${loRes.length} vs ${hiRes.length}`);
+  // DCT branch: image stream already a JPEG (real JPEG bytes from fixtures).
+  const jpgBytes = new Uint8Array(readFileSync(join(ROOT, 'test-fixtures', 'sample.jpg')));
+  const docJ = await PDFDocument.load(await pdfWithImage(200, 150, 'JPEG doc'));
+  const jStream = collectImageXObjects(docJ)[0].stream;
+  jStream.dict.set(PDFName.of('Filter'), PDFName.of('DCTDecode'));
+  jStream.dict.set(PDFName.of('Width'), PDFNumber.of(2000));
+  jStream.dict.set(PDFName.of('Height'), PDFNumber.of(1000));
+  jStream.contents = jpgBytes;
+  const jRes = await compressPdfImages(await docJ.save(), 'heavy', stubCodec);
+  ok('DCT image downsampled via codec (2000x1000 -> 1000x500)', jRes.stats.imagesReplaced === 1,
+    JSON.stringify(jRes.stats));
+  const jDoc = await PDFDocument.load(jRes.data);
+  const jd = collectImageXObjects(jDoc)[0].stream.dict;
+  ok('DCT dict dims updated', jd.lookup(PDFName.of('Width')).asNumber() === 1000 &&
+    jd.lookup(PDFName.of('Height')).asNumber() === 500);
+  ok('text intact on JPEG doc', contentText(jDoc, 0).includes('JPEG doc'));
 
-  ok('jpegQualityFromSlider(60) = 0.6', jpegQualityFromSlider(60) === 0.6);
-  await expectThrowAsync('empty pages throws', () => rebuildImagePdf([], 100), 'no pages');
-  await expectThrowAsync('bad DPI throws', () => rebuildImagePdf([big], 0), 'DPI');
-  await expectThrowAsync('empty bitmap throws', () => rebuildImagePdf([{ data: new Uint8Array(0), mime: 'image/png', widthPx: 10, heightPx: 10 }], 100), 'empty image');
-  await expectThrowAsync('zero-size bitmap throws', () => rebuildImagePdf([{ data: big.data, mime: 'image/png', widthPx: 0, heightPx: 10 }], 100), 'invalid bitmap');
-  expectThrow('quality 101 rejected', () => jpegQualityFromSlider(101), 'between 5 and 100');
-  expectThrow('quality 0 rejected', () => jpegQualityFromSlider(0), 'between 5 and 100');
+  // Real fixtures: must not throw, pages preserved, output loads.
+  for (const f of ['resume-sample.pdf', 'sample-3page.pdf']) {
+    const bytes = new Uint8Array(readFileSync(join(ROOT, 'test-fixtures', f)));
+    const before = (await PDFDocument.load(bytes)).getPageCount();
+    const r = await compressPdfImages(bytes, 'heavy', stubCodec);
+    const after = (await PDFDocument.load(r.data)).getPageCount();
+    ok(`${f}: pages preserved (${before})`, before === after, `before ${before} after ${after}`);
+  }
+
+  // Pure-function unit tests.
+  ok('levels light/medium/heavy defined',
+    COMPRESSION_LEVELS.light.maxDim === 2400 && COMPRESSION_LEVELS.medium.maxDim === 1600 &&
+    COMPRESSION_LEVELS.heavy.maxDim === 1000);
+  ok('downsampleScale shrinks large images', Math.abs(downsampleScale(3000, 2000, COMPRESSION_LEVELS.medium) - 1600 / 3000) < 1e-9);
+  ok('downsampleScale never upscales', downsampleScale(800, 600, COMPRESSION_LEVELS.medium) === 1);
+
+  // PNG predictor reversal round-trip (Sub filter).
+  {
+    const raw = new Uint8Array([10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]);
+    const rowBytes = 12;
+    const enc = new Uint8Array(13);
+    enc[0] = 1;
+    for (let i = 0; i < 12; i++) enc[1 + i] = (raw[i] - (i >= 3 ? raw[i - 3] : 0) + 256) & 255;
+    const back = reversePredictors(enc, 12, 4, 3, 8, 1);
+    ok('PNG predictor reversal round-trips', Buffer.from(back).equals(Buffer.from(raw)));
+  }
+  await expectThrowAsync('bad predictor size throws', async () => reversePredictors(new Uint8Array(5), 12, 4, 3, 8, 1), 'mismatch');
+
+  ok('ascii85 decodes', Buffer.from(ascii85Decode(new TextEncoder().encode('87cURD_*#TDfTZ)'))).toString() === 'Hello, world');
+  ok('asciiHex decodes', Buffer.from(asciiHexDecode(new TextEncoder().encode('48656c6c6f>'))).toString() === 'Hello');
+
+  // samplesToRgba: 8-bit RGB, 1-bit gray expansion, decode inversion.
+  {
+    const info = { width: 2, height: 1, bpc: 8, components: 3, kind: 'rgb', decode: [0, 1, 0, 1, 0, 1] };
+    const rgba = samplesToRgba(new Uint8Array([255, 0, 0, 0, 255, 0]), info);
+    ok('8-bit RGB samples -> red, green pixels',
+      rgba[0] === 255 && rgba[1] === 0 && rgba[2] === 0 && rgba[4] === 0 && rgba[5] === 255 && rgba[6] === 0 &&
+      rgba[3] === 255 && rgba[7] === 255);
+    const gray1 = { width: 8, height: 1, bpc: 1, components: 1, kind: 'gray', decode: [0, 1] };
+    const g = samplesToRgba(new Uint8Array([0b10110001]), gray1);
+    ok('1-bit gray expands MSB-first', g[0] === 255 && g[4] === 0 && g[8] === 255 && g[12] === 255);
+    const inv = { width: 1, height: 1, bpc: 8, components: 1, kind: 'gray', decode: [1, 0] };
+    const gi = samplesToRgba(new Uint8Array([0]), inv);
+    ok('/Decode inversion honored', gi[0] === 255);
+  }
+
+  // resizeRgba: 2x2 -> 1x1 averages the four corners.
+  {
+    const src = { width: 2, height: 2, data: new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]) };
+    const tiny = resizeRgba(src, 1, 1);
+    ok('bilinear downscale averages', tiny.width === 1 && tiny.height === 1 &&
+      Math.abs(tiny.data[0] - 128) <= 1 && Math.abs(tiny.data[1] - 128) <= 1 && Math.abs(tiny.data[2] - 128) <= 1);
+  }
+
+  await expectThrowAsync('unknown level throws', () => compressPdfImages(input, 'ultra', stubCodec), 'Unknown compression level');
+  const emptyDoc = await PDFDocument.create();
+  await expectThrowAsync('zero-page PDF throws', async () => compressPdfImages(await emptyDoc.save({ addDefaultPage: false }), 'medium', stubCodec), 'no pages');
 }
 
 console.log('== pdf-redact ==');
@@ -572,8 +718,8 @@ console.log('== pdf-images helpers ==');
   ok('pageFileName basic', pageFileName('report.pdf', 3, 'jpg') === 'report-page-3.jpg');
   ok('pageFileName strips extension', pageFileName('my doc.PDF', 1, 'png') === 'my doc-page-1.png');
   ok('pageFileName falls back for empty stem', pageFileName('.pdf', 2, 'jpg') === 'document-page-2.jpg');
-  ok('PAGE_IMAGE_DPIS is 72/150/300', JSON.stringify([...PAGE_IMAGE_DPIS]) === '[72,150,300]');
-  expectThrow('dpi 200 rejected', () => validatePageImageOptions({ dpi: 200, format: 'jpg' }), '72, 150, 300');
+  ok('PAGE_IMAGE_DPIS is 72/150/300/600', JSON.stringify([...PAGE_IMAGE_DPIS]) === '[72,150,300,600]');
+  expectThrow('dpi 200 rejected', () => validatePageImageOptions({ dpi: 200, format: 'jpg' }), '72, 150, 300, 600');
   expectThrow('bad format rejected', () => validatePageImageOptions({ dpi: 150, format: 'gif' }), 'JPG or PNG');
   let threw = false;
   try { validatePageImageOptions({ dpi: 150, format: 'png' }); } catch { threw = true; }
@@ -675,8 +821,15 @@ console.log('== resume-core ==');
   ok('blank resume has empty contact', blank.contact.fullName === '' && blank.contact.email === '');
   ok('blank resume lists start empty',
     blank.experience.length === 0 && blank.education.length === 0 && blank.skills.length === 0 &&
-    blank.projects.length === 0 && blank.certifications.length === 0 && blank.languages.length === 0);
+    blank.projects.length === 0 && blank.certifications.length === 0 && blank.languages.length === 0 &&
+    blank.awards.length === 0 && blank.publications.length === 0 && blank.volunteer.length === 0 && blank.courses.length === 0);
+  ok('blank resume shows every section by default',
+    DEFAULT_SECTION_ORDER.every((k) => blank.sectionVisibility[k] === true));
+  ok('blank resume section order matches the default',
+    JSON.stringify(blank.sectionOrder) === JSON.stringify(DEFAULT_SECTION_ORDER));
   ok('storage key is namespaced', RESUME_STORAGE_KEY.startsWith('freekit.resume-builder'));
+  ok('backup key is namespaced but distinct',
+    RESUME_BACKUP_KEY.startsWith('freekit.resume-builder') && RESUME_BACKUP_KEY !== RESUME_STORAGE_KEY);
 
   // pure entry ops
   const e1 = { ...blankWorkEntry(), title: 'First' };
@@ -720,9 +873,58 @@ console.log('== resume-core ==');
   ok('corrupt JSON falls back to blank', deserialize('not json{{{').contact.fullName === '');
   ok('null falls back to blank', deserialize(null).experience.length === 0);
   ok('empty string falls back to blank', deserialize('').education.length === 0);
-  ok('wrong schema version falls back to blank',
+  ok('future schema version falls back to blank',
     deserialize(JSON.stringify({ ...example, version: 999 })).contact.fullName === '');
   ok('non-object falls back to blank', deserialize('[1,2,3]').summary === '');
+
+  // schema migration: v1 blobs are migrated forward, never wiped
+  const v1blob = JSON.stringify({
+    version: 1,
+    contact: { fullName: 'V1 User', email: 'v1@example.com' },
+    summary: 'Kept through migration.',
+    experience: [{ id: 'w1', title: 'Dev', company: 'Acme', location: '', start: '2020', end: '', current: true, bullets: ['Did things.'] }],
+    education: [],
+    skills: [{ id: 's1', label: 'Code', items: 'TypeScript' }],
+    projects: [],
+    certifications: [{ id: 'c1', name: 'CKA', issuer: 'CNCF', year: '2024' }],
+    languages: [],
+  });
+  const v1info = deserializeInfo(v1blob);
+  ok('v1 blob is migrated, not wiped', v1info.migrated === true && v1info.wiped === false);
+  ok('migration keeps contact fields', v1info.resume.contact.fullName === 'V1 User' && v1info.resume.contact.email === 'v1@example.com');
+  ok('migration keeps summary and entries',
+    v1info.resume.summary === 'Kept through migration.' && v1info.resume.experience.length === 1 && v1info.resume.experience[0].title === 'Dev');
+  ok('migration keeps certifications', v1info.resume.certifications.length === 1 && v1info.resume.certifications[0].name === 'CKA');
+  ok('migration defaults new sections to empty',
+    v1info.resume.awards.length === 0 && v1info.resume.publications.length === 0 && v1info.resume.volunteer.length === 0 && v1info.resume.courses.length === 0);
+  ok('migration defaults visibility and order',
+    DEFAULT_SECTION_ORDER.every((k) => v1info.resume.sectionVisibility[k] === true) &&
+    JSON.stringify(v1info.resume.sectionOrder) === JSON.stringify(DEFAULT_SECTION_ORDER));
+  ok('migrated resume stamps current version', v1info.resume.version === RESUME_SCHEMA_VERSION);
+
+  // version-less blob (older than the version gate) migrates too
+  const noversion = deserializeInfo(JSON.stringify({ contact: { fullName: 'Old Draft' } }));
+  ok('version-less blob migrates forward', noversion.migrated === true && noversion.resume.contact.fullName === 'Old Draft');
+
+  // wipe/backup contract: unusable blobs are flagged so the caller backs them up
+  ok('corrupt JSON is flagged for backup', deserializeWipesStoredBlob('not json{{{') === true);
+  ok('future version is flagged for backup',
+    deserializeWipesStoredBlob(JSON.stringify({ ...example, version: 999 })) === true);
+  ok('null is not flagged for backup', deserializeWipesStoredBlob(null) === false);
+  ok('empty string is not flagged for backup', deserializeWipesStoredBlob('') === false);
+  ok('v1 blob is not flagged for backup', deserializeWipesStoredBlob(v1blob) === false);
+  ok('current version is not flagged for backup', deserializeWipesStoredBlob(serialize(example)) === false);
+  const futureInfo = deserializeInfo(JSON.stringify({ ...example, version: 999 }));
+  ok('future version reports wiped', futureInfo.wiped === true && futureInfo.migrated === false);
+
+  // section order sanitizer
+  ok('asSectionOrder drops unknown keys and appends missing ones', (() => {
+    const order = asSectionOrder(['education', 'bogus', 'contact', 'contact']);
+    return order[0] === 'education' && order[1] === 'contact' &&
+      !order.includes('bogus') && order.length === DEFAULT_SECTION_ORDER.length;
+  })());
+  ok('isSectionKey accepts real sections', isSectionKey('awards') && isSectionKey('contact'));
+  ok('isSectionKey rejects junk', !isSectionKey('bogus') && !isSectionKey(null));
   ok('partial data merges onto defaults', (() => {
     const r = deserialize(JSON.stringify({ version: 1, contact: { fullName: 'Jo' } }));
     return r.contact.fullName === 'Jo' && r.contact.email === '' && r.experience.length === 0;
@@ -747,9 +949,53 @@ console.log('== resume-core ==');
     ok(`${t} renders work experience`, html.includes('Northwind Mobile') && html.includes('Work Experience'));
     ok(`${t} renders skills`, html.includes('Figma'));
     ok(`${t} renders education`, html.includes('California College of the Arts'));
+    ok(`${t} renders awards`, html.includes('Awards') && html.includes('Studio Interaction Design Award'));
+    ok(`${t} renders publications`, html.includes('Publications') && html.includes('Designing Onboarding People Actually Finish'));
+    ok(`${t} renders volunteer experience`, html.includes('Volunteer Experience') && html.includes('Design Mentor'));
+    ok(`${t} renders courses`, html.includes('>Courses<') && html.includes('Design Systems Masterclass'));
   }
   const modern = renderResume(example, 'modern');
   ok('modern uses sidebar structure', modern.includes('rs-side') && modern.includes('rs-main'));
+  ok('modern puts new sections in the main column', (() => {
+    const main = modern.split('rs-main')[1] || '';
+    return main.includes('Studio Interaction Design Award') && main.includes('Design Mentor');
+  })());
+
+  // section visibility toggles
+  const hidden = exampleResume();
+  hidden.sectionVisibility.awards = false;
+  hidden.sectionVisibility.contact = false;
+  const hiddenHtml = renderResume(hidden, 'classic');
+  ok('toggled-off award section is skipped', !hiddenHtml.includes('Studio Interaction Design Award'));
+  ok('toggled-off contact skips the header', !hiddenHtml.includes('Sam Rivera'));
+  ok('other sections still render when one is hidden', hiddenHtml.includes('Northwind Mobile'));
+  const hiddenModern = renderResume(hidden, 'modern');
+  ok('modern sidebar respects hidden contact', !hiddenModern.includes('rs-side-name'));
+
+  // section reordering
+  const reordered = exampleResume();
+  reordered.sectionOrder = [...DEFAULT_SECTION_ORDER];
+  const eduIdx = reordered.sectionOrder.indexOf('education');
+  const expIdx = reordered.sectionOrder.indexOf('experience');
+  reordered.sectionOrder[eduIdx] = 'experience';
+  reordered.sectionOrder[expIdx] = 'education';
+  const reHtml = renderResume(reordered, 'classic');
+  ok('section order is honored', reHtml.indexOf('>Education<') < reHtml.indexOf('>Work Experience<'));
+
+  // entry blanks for the new sections
+  ok('blank award entry has an id', typeof blankAwardEntry().id === 'string');
+  ok('blank publication entry fields are empty', (() => {
+    const p = blankPublicationEntry();
+    return p.title === '' && p.publisher === '' && p.year === '' && p.link === '';
+  })());
+  ok('blank course entry fields are empty', (() => {
+    const c = blankCourseEntry();
+    return c.name === '' && c.provider === '' && c.year === '';
+  })());
+  ok('volunteer reuses the work entry shape', (() => {
+    const v = blankWorkEntry();
+    return 'title' in v && 'company' in v && Array.isArray(v.bullets);
+  })());
   const evil = blankResume();
   evil.contact.fullName = '<script>alert(1)</script>';
   evil.summary = 'a < b & "c"';
@@ -942,6 +1188,85 @@ console.log('== resume-import messy resumes ==');
   // a bullet line is never taken as a job title
   const bulTitle = parseResumeText(['Jane Doe', 'Experience', '•Shipped the v2 API', 'Jan 2020 - Mar 2021'].join('\n'));
   ok('bullet not used as title', bulTitle.experience.length === 1 && !bulTitle.experience[0].title.startsWith('•'), JSON.stringify(bulTitle.experience[0]));
+}
+
+console.log('== resume-import new sections ==');
+{
+  const sample = [
+    'Jordan Lee',
+    '',
+    'Awards',
+    'Design Award of the Year, Interaction Awards, 2023',
+    '• For the onboarding flow that doubled trial-to-paid conversion.',
+    'Best Mobile App, Appy Awards, 2021',
+    '',
+    'Honors and Awards',
+    'Fellow, Design Leadership Forum, 2022',
+    '',
+    'Publications',
+    'Designing Onboarding People Actually Finish, UX Collective, 2023, https://uxcollective.example/onboarding',
+    'The State of Design Systems, Smashing Magazine, 2021',
+    '',
+    'Selected Publications',
+    'Motion with Meaning, 2020',
+    '',
+    'Volunteer Experience',
+    'Design Mentor, CodePath',
+    'Remote · 2020 – Present',
+    '• Mentor one cohort of early-career designers a year.',
+    '',
+    'Community Service',
+    'Park Cleanup Volunteer, Green City Org',
+    'Jan 2022 – Present',
+    '',
+    'Courses',
+    'Design Systems Masterclass, SuperHi, 2021',
+    'Advanced Prototyping, Coursera',
+    '',
+    'Training',
+    'Accessibility Fundamentals, Deque University, 2020',
+  ].join('\n');
+
+  const p = parseResumeText(sample);
+  ok('import finds awards', p.awards.length === 3, String(p.awards.length));
+  ok('award title/issuer/year split',
+    p.awards[0].title === 'Design Award of the Year' && p.awards[0].issuer === 'Interaction Awards' && p.awards[0].year === '2023',
+    JSON.stringify(p.awards[0]));
+  ok('award bullet becomes description', p.awards[0].description.includes('doubled trial-to-paid'), p.awards[0].description);
+  ok('"Honors and Awards" heading detected', p.awards[2].issuer === 'Design Leadership Forum' && p.awards[2].year === '2022', JSON.stringify(p.awards[2]));
+  ok('import finds publications', p.publications.length === 3, String(p.publications.length));
+  ok('publication title/publisher/year/link',
+    p.publications[0].title === 'Designing Onboarding People Actually Finish' &&
+    p.publications[0].publisher === 'UX Collective' && p.publications[0].year === '2023' &&
+    p.publications[0].link === 'https://uxcollective.example/onboarding',
+    JSON.stringify(p.publications[0]));
+  ok('"Selected Publications" heading detected', p.publications[2].title === 'Motion with Meaning' && p.publications[2].year === '2020', JSON.stringify(p.publications[2]));
+  ok('import finds volunteer roles', p.volunteer.length === 2, String(p.volunteer.length));
+  ok('volunteer reuses work shape (title/company/dates)',
+    p.volunteer[0].title === 'Design Mentor' && p.volunteer[0].company === 'CodePath' &&
+    p.volunteer[0].start === '2020' && p.volunteer[0].current === true && p.volunteer[0].bullets.length === 1,
+    JSON.stringify(p.volunteer[0]));
+  ok('"Community Service" maps to volunteer', p.volunteer[1].title === 'Park Cleanup Volunteer', p.volunteer[1].title);
+  ok('import finds courses', p.courses.length === 3, String(p.courses.length));
+  ok('course name/provider/year split',
+    p.courses[0].name === 'Design Systems Masterclass' && p.courses[0].provider === 'SuperHi' && p.courses[0].year === '2021',
+    JSON.stringify(p.courses[0]));
+  ok('"Training" heading detected', p.courses[2].name === 'Accessibility Fundamentals' && p.courses[2].year === '2020', JSON.stringify(p.courses[2]));
+
+  // mapping into ResumeData
+  const data = parsedToResumeData(p);
+  ok('mapped awards keep fields', data.awards.length === 3 && data.awards[0].issuer === 'Interaction Awards' && data.awards[0].description.length > 0);
+  ok('mapped publications keep link', data.publications[0].link === 'https://uxcollective.example/onboarding');
+  ok('mapped volunteer keeps bullets', data.volunteer.length === 2 && data.volunteer[0].bullets.length === 1);
+  ok('mapped courses keep provider', data.courses[0].provider === 'SuperHi');
+  ok('mapped data round-trips new sections', (() => {
+    const rt = deserialize(serialize(data));
+    return rt.awards.length === 3 && rt.publications.length === 3 && rt.volunteer.length === 2 && rt.courses.length === 3;
+  })());
+  ok('mapped entries have unique ids', (() => {
+    const ids = data.awards.map((e) => e.id).concat(data.publications.map((e) => e.id)).concat(data.volunteer.map((e) => e.id)).concat(data.courses.map((e) => e.id));
+    return ids.every((id) => typeof id === 'string' && id.length > 0) && new Set(ids).size === ids.length;
+  })());
 }
 
 console.log('== invoice-core ==');
@@ -1903,6 +2228,34 @@ console.log('== pdf2word-core ==');
   ok('document.xml contains the body text', docXml.includes('Body text with'));
   ok('heading uses a real Word heading style', docXml.includes('Heading1'), docXml.slice(0, 200));
   ok('image is embedded as a drawing', (docXml.match(/w:drawing/g) || []).length >= 1);
+
+  // Bold/italic runs survive into the .docx as character formatting.
+  const styled = groupItemsIntoLines([
+    item('Normal start ', 72, 700, 12, 'Helvetica'),
+    item('bold middle', 200, 700, 12, 'Helvetica-Bold'),
+    item(' and ', 300, 700, 12, 'Helvetica'),
+    item('italic end.', 340, 700, 12, 'Helvetica-Oblique'),
+  ]);
+  ok('styled items group into one line', styled.length === 1, String(styled.length));
+  ok('line text unchanged by styling', styled[0].text === 'Normal start bold middle and italic end.', styled[0].text);
+  ok('runs carry bold/italic flags',
+    styled[0].runs.some((r) => r.bold && r.text.includes('bold middle')) &&
+    styled[0].runs.some((r) => r.italic && r.text.includes('italic end')),
+    JSON.stringify(styled[0].runs));
+  const styledBlocks = linesToBlocks([styled]);
+  ok('blocks carry merged runs', styledBlocks[0][0].runs.length >= 3, String(styledBlocks[0][0].runs.length));
+  const styledBytes = await assembleDocx(
+    [{ pageIndex: 0, blocks: styledBlocks[0], images: [], textChars: 40 }],
+    'styled-doc'
+  );
+  const styledZip = await JSZip.loadAsync(styledBytes);
+  const styledXml = await styledZip.file('word/document.xml').async('string');
+  ok('docx marks the bold run with w:b', /<w:b(\s|\/|>)/.test(styledXml));
+  ok('docx marks the italic run with w:i', /<w:i(\s|\/|>)/.test(styledXml));
+  ok('docx keeps styled text', styledXml.includes('bold middle') && styledXml.includes('italic end'));
+  // Black/heavy/demi font names also count as bold.
+  const heavy = groupItemsIntoLines([item('Heavy stuff', 72, 700, 12, 'Arial-Black')]);
+  ok('black font name -> bold run', heavy[0].runs.some((r) => r.bold));
   await expectThrowAsync('empty pages throw', () => assembleDocx([], 'empty'), 'No extractable');
   await expectThrowAsync('textless imageless page throws', () =>
     assembleDocx([{ pageIndex: 0, blocks: [], images: [], textChars: 0 }], 'empty'), 'No extractable');
@@ -2067,8 +2420,18 @@ console.log('== element-id cross-checks (glue ids exist in pages) ==');
   checkGlueIds('src/tools/device-mockup-generator.ts', 'src/pages/device-mockup-generator.astro');
   checkGlueIds('src/tools/merge-pdf.ts', 'src/pages/merge-pdf.astro');
   checkGlueIds('src/tools/split-pdf.ts', 'src/pages/split-pdf.astro');
+  checkGlueIds('src/tools/images-to-pdf.ts', 'src/pages/images-to-pdf.astro');
+  checkGlueIds('src/tools/images-to-pdf.ts', 'src/pages/jpg-to-pdf.astro');
   checkGlueIds('src/tools/pdf-compressor.ts', 'src/pages/pdf-compressor.astro');
+  checkGlueIds('src/tools/pdf-to-jpg.ts', 'src/pages/pdf-to-jpg.astro');
+  checkGlueIds('src/tools/pdf-redactor.ts', 'src/pages/pdf-redactor.astro');
+  checkGlueIds('src/tools/pdf-esignature.ts', 'src/pages/pdf-esignature.astro');
+  checkGlueIds('src/tools/unlock-pdf.ts', 'src/pages/unlock-pdf.astro');
+  checkGlueIds('src/tools/protect-pdf.ts', 'src/pages/protect-pdf.astro');
   checkGlueIds('src/tools/pdf2word.ts', 'src/pages/pdf-to-word.astro');
+  checkGlueIds('src/tools/image-compressor.ts', 'src/pages/image-compressor.astro');
+  checkGlueIds('src/tools/image-converter.ts', 'src/pages/image-converter.astro');
+  checkGlueIds('src/tools/qr-generator.ts', 'src/pages/qr-generator.astro');
   checkGlueIds('src/tools/fake-data-generator.ts', 'src/pages/fake-data-generator.astro');
 }
 
@@ -2115,6 +2478,9 @@ console.log('== glue module smoke import (no top-level DOM access) ==');
     '../src/tools/device-mockup-generator.ts',
     '../src/tools/pdf2word.ts',
     '../src/tools/fake-data-generator.ts',
+    '../src/tools/unlock-pdf.ts',
+    '../src/tools/protect-pdf.ts',
+    '../src/tools/pyodide-loader.ts',
   ];
   for (const m of mods) {
     await import(m);
@@ -2151,6 +2517,11 @@ console.log('== built HTML: page scripts survived the build ==');
     ['device-mockup-generator', 'mockup-dropzone'],
     ['pdf-to-word', 'pdf2word-dropzone'],
     ['fake-data-generator', 'fakedata-col-list'],
+    ['split-pdf', 'every-page-btn'],
+    ['protect-pdf', 'protect-btn'],
+    // Note: images-to-pdf's page chunk is a 249b re-export shim; its code is
+    // hoisted into a chunk shared with jpg-to-pdf, so no marker can live in
+    // the page chunk. Its wiring is covered by checkGlueIds above.
   ];
   const distAudio = join(ROOT, 'dist', 'audio-trimmer', 'index.html');
   if (!existsSync(distAudio)) {
@@ -2210,10 +2581,12 @@ console.log('== responsive / mobile checks (static) ==');
   ok('page-picker checks grow on coarse pointers', /@media\s*\(\s*pointer:\s*coarse\s*\)[\s\S]*?\.pick-check\s*\{\s*width:\s*32px/.test(css));
   // Layouts stack instead of squeezing.
   ok('primary buttons go full width under 560px', /\.btn-row \.btn\s*\{\s*flex:\s*1 1 100%/.test(css));
-  ok('spec tables stack as cards on mobile', /\.content tr\s*\{\s*border:\s*1px solid var\(--line\)/.test(css));
+  // v5: spec tables stack as hairline rows on mobile, not boxed cards.
+  ok('spec tables stack as rows on mobile', /\.content tr\s*\{\s*border-bottom:\s*1px solid var\(--line\)/.test(css));
   ok('resume modern template stacks its sidebar', /\.resume-modern \.rs-mod\s*\{\s*grid-template-columns:\s*1fr/.test(css));
   ok('invoice header stacks on mobile', /\.inv-header\s*\{\s*flex-direction:\s*column/.test(css));
-  ok('footer stacks on mobile', /\.site-footer \.wrap\s*\{\s*flex-direction:\s*column/.test(css));
+  // v5: footer stacks as a column on mobile (new .wrap flex rule).
+  ok('footer stacks on mobile', /\.site-footer \.wrap[^{]*\{[^}]*flex-direction:\s*column/.test(css));
   ok('two-column tool layouts collapse (split-2col)', /@media\s*\(\s*max-width:\s*860px\s*\)\s*\{\s*\.split-2col\s*\{\s*grid-template-columns:\s*1fr/.test(css));
   ok('QR layout collapses (qr-layout)', /@media\s*\(\s*max-width:\s*760px\s*\)\s*\{\s*\.qr-layout\s*\{\s*grid-template-columns:\s*1fr/.test(css));
   // Canvases and media never overflow the viewport.

@@ -13,7 +13,7 @@ interface Props {
 
 const { title, description, canonical, noindex, jsonLd } = Astro.props;
 const site = siteUrl(Astro.site); // from SITE_URL env, placeholder until launch
-// Astro.url.pathname already includes the base path (e.g. /gratisbench/ on
+// Astro.url.pathname already includes the base path (e.g. /localpdf/ on
 // GitHub Pages), and `site` includes it too, so strip it before joining.
 // Otherwise the canonical doubles the path and points at a nonexistent page.
 const path = stripBase(Astro.url.pathname);
@@ -104,9 +104,14 @@ const pageUrl = canonical ?? site + path;
   <body>
     <header class="site-header">
       <div class="wrap">
-        <a class="brand" href={basePath('/')} aria-label="GratisBench home">
-          <span class="brand-mark" aria-hidden="true"></span>
-          GratisBench
+        <a class="brand" href={basePath('/')} aria-label="LocalPDF home">
+          <svg class="brand-mark" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+            <rect width="26" height="26" rx="6" fill="#b3242c" />
+            <path d="M9.5 6.5h5.8l4.2 4.2V20a1.5 1.5 0 0 1-1.5 1.5H9.5A1.5 1.5 0 0 1 8 20V8a1.5 1.5 0 0 1 1.5-1.5z" fill="#fff" />
+            <path d="M15.3 6.5v4.2h4.2" fill="none" stroke="#b3242c" stroke-width="1.6" stroke-linejoin="round" />
+            <path d="M11 14.5h5.5M11 17.5h5.5" stroke="#b3242c" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+          LocalPDF
         </a>
         <nav class="site-nav" id="fk-nav" aria-label="Main">
           <a href={basePath('/pdf-tools')}>PDF</a>
@@ -163,11 +168,18 @@ const pageUrl = canonical ?? site + path;
 
     <footer class="site-footer">
       <div class="wrap">
-        <a class="brand" href={basePath('/')}>
-          <span class="brand-mark" aria-hidden="true"></span>
-          GratisBench
-        </a>
-        <span class="fine">Built by Anurag. No cookies, no accounts.</span>
+        <div class="foot-top">
+          <a class="brand" href={basePath('/')} aria-label="LocalPDF home">
+            <svg class="brand-mark" width="22" height="22" viewBox="0 0 26 26" aria-hidden="true">
+              <rect width="26" height="26" rx="6" fill="#b3242c" />
+              <path d="M9.5 6.5h5.8l4.2 4.2V20a1.5 1.5 0 0 1-1.5 1.5H9.5A1.5 1.5 0 0 1 8 20V8a1.5 1.5 0 0 1 1.5-1.5z" fill="#fff" />
+              <path d="M15.3 6.5v4.2h4.2" fill="none" stroke="#b3242c" stroke-width="1.6" stroke-linejoin="round" />
+              <path d="M11 14.5h5.5M11 17.5h5.5" stroke="#b3242c" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+            LocalPDF
+          </a>
+        </div>
+        <p class="foot-fine">Built by Anurag. No cookies, no accounts.</p>
         <nav aria-label="Footer">
           <a href={basePath('/pdf-tools')}>PDF tools</a>
           <a href={basePath('/image-tools')}>Image tools</a>
@@ -175,7 +187,6 @@ const pageUrl = canonical ?? site + path;
           <a href={basePath('/business-tools')}>Business tools</a>
           <a href={basePath('/money-tools')}>Money tools</a>
           <a href={basePath('/design-tools')}>Design tools</a>
-          <a href={basePath('/business-profile')}>Business profile</a>
           <a href={basePath('/resume-builder')}>Resume builder</a>
           <a href={basePath('/qr-generator')}>QR code generator</a>
           <a href={basePath('/fake-data-generator')}>Fake data generator</a>

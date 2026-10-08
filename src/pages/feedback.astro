@@ -3,22 +3,22 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { basePath, GITHUB_REPO } from '../lib/site';
 import { TOOL_GROUPS } from '../lib/tools';
 
-const title = 'Feedback - GratisBench Free Tools';
+const title = 'Feedback - LocalPDF Free Tools';
 const description =
-  'Report a bug, request a feature, or suggest a tool for the GratisBench free tools. Feedback opens as a GitHub issue so it stays public and trackable.';
+  'Report a bug, request a feature, or suggest a tool for the LocalPDF free tools. Feedback opens as a GitHub issue so it stays public and trackable.';
 ---
 
 <BaseLayout title={title} description={description}>
   <div class="wrap">
     <div class="page-head">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href={basePath('/')}>GratisBench</a>
+        <a href={basePath('/')}>LocalPDF</a>
         <span><span class="sep">/</span>Feedback</span>
       </nav>
       <h1>Feedback</h1>
       <p class="tool-desc">
         Found a bug, want a feature, or have a tool idea? Write it below. It
-        opens as a GitHub issue on the GratisBench repo so it stays public and
+        opens as a GitHub issue on the LocalPDF repo so it stays public and
         trackable. You need a GitHub account to post.
       </p>
     </div>
@@ -71,7 +71,7 @@ const description =
       </label>
 
       <button type="submit" class="btn">Open GitHub issue</button>
-      <p class="fine">
+      <p class="form-note">
         This opens github.com/{GITHUB_REPO} with your text prefilled. Nothing
         is sent until you submit the issue there.
       </p>
@@ -83,6 +83,7 @@ const description =
     .feedback-form label { display: grid; gap: 0.4rem; }
     .feedback-form label > span { font-weight: 600; font-size: 0.9rem; }
     .feedback-form .btn { justify-self: start; }
+    .feedback-form .form-note { color: var(--muted); font-size: 0.88rem; margin: 0; max-width: 60ch; }
   </style>
 
   <script define:vars={{ repo: GITHUB_REPO }}>
@@ -99,7 +100,7 @@ const description =
       const lines = ['Category: ' + category];
       if (tool) lines.push('Tool: ' + tool);
       if (contact) lines.push('Contact: ' + contact);
-      lines.push('', message, '', '---', 'Sent from the GratisBench feedback page.');
+      lines.push('', message, '', '---', 'Sent from the LocalPDF feedback page.');
       const url =
         'https://github.com/' +
         repo +

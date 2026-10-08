@@ -97,3 +97,31 @@ Neutral palette kept from v4. Deliberately skipped:
 - Contrast audit: every themed text color now clears WCAG AA 4.5:1 in both
   themes. Light-mode `--faint` was #8a8a8a on white (3.4:1, fail); it is now
   #767676 (4.5:1). The check runs in the verify script so it cannot regress.
+
+## v5 (2026-10-07): "a real product"
+
+The v4 "brutally plain" read as unfinished rather than human. v5 keeps
+everything v4 stood for (system type, flat colors, no webfonts, no
+gradients/glow/texture, visible authorship, tool-first pages, dark mode,
+reading-comfort modes, no cookies/accounts/tracking) and adds the one
+thing real products have: a single deliberate brand choice.
+
+- **PDF red (#b3242c)** is the one accent, used only where the user acts:
+  primary buttons, dropzone hover/drag, checked/selected states, the brand
+  mark. Red is the universal color of PDF (Acrobat, file icons); it has a
+  product reason. Links stay blue (#1a0dab), everything else is ink on paper.
+- **Real brand mark:** folded-document glyph in red, in the header, footer,
+  and favicon (replacing the placeholder black square).
+- **Tool pages:** the dropzone is now the single biggest element
+  (min-height 210px, 2px dashed, 1.25rem title). Breadcrumb, big h1
+  (clamp 1.9-2.6rem), one-line lede, trust row with red ticks, then the tool.
+  The duplicate privacy line was folded into the trust row.
+- **Panels got lighter:** hairline var(--line) borders instead of the heavy
+  black rule; spec tables stack as hairline rows (not boxed cards) on mobile.
+- **Footer:** brand + one fine-print line ("Built by Anurag. No cookies, no
+  accounts.") + tool links. No "no tracking" claim (analytics may be on).
+- Homepage copy trimmed; the tool index, QR demo, dark mode, a11y panel,
+  ad slots, and all component class hooks are unchanged.
+- verify-tools.mjs: two checks updated to the intentional new design
+  (spec tables stack as rows; footer stacks via the new .wrap flex rule).
+  The contrast audit still gates every themed color, including the accent.
