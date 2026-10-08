@@ -96,7 +96,7 @@ interface Glyph {
 const GLYPH_KEY = 'truepdf-hw-glyphs-v1';
 const glyphCache = new Map<string, Glyph>();
 
-export const DRAW_CHARSET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+export const DRAW_CHARSET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?\'"—-:;()@#&*+=/%';
 
 function readGlyphStore(): Record<string, { url: string; aspect: number }> {
   try {
@@ -460,9 +460,9 @@ function initDrawPanel(): void {
 
   const label = () => {
     const ch = DRAW_CHARSET[idx];
-    el('hw-draw-label').textContent = `${ch} — letter ${idx + 1} of ${DRAW_CHARSET.length}`;
+    el('hw-draw-label').textContent = `${ch} — character ${idx + 1} of ${DRAW_CHARSET.length}`;
     el('hw-draw-count').textContent =
-      `${glyphCount()} of ${DRAW_CHARSET.length} letters drawn. Undrawn letters use the Casual style.`;
+      `${glyphCount()} of ${DRAW_CHARSET.length} characters drawn. Undrawn characters use the Casual style.`;
   };
 
   const loadLetter = () => {
@@ -591,7 +591,7 @@ function setStatusLite(msg: string): void {
   el('hw-draw-count').textContent = msg;
   setTimeout(() => {
     el('hw-draw-count').textContent =
-      `${glyphCount()} of ${DRAW_CHARSET.length} letters drawn. Undrawn letters use the Casual style.`;
+      `${glyphCount()} of ${DRAW_CHARSET.length} characters drawn. Undrawn characters use the Casual style.`;
   }, 1200);
 }
 
@@ -659,15 +659,11 @@ async function renderLivePreview(): Promise<void> {
   const wrap = document.getElementById('hw-live-wrap');
   const img = document.getElementById('hw-live-img') as HTMLImageElement | null;
   if (!wrap || !img) return;
-  try {
-    await loadFonts();
-    const opts = currentOpts();
-    await ensureStyleFont(opts.style);
-    img.src = renderLiveSample(opts);
-    wrap.hidden = false;
-  } catch {
-    /* the preview is a bonus; the real render still works */
-  }
+  await loadFonts();
+  const opts = currentOpts();
+  await ensureStyleFont(opts.style);
+  img.src = renderLiveSample(opts);
+  wrap.hidden = false;
 }
 
 function currentOpts(): HwOpts {
@@ -904,15 +900,15 @@ export function initHandwriting(): void {
   if (document.getElementById('hw-draw-canvas')) {
     initDrawPanel();
     toggleDrawSection();
-    document.querySelectorAll('input[name="hw-style"]').forEach((r) =>
-      r.addEventListener('change', () => {
-        toggleDrawSection();
-        scheduleLivePreview();
-      })
-    );
     // Warm saved drawings so the preview and output use them on first paint.
     void preloadGlyphs().then(() => scheduleLivePreview());
   }
+  document.querySelectorAll('input[name="hw-style"]').forEach((r) =>
+    r.addEventListener('change', () => {
+      toggleDrawSection();
+      scheduleLivePreview();
+    })
+  );
   document.querySelectorAll('input[name="hw-ink"], input[name="hw-paper"]').forEach((r) =>
     r.addEventListener('change', scheduleLivePreview)
   );
