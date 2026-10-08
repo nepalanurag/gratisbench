@@ -67,12 +67,12 @@ export function initVideoTrimmer(): void {
       `${f.name} · ${formatBytes(f.size)}` + (duration > 0 ? ` · ${formatTime(duration)}` : '');
     if (duration <= 0) {
       showError('error-box', 'Could not read that video. Try a different file.');
-      el('trim-btn').disabled = true;
+      el<HTMLButtonElement>('trim-btn').disabled = true;
       return;
     }
     el<HTMLInputElement>('start-input').value = '0:00.0';
     el<HTMLInputElement>('end-input').value = formatTime(duration);
-    el('trim-btn').disabled = false;
+    el<HTMLButtonElement>('trim-btn').disabled = false;
     refreshHint();
     status.hidden = false;
     status.textContent = 'Loading the video engine (about 30MB, first use only)…';
@@ -98,10 +98,14 @@ export function initVideoTrimmer(): void {
     }
     setBusy('trim-btn', true, 'Trimming…');
     setProgress(0, 'Starting…');
+    // Hoisted so finally can clean up MEMFS even on failure. Without it,
+    // a leftover output file makes the next run hit ffmpeg's overwrite
+    // prompt — and with no stdin in wasm, exec() hangs forever silently.
+    let ffmpeg: import('@ffmpeg/ffmpeg').FFmpeg | null = null;
+    const inName = 'input' + extOf(file.name);
+    const outName = 'output.mp4';
     try {
-      const ffmpeg = await loadFFmpeg();
-      const inName = 'input' + extOf(file.name);
-      const outName = 'output.mp4';
+      ffmpeg = await loadFFmpeg();
       await ffmpeg.writeFile(inName, await fetchFileBytes(file));
       ffmpeg.on('progress', ({ progress }) => {
         const pct = Math.round(progress * 100);
@@ -110,15 +114,13 @@ export function initVideoTrimmer(): void {
       const keep = String(range.end - range.start);
       const args = fastMode()
         ? // Stream copy: instant, no quality loss, but cuts land on keyframes.
-          ['-ss', String(range.start), '-i', inName, '-t', keep, '-c', 'copy', outName]
+          ['-y', '-ss', String(range.start), '-i', inName, '-t', keep, '-c', 'copy', outName]
         : // Re-encode: exact cuts, slower, tiny quality cost.
-          ['-ss', String(range.start), '-i', inName, '-t', keep,
+          ['-y', '-ss', String(range.start), '-i', inName, '-t', keep,
            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
            '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', outName];
       await ffmpeg.exec(args);
       const data = (await ffmpeg.readFile(outName)) as Uint8Array;
-      await ffmpeg.deleteFile(inName);
-      await ffmpeg.deleteFile(outName);
       const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
       const name = withExtension(file.name.replace(/(\.\w+)?$/, '-trimmed$1'), 'mp4');
       downloadBytes(name, out, 'video/mp4');
@@ -128,6 +130,10 @@ export function initVideoTrimmer(): void {
     } catch (err) {
       showError('error-box', ffmpegErrorMessage(err));
     } finally {
+      if (ffmpeg) {
+        await ffmpeg.deleteFile(inName).catch(() => {});
+        await ffmpeg.deleteFile(outName).catch(() => {});
+      }
       setBusy('trim-btn', false);
     }
   });

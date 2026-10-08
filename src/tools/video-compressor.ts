@@ -70,7 +70,7 @@ export function initVideoCompressor(): void {
     el('preview-wrap').hidden = false;
     el('file-info').textContent =
       `${f.name} · ${formatBytes(f.size)}` + (duration > 0 ? ` · ${formatTime(duration)}` : '');
-    el('compress-btn').disabled = duration <= 0;
+    el<HTMLButtonElement>('compress-btn').disabled = duration <= 0;
     if (duration <= 0) {
       showError('error-box', 'Could not read that video. Try a different file.');
     }
@@ -92,13 +92,18 @@ export function initVideoCompressor(): void {
     el('result').hidden = true;
     setBusy('compress-btn', true, 'Compressing…');
     setProgress(0, 'Starting…');
+    // Hoisted so the finally block can clean up MEMFS even on failure.
+    // Without cleanup, a leftover output file makes the next run hit
+    // ffmpeg's overwrite prompt — and with no stdin in wasm, exec()
+    // hangs forever with no error (the "starts but never finishes" bug).
+    let ffmpeg: import('@ffmpeg/ffmpeg').FFmpeg | null = null;
+    const inName = 'input' + extOf(file.name);
+    const outName = 'output.mp4';
     try {
-      const ffmpeg = await loadFFmpeg();
+      ffmpeg = await loadFFmpeg();
       const vkb = estimateVideoBitrateKbps(mbToBytes(targetMB()), duration);
       const maxrate = Math.ceil(vkb * 1.5);
       const bufsize = vkb * 2;
-      const inName = 'input' + extOf(file.name);
-      const outName = 'output.mp4';
       await ffmpeg.writeFile(inName, await fetchFileBytes(file));
       ffmpeg.on('progress', ({ progress }) => {
         const pct = Math.round(progress * 100);
@@ -107,7 +112,9 @@ export function initVideoCompressor(): void {
       // Single pass with a computed target bitrate. True two-pass encoding is
       // possible but much slower in a browser for little visible gain, so this
       // tool does one careful pass instead.
+      // '-y': overwrite without prompting (see the hoisted-cleanup note above).
       await ffmpeg.exec([
+        '-y',
         '-i', inName,
         '-c:v', 'libx264', '-preset', 'veryfast',
         '-b:v', `${vkb}k`, '-maxrate', `${maxrate}k`, '-bufsize', `${bufsize}k`,
@@ -117,8 +124,6 @@ export function initVideoCompressor(): void {
         outName,
       ]);
       const data = (await ffmpeg.readFile(outName)) as Uint8Array;
-      await ffmpeg.deleteFile(inName);
-      await ffmpeg.deleteFile(outName);
       const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
       const name = withExtension(file.name.replace(/(\.\w+)?$/, '-compressed$1'), 'mp4');
       downloadBytes(name, out, 'video/mp4');
@@ -129,6 +134,10 @@ export function initVideoCompressor(): void {
     } catch (err) {
       showError('error-box', ffmpegErrorMessage(err));
     } finally {
+      if (ffmpeg) {
+        await ffmpeg.deleteFile(inName).catch(() => {});
+        await ffmpeg.deleteFile(outName).catch(() => {});
+      }
       setBusy('compress-btn', false);
     }
   });

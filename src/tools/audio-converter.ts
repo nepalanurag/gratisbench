@@ -43,7 +43,7 @@ export function initAudioConverter(): void {
     if (!f) return;
     file = f;
     el('file-info').textContent = `${f.name} · ${formatBytes(f.size)}`;
-    el('convert-btn').disabled = false;
+    el<HTMLButtonElement>('convert-btn').disabled = false;
     // Start loading the engine in the background while the user picks options.
     status.hidden = false;
     status.textContent = 'Loading the audio engine (about 30MB, first use only)…';
@@ -62,28 +62,30 @@ export function initAudioConverter(): void {
     el('result').hidden = true;
     setBusy('convert-btn', true, 'Converting…');
     setProgress(0, 'Starting…');
+    // Hoisted so finally can clean up MEMFS even on failure. Without it,
+    // a leftover output file makes the next run hit ffmpeg's overwrite
+    // prompt — and with no stdin in wasm, exec() hangs forever silently.
+    let ffmpeg: import('@ffmpeg/ffmpeg').FFmpeg | null = null;
+    const fmt = selectedFormat();
+    const kbps = el<HTMLSelectElement>('quality-select').value;
+    const inName = 'input' + extOf(file.name);
+    const outName = 'output.' + fmt;
     try {
-      const ffmpeg = await loadFFmpeg();
-      const fmt = selectedFormat();
-      const kbps = el<HTMLSelectElement>('quality-select').value;
-      const inName = 'input' + extOf(file.name);
-      const outName = 'output.' + fmt;
+      ffmpeg = await loadFFmpeg();
       await ffmpeg.writeFile(inName, await fetchFileBytes(file));
 
       const args =
         fmt === 'mp3'
-          ? ['-i', inName, '-c:a', 'libmp3lame', '-b:a', `${kbps}k`, outName]
+          ? ['-y', '-i', inName, '-c:a', 'libmp3lame', '-b:a', `${kbps}k`, outName]
           : fmt === 'ogg'
-            ? ['-i', inName, '-c:a', 'libvorbis', '-b:a', `${kbps}k`, outName]
-            : ['-i', inName, '-c:a', 'pcm_s16le', outName];
+            ? ['-y', '-i', inName, '-c:a', 'libvorbis', '-b:a', `${kbps}k`, outName]
+            : ['-y', '-i', inName, '-c:a', 'pcm_s16le', outName];
 
       ffmpeg.on('progress', ({ progress }) => {
         setProgress(Math.round(progress * 100), `Converting… ${Math.round(progress * 100)}%`);
       });
       await ffmpeg.exec(args);
       const data = (await ffmpeg.readFile(outName)) as Uint8Array;
-      await ffmpeg.deleteFile(inName);
-      await ffmpeg.deleteFile(outName);
 
       const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
       const name = withExtension(file.name, fmt);
@@ -94,6 +96,10 @@ export function initAudioConverter(): void {
     } catch (err) {
       showError('error-box', ffmpegErrorMessage(err));
     } finally {
+      if (ffmpeg) {
+        await ffmpeg.deleteFile(inName).catch(() => {});
+        await ffmpeg.deleteFile(outName).catch(() => {});
+      }
       setBusy('convert-btn', false);
     }
   });

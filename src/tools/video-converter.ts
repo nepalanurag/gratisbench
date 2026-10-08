@@ -39,7 +39,7 @@ export function initVideoConverter(): void {
     if (!f) return;
     file = f;
     el('file-info').textContent = `${f.name} · ${formatBytes(f.size)}`;
-    el('convert-btn').disabled = false;
+    el<HTMLButtonElement>('convert-btn').disabled = false;
     status.hidden = false;
     status.textContent = 'Loading the video engine (about 30MB, first use only)…';
     try {
@@ -57,11 +57,15 @@ export function initVideoConverter(): void {
     el('result').hidden = true;
     setBusy('convert-btn', true, 'Converting…');
     setProgress(0, 'Starting…');
+    // Hoisted so finally can clean up MEMFS even on failure. Without it,
+    // a leftover output file makes the next run hit ffmpeg's overwrite
+    // prompt — and with no stdin in wasm, exec() hangs forever silently.
+    let ffmpeg: import('@ffmpeg/ffmpeg').FFmpeg | null = null;
+    const fmt = selectedFormat();
+    const inName = 'input' + extOf(file.name);
+    const outName = 'output.' + fmt;
     try {
-      const ffmpeg = await loadFFmpeg();
-      const fmt = selectedFormat();
-      const inName = 'input' + extOf(file.name);
-      const outName = 'output.' + fmt;
+      ffmpeg = await loadFFmpeg();
       await ffmpeg.writeFile(inName, await fetchFileBytes(file));
       ffmpeg.on('progress', ({ progress }) => {
         const pct = Math.round(progress * 100);
@@ -69,17 +73,15 @@ export function initVideoConverter(): void {
       });
       const args =
         fmt === 'mp4'
-          ? ['-i', inName, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+          ? ['-y', '-i', inName, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
              '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', outName]
           : fmt === 'webm'
-            ? ['-i', inName, '-c:v', 'libvpx', '-b:v', '0', '-crf', '28',
+            ? ['-y', '-i', inName, '-c:v', 'libvpx', '-b:v', '0', '-crf', '28',
                '-deadline', 'good', '-cpu-used', '5', '-c:a', 'libvorbis', outName]
-            : ['-i', inName, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+            : ['-y', '-i', inName, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
                '-pix_fmt', 'yuv420p', '-c:a', 'aac', outName];
       await ffmpeg.exec(args);
       const data = (await ffmpeg.readFile(outName)) as Uint8Array;
-      await ffmpeg.deleteFile(inName);
-      await ffmpeg.deleteFile(outName);
       const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
       const name = withExtension(file.name, fmt);
       downloadBytes(name, out, MIME[fmt]);
@@ -89,6 +91,10 @@ export function initVideoConverter(): void {
     } catch (err) {
       showError('error-box', ffmpegErrorMessage(err));
     } finally {
+      if (ffmpeg) {
+        await ffmpeg.deleteFile(inName).catch(() => {});
+        await ffmpeg.deleteFile(outName).catch(() => {});
+      }
       setBusy('convert-btn', false);
     }
   });
