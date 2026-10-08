@@ -12,7 +12,31 @@ import {
   imagesToPdf,
   getPageCount,
   extractPages,
+  flattenPdf,
+  repairPdf,
+  flattenedFileName,
+  repairedFileName,
 } from '../src/lib/pdf-core.ts';
+import {
+  extractEmbeddedImages,
+  extractedImageFileName,
+} from '../src/lib/pdf-extract.ts';
+import {
+  assembleSearchablePdf,
+  pixelBoxToPoints,
+  ocrFileName,
+} from '../src/lib/pdf-ocr.ts';
+import {
+  readPdfMetadata,
+  writePdfMetadata,
+  metadataIsEmpty,
+  metadataFileName,
+} from '../src/lib/pdf-meta.ts';
+import {
+  listFormFields,
+  fillFormFields,
+  filledFormFileName,
+} from '../src/lib/pdf-forms.ts';
 import { makeQrPng, makeQrSvg } from '../src/lib/qr-core.ts';
 import {
   compressPdfImages,
@@ -726,6 +750,98 @@ console.log('== pdf-images helpers ==');
   ok('valid options pass', !threw);
 }
 
+console.log('== pdf-extract / pdf-ocr / pdf-meta / pdf-forms / flatten / repair ==');
+{
+  // Extract: a PDF with one embedded PNG image.
+  const idoc = await PDFDocument.create();
+  const ipage = idoc.addPage([595, 842]);
+  const pngBytes = makePng(37, 21, 200, 100, 50);
+  ipage.drawImage(await idoc.embedPng(pngBytes), { x: 50, y: 500, width: 37, height: 21 });
+  const found = await extractEmbeddedImages(await idoc.save());
+  ok('extracts the embedded PNG', found.length === 1, `got ${found.length}`);
+  ok('extracted dims match', found[0].width === 37 && found[0].height === 21, `got ${found[0].width}x${found[0].height}`);
+  ok('extracted image tagged with page 1', found[0].page === 1);
+  ok('embedded PNG comes back as rgba', found[0].kind === 'rgba');
+  ok('rgba pixels are opaque', found[0].kind === 'rgba' && found[0].data[3] === 255);
+  ok('extractedImageFileName png', extractedImageFileName(0, 'rgba') === 'image-1.png');
+  ok('extractedImageFileName jpg', extractedImageFileName(2, 'jpeg') === 'image-3.jpg');
+  const noImg = await extractEmbeddedImages(await makePdf(2, 'N'));
+  ok('text-only PDF yields no images', noImg.length === 0);
+
+  // OCR assembly: keep page 1, rebuild page 2 from an image + words.
+  const src = await makePdf(2, 'T');
+  const box = pixelBoxToPoints({ x0: 100, y0: 200, x1: 300, y1: 240 }, 2);
+  ok('pixelBoxToPoints divides by scale', box.x === 50 && box.y === 100 && box.w === 100 && box.h === 20, JSON.stringify(box));
+  const searchable = await assembleSearchablePdf(src, [
+    { kind: 'keep', sourceIndex: 0 },
+    {
+      kind: 'ocr',
+      image: { data: makePng(60, 84, 255, 255, 255), mime: 'image/png' },
+      words: [{ text: 'hello', x: 10, y: 10, w: 40, h: 10 }],
+      widthPt: 595,
+      heightPt: 842,
+    },
+  ]);
+  const odoc = await PDFDocument.load(searchable);
+  ok('searchable PDF keeps page count', odoc.getPageCount() === 2);
+  const ocrPage = odoc.getPage(1);
+  const xobjs = ocrPage.node.Resources()?.lookupMaybe((await import('pdf-lib')).PDFName.of('XObject'), (await import('pdf-lib')).PDFDict);
+  ok('OCR page embeds the page image', !!xobjs && xobjs.keys().length > 0);
+  await expectThrowAsync('empty plans throws', async () => assembleSearchablePdf(src, []), 'Nothing to assemble');
+  ok('ocrFileName', ocrFileName('report') === 'report-searchable.pdf');
+
+  // Metadata round trip. (pdf-lib stamps Creator on save, so only the four
+  // user-facing fields are asserted empty on a fresh file.)
+  const meta0 = await readPdfMetadata(src);
+  ok('fresh file has no title/author/subject/keywords', meta0.title === '' && meta0.author === '' && meta0.subject === '' && meta0.keywords === '', JSON.stringify(meta0));
+  ok('metadataIsEmpty on a clean record', metadataIsEmpty({ title: '', author: '', subject: '', keywords: '', creator: '' }));
+  const metaBytes = await writePdfMetadata(src, { title: 'My Title', author: 'Jane', subject: 'Sub', keywords: 'a, b', creator: 'Me' });
+  const metaBack = await readPdfMetadata(metaBytes);
+  ok('title round-trips', metaBack.title === 'My Title', metaBack.title);
+  ok('author round-trips', metaBack.author === 'Jane');
+  ok('subject round-trips', metaBack.subject === 'Sub');
+  ok('keywords round-trip as a list', metaBack.keywords === 'a b', metaBack.keywords);
+  ok('creator round-trips', metaBack.creator === 'Me');
+  ok('metadataFileName', metadataFileName('report') === 'report-metadata.pdf');
+
+  // Forms: list, fill, flatten.
+  const fdoc = await PDFDocument.create();
+  fdoc.addPage([595, 842]);
+  const form = fdoc.getForm();
+  const tf = form.createTextField('name');
+  tf.addToPage(fdoc.getPage(0), { x: 50, y: 700, width: 200, height: 24 });
+  const cb = form.createCheckBox('agree');
+  cb.addToPage(fdoc.getPage(0), { x: 50, y: 650, width: 16, height: 16 });
+  const dd = form.createDropdown('color');
+  dd.addOptions(['red', 'green', 'blue']);
+  dd.addToPage(fdoc.getPage(0), { x: 50, y: 600, width: 150, height: 24 });
+  const formBytes = await fdoc.save();
+  const listed = await listFormFields(formBytes);
+  ok('lists 3 fields', listed.length === 3, `got ${listed.length}`);
+  ok('text field typed', listed.find((f) => f.name === 'name')?.type === 'text');
+  ok('checkbox typed', listed.find((f) => f.name === 'agree')?.type === 'checkbox');
+  ok('dropdown typed with options', JSON.stringify(listed.find((f) => f.name === 'color')?.options) === '["red","green","blue"]');
+  ok('no-form PDF lists zero fields', (await listFormFields(await makePdf(1, 'X'))).length === 0);
+  const filled = await fillFormFields(formBytes, { name: 'Jane', agree: true, color: 'green' }, false);
+  const filledBack = await listFormFields(filled);
+  ok('text value saved', filledBack.find((f) => f.name === 'name')?.value === 'Jane');
+  ok('checkbox saved', filledBack.find((f) => f.name === 'agree')?.value === true);
+  ok('dropdown saved', filledBack.find((f) => f.name === 'color')?.value === 'green');
+  const flat = await fillFormFields(formBytes, { name: 'Jane' }, true);
+  ok('flatten-on-fill removes fields', (await listFormFields(flat)).length === 0);
+  ok('filledFormFileName', filledFormFileName('form') === 'form-filled.pdf');
+
+  // flattenPdf / repairPdf.
+  const flattened = await flattenPdf(formBytes);
+  ok('flattenPdf output loads with page count', (await PDFDocument.load(flattened)).getPageCount() === 1);
+  await expectThrowAsync('flattenPdf rejects field-less PDF', async () => flattenPdf(await makePdf(1, 'X')), 'no form fields');
+  const repaired = await repairPdf(await makePdf(4, 'D'));
+  ok('repairPdf round-trips a healthy file', (await PDFDocument.load(repaired)).getPageCount() === 4);
+  await expectThrowAsync('repairPdf rejects garbage', async () => repairPdf(new Uint8Array([1, 2, 3, 4, 5])), 'could not be repaired');
+  ok('flattenedFileName', flattenedFileName('form') === 'form-flattened.pdf');
+  ok('repairedFileName', repairedFileName('doc') === 'doc-repaired.pdf');
+}
+
 console.log('== image-core ==');
 {
   ok('mime png wins', detectInputKind('photo', 'image/png') === 'png');
@@ -1188,6 +1304,23 @@ console.log('== resume-import messy resumes ==');
   // a bullet line is never taken as a job title
   const bulTitle = parseResumeText(['Jane Doe', 'Experience', '•Shipped the v2 API', 'Jan 2020 - Mar 2021'].join('\n'));
   ok('bullet not used as title', bulTitle.experience.length === 1 && !bulTitle.experience[0].title.startsWith('•'), JSON.stringify(bulTitle.experience[0]));
+
+  // wrapped bullet continuations are joined, not split into fragments
+  const wrap = parseResumeText(['Jane Doe', 'Experience', 'ML Engineer, Corp', 'Jan 2021 - Present',
+    '• Engineered a system to detect Covid-19 in CT scans through machine learning',
+    'algorithms, reducing segmentation time.'].join('\n'));
+  ok('wrapped bullet joined', wrap.experience[0].bullets.length === 1 &&
+    wrap.experience[0].bullets[0] === 'Engineered a system to detect Covid-19 in CT scans through machine learning algorithms, reducing segmentation time.',
+    JSON.stringify(wrap.experience[0].bullets));
+
+  // awards hiding in the education section move to Awards
+  const awd = parseResumeText(['Jane Doe', 'Education', 'B.S. Computer Science, State University, 2019',
+    'Distinguished Graduate Award, 2019'].join('\n'));
+  ok('award pulled from education', awd.awards.length === 1 && awd.awards[0].title === 'Distinguished Graduate Award' && awd.awards[0].year === '2019',
+    JSON.stringify(awd.awards));
+  ok('education year not a school', awd.education.length === 1 && awd.education[0].school === 'State University' &&
+    awd.education[0].degree === 'B.S. Computer Science' && awd.education[0].end === '2019',
+    JSON.stringify(awd.education));
 }
 
 console.log('== resume-import new sections ==');
@@ -2434,6 +2567,15 @@ console.log('== element-id cross-checks (glue ids exist in pages) ==');
   checkGlueIds('src/tools/image-converter.ts', 'src/pages/image-converter.astro');
   checkGlueIds('src/tools/qr-generator.ts', 'src/pages/qr-generator.astro');
   checkGlueIds('src/tools/fake-data-generator.ts', 'src/pages/fake-data-generator.astro');
+  checkGlueIds('src/tools/ocr-pdf.ts', 'src/pages/ocr-pdf.astro');
+  checkGlueIds('src/tools/extract-images.ts', 'src/pages/extract-images.astro');
+  checkGlueIds('src/tools/extract-text.ts', 'src/pages/extract-text.astro');
+  checkGlueIds('src/tools/edit-pdf-metadata.ts', 'src/pages/edit-pdf-metadata.astro');
+  checkGlueIds('src/tools/fill-pdf-form.ts', 'src/pages/fill-pdf-form.astro');
+  checkGlueIds('src/tools/flatten-pdf.ts', 'src/pages/flatten-pdf.astro');
+  checkGlueIds('src/tools/repair-pdf.ts', 'src/pages/repair-pdf.astro');
+  checkGlueIds('src/tools/pdf-workspace.ts', 'src/pages/pdf-editor.astro');
+  checkGlueIds('src/tools/pdf-handwriting.ts', 'src/pages/pdf-to-handwriting.astro');
 }
 
 console.log('== glue module smoke import (no top-level DOM access) ==');
@@ -2477,6 +2619,13 @@ console.log('== glue module smoke import (no top-level DOM access) ==');
     '../src/tools/logo-maker.ts',
     '../src/tools/og-image-generator.ts',
     '../src/tools/device-mockup-generator.ts',
+    '../src/tools/ocr-pdf.ts',
+    '../src/tools/extract-images.ts',
+    '../src/tools/extract-text.ts',
+    '../src/tools/edit-pdf-metadata.ts',
+    '../src/tools/fill-pdf-form.ts',
+    '../src/tools/flatten-pdf.ts',
+    '../src/tools/repair-pdf.ts',
     '../src/tools/pdf2word.ts',
     '../src/tools/fake-data-generator.ts',
     '../src/tools/unlock-pdf.ts',
@@ -2643,7 +2792,7 @@ console.log('== responsive / mobile checks (static) ==');
   ok('unlock page notes the one-time engine download', /one-time/.test(unlockPage));
   ok('unlock tool is listed on the PDF tools hub', readFileSync(join(ROOT, 'src/pages/pdf-tools.astro'), 'utf8').includes('/unlock-pdf'));
   ok('unlock PDF is in the sitemap', /import\.meta\.glob\('\.\/\*\.astro'\)/.test(readFileSync(join(ROOT, 'src/pages/sitemap.xml.ts'), 'utf8')) && existsSync(join(ROOT, 'src/pages/unlock-pdf.astro')));
-  ok('homepage counts 32 tools', /32 small tools/.test(index));
+  ok('homepage counts 39 tools', /39 small tools/.test(index));
   for (const [page, tool] of [['merge-pdf', 'merge-pdf'], ['images-to-pdf', 'images-to-pdf'], ['pdf-compressor', 'pdf-compressor']]) {
     const p = readFileSync(join(ROOT, `src/pages/${page}.astro`), 'utf8');
     const t = readFileSync(join(ROOT, `src/tools/${tool}.ts`), 'utf8');
