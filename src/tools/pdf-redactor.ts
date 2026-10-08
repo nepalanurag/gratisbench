@@ -120,7 +120,7 @@ export function initPdfRedactor(): void {
         clearBtn.type = 'button';
         clearBtn.className = 'link-btn';
         clearBtn.textContent = 'Clear marks';
-        label.append(labelText, clearBtn);
+        label.append(labelText);
         const stage = document.createElement('div');
         stage.className = 'redact-stage';
         const overlay = document.createElement('div');
@@ -143,6 +143,16 @@ export function initPdfRedactor(): void {
           drawRects(state);
           updateCounts();
         });
+        const undoBtn = document.createElement('button');
+        undoBtn.type = 'button';
+        undoBtn.className = 'link-btn';
+        undoBtn.textContent = 'Undo last';
+        undoBtn.addEventListener('click', () => {
+          state.rects.pop();
+          drawRects(state);
+          updateCounts();
+        });
+        label.append(labelText, undoBtn, clearBtn);
 
         let drawing: { x0: number; y0: number } | null = null;
         let ghost: HTMLElement | null = null;
