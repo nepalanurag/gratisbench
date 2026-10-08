@@ -199,6 +199,13 @@ async function renderThumbsIncremental(): Promise<void> {
   }
 }
 
+/** Re-render all thumbnails (e.g. after watermark/page number settings change). */
+async function refreshAllThumbs(): Promise<void> {
+  for (const item of pages) item.thumb = null;
+  renderGrid();
+  await renderThumbsIncremental();
+}
+
 async function renderThumb(item: PageItem): Promise<string> {
   const doc = docOf(item);
   const page = await doc.jsDoc.getPage(item.pageIndex + 1);
@@ -211,6 +218,9 @@ async function renderThumb(item: PageItem): Promise<string> {
   const viewport = page.getViewport({ scale, rotation: item.rotation });
   const canvas = await renderPageToCanvas(page, scale * 72, item.rotation);
   page.cleanup();
+  // Draw dynamic overlays: watermark, page numbers, header/footer, text edits.
+  // These update live as the user changes settings, matching the download output.
+  drawThumbOverlays(canvas, item, scale);
   if (!crops.get(item.uid)) return canvas.toDataURL('image/jpeg', 0.8);
   const crop = crops.get(item.uid)!;
   // Map the crop rect (stored in un-rotated PDF points) into the rendered
@@ -230,6 +240,85 @@ async function renderThumb(item: PageItem): Promise<string> {
   ctx.fillRect(0, 0, out.width, out.height);
   ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
   return out.toDataURL('image/jpeg', 0.8);
+}
+
+/** Draw watermark, page numbers, header/footer, and text edits onto a thumbnail canvas. */
+function drawThumbOverlays(canvas: HTMLCanvasElement, item: PageItem, scale: number): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const W = canvas.width;
+  const H = canvas.height;
+  const pageIdx = pages.indexOf(item);
+
+  // Watermark (centered, semi-transparent, optionally diagonal)
+  if (watermark && watermark.text.trim()) {
+    ctx.save();
+    ctx.globalAlpha = watermark.opacity;
+    ctx.fillStyle = '#808080';
+    ctx.font = `700 ${watermark.size * scale}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.translate(W / 2, H / 2);
+    if (watermark.angle) ctx.rotate(-Math.PI / 4);
+    ctx.fillText(watermark.text, 0, 0);
+    ctx.restore();
+  }
+
+  // Page numbers
+  if (pageNumbers && pageIdx >= 0) {
+    const num = pageNumbers.start + pageIdx;
+    const text = pageNumbers.format === 'n-of-n'
+      ? `${num} of ${pageNumbers.start + pages.length - 1}`
+      : pageNumbers.format === 'page-n' ? `Page ${num}` : String(num);
+    ctx.save();
+    ctx.fillStyle = '#595959';
+    ctx.font = `${pageNumbers.size * scale}px sans-serif`;
+    ctx.textBaseline = 'alphabetic';
+    const m = 12 * scale;
+    const tw = ctx.measureText(text).width;
+    let x = W / 2 - tw / 2;
+    let y = H - m;
+    const pos = pageNumbers.pos;
+    if (pos === 'top-center') { y = m + pageNumbers.size * scale * 0.8; }
+    else if (pos === 'bottom-left') { x = m; }
+    else if (pos === 'bottom-right') { x = W - tw - m; }
+    else if (pos === 'top-left') { x = m; y = m + pageNumbers.size * scale * 0.8; }
+    else if (pos === 'top-right') { x = W - tw - m; y = m + pageNumbers.size * scale * 0.8; }
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  // Header/footer
+  if (headerFooter) {
+    ctx.save();
+    ctx.fillStyle = '#595959';
+    ctx.font = `${headerFooter.size * scale}px sans-serif`;
+    ctx.textAlign = 'center';
+    if (headerFooter.header.trim()) {
+      ctx.fillText(headerFooter.header, W / 2, 10 * scale + headerFooter.size * scale * 0.8);
+    }
+    if (headerFooter.footer.trim()) {
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(headerFooter.footer, W / 2, H - 8 * scale);
+    }
+    ctx.restore();
+  }
+
+  // Text edits (drawn as opaque boxes with the new text)
+  for (const e of textEdits.filter((x) => x.pageUid === item.uid)) {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    const ex = e.x * scale;
+    const ey = H - (e.y + e.size) * scale;
+    const ew = Math.max(e.width * scale, 20);
+    const eh = e.size * scale * 1.2;
+    ctx.fillRect(ex - 2, ey - 2, ew + 4, eh + 4);
+    ctx.fillStyle = '#000000';
+    ctx.font = `${e.italic ? 'italic ' : ''}${e.bold ? 'bold ' : ''}${e.size * scale}px ${e.font === 'serif' ? 'Georgia, serif' : e.font === 'mono' ? 'monospace' : 'sans-serif'}`;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(e.text, ex, ey + e.size * scale);
+    ctx.restore();
+  }
 }
 
 /* ---------------- thumbnail grid ---------------- */
@@ -1252,6 +1341,7 @@ function openWatermarkDialog(): void {
     closeDialog();
     updateToolbar();
     setStatus('Watermark removed.');
+    void refreshAllThumbs();
   });
   body.append(clear);
   openDialog('Watermark', body, () => {
@@ -1259,6 +1349,7 @@ function openWatermarkDialog(): void {
       ? { text: text.value.trim(), opacity: Number(op.value) / 100, size: Number(size.value), angle: angle.checked }
       : null;
     setStatus(watermark ? 'Watermark set. It stamps every page on download.' : 'Watermark removed.');
+    void refreshAllThumbs();
   });
 }
 
@@ -1309,11 +1400,13 @@ function openPageNumDialog(): void {
     closeDialog();
     updateToolbar();
     setStatus('Page numbers removed.');
+    void refreshAllThumbs();
   });
   body.append(clear);
   openDialog('Page numbers', body, () => {
     pageNumbers = { pos: pos.value, format: fmt.value, start: Math.max(1, Number(start.value) || 1), size: 11 };
     setStatus('Page numbers set. They appear on download.');
+    void refreshAllThumbs();
   });
 }
 
@@ -1339,6 +1432,7 @@ function openHeaderFooterDialog(): void {
       ? { header: header.value.trim(), footer: footer.value.trim(), size: 10 }
       : null;
     setStatus(headerFooter ? 'Header and footer set. They appear on download.' : 'Header and footer removed.');
+    void refreshAllThumbs();
   });
 }
 
