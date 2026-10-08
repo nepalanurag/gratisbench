@@ -76,6 +76,20 @@ function wireModeToggle(): void {
   );
 }
 
+/** Quick-pick buttons under the target size box ("Under 2 MB", …). */
+function wirePresetChips(): void {
+  document.querySelectorAll<HTMLButtonElement>('#target-chips button[data-mb]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const radio = document.querySelector<HTMLInputElement>('input[name="cmode"][value="target"]');
+      if (radio && !radio.checked) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      el<HTMLInputElement>('target-mb').value = b.dataset.mb ?? '2';
+    })
+  );
+}
+
 function setProgress(done: number, total: number): void {
   const wrap = el('progress-wrap');
   wrap.hidden = false;
@@ -87,6 +101,7 @@ function setProgress(done: number, total: number): void {
 export function initPdfCompressor(): void {
   const compressBtn = el<HTMLButtonElement>('compress-btn');
   wireModeToggle();
+  wirePresetChips();
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');

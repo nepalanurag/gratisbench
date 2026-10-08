@@ -1,7 +1,7 @@
 // Protect PDF tool: DOM glue. Encryption runs in the browser via the
 // Pyodide + pypdf engine shared with the unlock tool (see ./pyodide-loader.ts).
 // pdf-lib cannot write encrypted PDFs, so pypdf applies AES encryption.
-import { encryptPdfBytes, verifyEncryptedBytes } from './pyodide-loader.ts';
+import { encryptPdfBytes, verifyEncryptedBytes, type EncryptPermissions } from './pyodide-loader.ts';
 import {
   el,
   formatBytes,
@@ -11,6 +11,8 @@ import {
   setBusy,
   setupDropzone,
 } from './common.ts';
+
+type ProtectMode = 'open' | 'nocopy' | 'viewonly';
 
 function passwordStrength(pw: string): { label: string; ok: boolean } {
   if (pw.length === 0) return { label: '', ok: false };
@@ -25,6 +27,32 @@ function passwordStrength(pw: string): { label: string; ok: boolean } {
   return { label: 'Strong password.', ok: true };
 }
 
+/** Plain-language description of what each mode locks down. */
+const MODE_COPY: Record<ProtectMode, { perms?: EncryptPermissions; result: string }> = {
+  open: {
+    result: 'opens with your password',
+  },
+  nocopy: {
+    // Anyone can open and print; the owner password is needed to copy text
+    // or change anything. pypdf flag 4 = print only.
+    perms: { ownerPassword: '', permissionFlags: 4 },
+    result: 'opens freely · needs your password to copy text or make changes',
+  },
+  viewonly: {
+    // Anyone can open and read; the owner password is needed to print,
+    // copy, or change anything. Flag 0 = no permissions granted.
+    perms: { ownerPassword: '', permissionFlags: 0 },
+    result: 'opens freely · needs your password to print, copy, or make changes',
+  },
+};
+
+function currentMode(): ProtectMode {
+  return (
+    (document.querySelector<HTMLInputElement>('input[name="protect-mode"]:checked')?.value as ProtectMode) ??
+    'open'
+  );
+}
+
 export function initProtectPdf(): void {
   const passInput = el<HTMLInputElement>('pass-input');
   const confirmInput = el<HTMLInputElement>('confirm-input');
@@ -37,7 +65,11 @@ export function initProtectPdf(): void {
     result.hidden = true;
     const pw = passInput.value;
     const { label } = passwordStrength(pw);
-    el('pw-hint').textContent = label;
+    el('pw-hint').textContent =
+      label ||
+      (currentMode() === 'open'
+        ? ''
+        : 'This password lifts the limits below; the file itself opens without it.');
     protectBtn.disabled = !file || pw.length === 0 || pw !== confirmInput.value;
   }
 
@@ -57,6 +89,9 @@ export function initProtectPdf(): void {
 
   passInput.addEventListener('input', refresh);
   confirmInput.addEventListener('input', refresh);
+  document
+    .querySelectorAll<HTMLInputElement>('input[name="protect-mode"]')
+    .forEach((r) => r.addEventListener('change', refresh));
   for (const input of [passInput, confirmInput]) {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !protectBtn.disabled) {
@@ -79,21 +114,38 @@ export function initProtectPdf(): void {
       showError('error-box', 'That password is too short. Use at least 4 characters.');
       return;
     }
+    const mode = currentMode();
+    const preset = MODE_COPY[mode];
+    // Permission modes leave the file openable without a password; the
+    // typed password becomes the owner password that lifts the limits.
+    const userPw = mode === 'open' ? pw : '';
+    const perms: EncryptPermissions | undefined =
+      preset.perms && mode !== 'open' ? { ownerPassword: pw, permissionFlags: preset.perms.permissionFlags } : undefined;
     const status = el('engine-status');
     setBusy('protect-btn', true, 'Protecting…');
     try {
       await new Promise((r) => setTimeout(r, 30));
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const out = await encryptPdfBytes(bytes, pw, (msg) => {
-        status.textContent = msg;
-      });
+      const out = await encryptPdfBytes(
+        bytes,
+        userPw,
+        (msg) => {
+          status.textContent = msg;
+        },
+        'protect',
+        perms
+      );
       status.textContent = 'Checking the protected file…';
       // Prove the password really works: the output must open with it.
+      // Permission modes must additionally open with no password at all.
+      if (mode !== 'open') {
+        await verifyEncryptedBytes(out, '');
+      }
       const pages = await verifyEncryptedBytes(out, pw);
       status.textContent = '';
       const baseName = file.name.replace(/\.pdf$/i, '');
       el('result-info').textContent =
-        `${formatBytes(out.length)} · ${pages} page${pages === 1 ? '' : 's'} · opens with your password`;
+        `${formatBytes(out.length)} · ${pages} page${pages === 1 ? '' : 's'} · ${preset.result}`;
       const dl = el<HTMLButtonElement>('download-btn');
       dl.onclick = () => downloadBytes(`${baseName}-protected.pdf`, out, 'application/pdf');
       result.hidden = false;

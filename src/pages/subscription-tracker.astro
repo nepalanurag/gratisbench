@@ -100,6 +100,10 @@ const lede =
       <input type="date" id="subs-date" aria-label="Billing date (any past bill date)" />
       <input type="text" id="subs-category" placeholder="Category, e.g. Streaming (optional)" aria-label="Category (optional)" />
     </div>
+    <div class="field-row">
+      <input type="text" id="subs-notes" placeholder="Notes, e.g. shared with family (optional)" aria-label="Notes (optional)" />
+      <label class="checkline"><input type="checkbox" id="subs-trial" /> Free trial</label>
+    </div>
     <div class="btn-row">
       <button id="subs-add" class="btn" type="button">Add subscription</button>
       <button id="subs-cancel-edit" class="btn btn-secondary" type="button" hidden>Cancel edit</button>
@@ -109,7 +113,15 @@ const lede =
     </div>
     <h3 class="tool-step">Upcoming renewals</h3>
     <p class="hint">Computed from your saved dates and shown here. No push notifications in v1: for renewals that matter, add them to your calendar too.</p>
+    <div class="field-row">
+      <select id="subs-remind" aria-label="Reminder window">
+        <option value="7">Show renewals: next 7 days</option>
+        <option value="14">Show renewals: next 14 days</option>
+        <option value="30">Show renewals: next 30 days</option>
+      </select>
+    </div>
     <div id="subs-upcoming"></div>
+    <div id="subs-savings"></div>
     <h3 class="tool-step">All subscriptions</h3>
     <div class="field-row">
       <select id="subs-sort" aria-label="Sort subscriptions">

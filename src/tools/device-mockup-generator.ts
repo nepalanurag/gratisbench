@@ -9,12 +9,17 @@ import {
   serializeMockupSettings,
   deserializeMockupSettings,
   mockupBackgroundById,
-  frameGeometry,
-  mockupFileName,
   type MockupSettings,
   type MockupGeometry,
 } from '../lib/mockup-core.ts';
 import { el, downloadDataUrl, showError, hideError, setupDropzone } from './common.ts';
+import {
+  EXTRA_MOCKUP_FRAMES,
+  isExtraMockupFrame,
+  frameGeometryExtended,
+  loadExtraMockupFrame,
+  saveExtraMockupFrame,
+} from '../lib/mockup-extras.ts';
 
 function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   const rad = Math.min(r, w / 2, h / 2);
@@ -36,6 +41,9 @@ export function initDeviceMockupGenerator(): void {
   }
   let shot: HTMLImageElement | null = null;
   let shotName = 'screenshot';
+  // Extra frames live outside the core settings (its deserializer resets
+  // unknown frame ids), so the pick is tracked here and remembered separately.
+  let frameId: string = loadExtraMockupFrame() ?? settings.frame;
 
   function save(): void {
     try {
@@ -43,6 +51,7 @@ export function initDeviceMockupGenerator(): void {
     } catch {
       /* storage unavailable: the tool still works for the session */
     }
+    saveExtraMockupFrame(frameId);
   }
 
   function draw(): void {
@@ -66,7 +75,7 @@ export function initDeviceMockupGenerator(): void {
       return;
     }
     try {
-      const geo: MockupGeometry = frameGeometry(settings.frame, shot.naturalWidth, shot.naturalHeight, 1600, settings.padding);
+      const geo: MockupGeometry = frameGeometryExtended(frameId, shot.naturalWidth, shot.naturalHeight, 1600, settings.padding);
       canvas.width = geo.canvasW;
       canvas.height = geo.canvasH;
       const ctx = canvas.getContext('2d');
@@ -95,8 +104,11 @@ export function initDeviceMockupGenerator(): void {
         ctx.shadowOffsetY = 24 * sh;
       }
 
-      if (settings.frame === 'browser') drawBrowser(ctx, geo, shot);
-      else if (settings.frame === 'phone') drawPhone(ctx, geo, shot);
+      if (frameId === 'browser') drawBrowser(ctx, geo, shot);
+      else if (frameId === 'browser-dark') drawBrowserDark(ctx, geo, shot);
+      else if (frameId === 'phone') drawPhone(ctx, geo, shot);
+      else if (frameId === 'tablet') drawTablet(ctx, geo, shot);
+      else if (frameId === 'monitor') drawMonitor(ctx, geo, shot);
       else drawLaptop(ctx, geo, shot);
 
       if (sh > 0) ctx.restore();
@@ -201,9 +213,83 @@ export function initDeviceMockupGenerator(): void {
     ctx.fill();
   }
 
+  function drawBrowserDark(ctx: CanvasRenderingContext2D, geo: MockupGeometry, img: HTMLImageElement): void {
+    const f = geo.frame;
+    // frame body
+    ctx.fillStyle = '#26231e';
+    rr(ctx, f.x, f.y, f.w, f.h, geo.radius);
+    ctx.fill();
+    // dark chrome bar
+    ctx.save();
+    rr(ctx, f.x, f.y, f.w, f.h, geo.radius);
+    ctx.clip();
+    ctx.fillStyle = '#1c1a17';
+    ctx.fillRect(f.x, f.y, f.w, geo.chromeH);
+    const dots = ['#e0685c', '#e8b44f', '#7fc98f'];
+    dots.forEach((c, i) => {
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.arc(f.x + 34 + i * 30, f.y + geo.chromeH / 2, 8, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    // url pill
+    ctx.fillStyle = '#3a362e';
+    const pillX = f.x + 120;
+    const pillW = f.w - 240;
+    const pillH = Math.min(30, geo.chromeH * 0.55);
+    rr(ctx, pillX, f.y + (geo.chromeH - pillH) / 2, pillW, pillH, pillH / 2);
+    ctx.fill();
+    ctx.fillStyle = '#b8ad9c';
+    ctx.font = `${Math.round(pillH * 0.5)}px system-ui, sans-serif`;
+    ctx.fillText('your-site.com', pillX + 18, f.y + geo.chromeH / 2 + pillH * 0.18);
+    ctx.restore();
+    drawShot(ctx, geo, img, 0);
+    ctx.strokeStyle = 'rgba(35,32,26,0.35)';
+    ctx.lineWidth = 2;
+    rr(ctx, f.x, f.y, f.w, f.h, geo.radius);
+    ctx.stroke();
+  }
+
+  function drawTablet(ctx: CanvasRenderingContext2D, geo: MockupGeometry, img: HTMLImageElement): void {
+    const f = geo.frame;
+    ctx.fillStyle = '#1c1a17';
+    rr(ctx, f.x, f.y, f.w, f.h, geo.radius);
+    ctx.fill();
+    drawShot(ctx, geo, img, Math.max(4, geo.radius * 0.6));
+    // camera dot on the top bezel
+    ctx.fillStyle = '#3a362e';
+    ctx.beginPath();
+    ctx.arc(f.x + f.w / 2, f.y + f.h * 0.028, Math.max(3, f.w * 0.008), 0, Math.PI * 2);
+    ctx.fill();
+    // side button
+    ctx.fillStyle = '#2e2b26';
+    ctx.fillRect(f.x + f.w, f.y + f.h * 0.24, 3, f.h * 0.08);
+  }
+
+  function drawMonitor(ctx: CanvasRenderingContext2D, geo: MockupGeometry, img: HTMLImageElement): void {
+    const f = geo.frame;
+    // display bezel
+    ctx.fillStyle = '#1c1a17';
+    rr(ctx, f.x, f.y, f.w, f.h, geo.radius);
+    ctx.fill();
+    drawShot(ctx, geo, img, 2);
+    // stand: neck + base bar (deckH carries neck + base heights)
+    const total = geo.deckH;
+    const neckH = (total * 90) / 116;
+    const baseH = total - neckH;
+    const neckW = f.w * 0.07;
+    const baseW = f.w * 0.34;
+    const cx = f.x + f.w / 2;
+    ctx.fillStyle = '#2e2b26';
+    ctx.fillRect(cx - neckW / 2, f.y + f.h, neckW, neckH);
+    ctx.fillStyle = '#1c1a17';
+    rr(ctx, cx - baseW / 2, f.y + f.h + neckH, baseW, baseH, baseH / 2);
+    ctx.fill();
+  }
+
   function renderControls(): void {
-    el('mockup-frames').innerHTML = MOCKUP_FRAMES.map(
-      (f) => `<button type="button" class="pill${f.id === settings.frame ? ' pill-active' : ''}" data-frame="${f.id}" aria-pressed="${f.id === settings.frame}" title="${f.hint}">${f.name}</button>`
+    el('mockup-frames').innerHTML = [...MOCKUP_FRAMES, ...EXTRA_MOCKUP_FRAMES].map(
+      (f) => `<button type="button" class="pill${f.id === frameId ? ' pill-active' : ''}" data-frame="${f.id}" aria-pressed="${f.id === frameId}" title="${f.hint}">${f.name}</button>`
     ).join('');
     el('mockup-bgs').innerHTML = MOCKUP_BACKGROUNDS.map((b) => {
       const active = b.id === settings.backgroundId;
@@ -252,7 +338,11 @@ export function initDeviceMockupGenerator(): void {
   el('mockup-frames').addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('button[data-frame]');
     if (!btn) return;
-    settings.frame = (btn.getAttribute('data-frame') || 'browser') as MockupSettings['frame'];
+    frameId = btn.getAttribute('data-frame') || 'browser';
+    if (!isExtraMockupFrame(frameId)) {
+      // Keep the core settings object consistent for the built-in frames.
+      settings.frame = frameId as MockupSettings['frame'];
+    }
     refresh();
   });
   el('mockup-bgs').addEventListener('click', (e) => {
@@ -279,7 +369,7 @@ export function initDeviceMockupGenerator(): void {
     if (!shot) return;
     try {
       const canvas = el<HTMLCanvasElement>('mockup-canvas');
-      downloadDataUrl(`${shotName}-mockup-${settings.frame}.png`, canvas.toDataURL('image/png'));
+      downloadDataUrl(`${shotName}-mockup-${frameId}.png`, canvas.toDataURL('image/png'));
     } catch {
       showError('mockup-error', 'Download failed. Try a smaller screenshot.');
     }

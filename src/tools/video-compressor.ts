@@ -152,8 +152,9 @@ export function initVideoCompressor(): void {
       downloadBytes(name, out, 'video/mp4');
       setProgress(100, 'Done.');
       el('result').hidden = false;
+      const savedPct = Math.round((1 - out.length / file.size) * 100);
       el('result-info').textContent =
-        `${name} · ${formatBytes(out.length)} (was ${formatBytes(file.size)})`;
+        `${name} · ${formatBytes(out.length)} (was ${formatBytes(file.size)}, ${savedPct}% smaller)`;
     } catch (err) {
       showError('error-box', ffmpegErrorMessage(err));
     } finally {

@@ -95,6 +95,22 @@ const lede =
         </div>
         <h3 class="tool-step">Theme</h3>
         <div id="og-themes" class="swatch-row" role="group" aria-label="Color theme choice"></div>
+        <div class="field-row">
+          <div class="field">
+            <label for="og-accent">Accent color</label>
+            <div class="field-row">
+              <input id="og-accent" type="color" value="#a63d21" aria-label="Custom accent color" />
+              <button id="og-accent-reset" class="btn btn-secondary btn-small" type="button">Use theme accent</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="og-align">Text alignment</label>
+            <select id="og-align" aria-label="Text alignment">
+              <option value="left">Left</option>
+              <option value="center">Centered</option>
+            </select>
+          </div>
+        </div>
         <div class="btn-row">
           <button id="og-download" class="btn" type="button">Download PNG</button>
           <button id="og-example" class="btn btn-secondary" type="button">Load example</button>

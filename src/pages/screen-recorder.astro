@@ -6,7 +6,7 @@ const title = 'Screen Recorder - Record Your Screen Online Free | TruePDF';
 const description =
   'Record your screen online for free with no time limit and no watermark. Optional microphone, pause and resume, preview, download as WebM. Everything stays in your browser.';
 const h1 = 'Record your screen';
-const lede = 'Capture a tab, a window, or your whole screen. No time cap, no watermark, no account.';
+const lede = 'Capture a tab, a window, or your whole screen — with an optional webcam picture-in-picture. No time cap, no watermark, no account.';
 ---
 <ToolPage
   title={title}
@@ -18,11 +18,11 @@ const lede = 'Capture a tab, a window, or your whole screen. No time cap, no wat
   intro={[
     'The best-known screen recorder caps free recordings at five minutes and requires an account before you can download. That is a strange deal for a job your browser can already do by itself. This recorder uses your browser\'s built-in screen capture: you pick a tab, a window, or the whole screen, and it records for as long as you like, with no watermark and no account at the end.',
     'There is one honest limit, and it is physics, not pricing: the recording is held in your device\'s memory while you record. Short and medium recordings are completely fine; very long recordings on a low-RAM device can fail. The page says so up front instead of letting you discover it after an hour of recording. If you need multi-hour captures, desktop software is still the right tool.',
-    'Everything else is straightforward. An optional microphone toggle adds your voice next to the screen. Pause and resume let you skip the boring parts while recording. When you stop, you get a preview player and a WebM download that plays in every modern browser. Nothing is uploaded at any point, so demos full of private tabs stay private.',
+    'Everything else is straightforward. An optional microphone toggle adds your voice next to the screen, and an optional webcam overlay puts your face in a corner picture-in-picture — pick the corner before you start. Pause and resume let you skip the boring parts while recording. When you stop, you get a preview player and a WebM download that plays in every modern browser. Nothing is uploaded at any point, so demos full of private tabs stay private.',
   ]}
   steps={[
-    'Tick "Include microphone" if you want your voice in the recording.',
-    'Click "Start recording" and choose a tab, window, or screen in the browser prompt. Recording begins immediately.',
+    'Tick "Include microphone" if you want your voice in the recording. Tick "Include webcam" for a picture-in-picture overlay, and choose which corner it sits in.',
+    'Click "Start recording" and choose a tab, window, or screen in the browser prompt. After the 3-second countdown, recording begins — use it to switch to what you want to capture.',
     'Use Pause and Resume to skip dull stretches. The timer shows the recorded length.',
     'Click "Stop recording" when you are done, or end sharing from the browser\'s own sharing indicator.',
     'Preview the recording in the player, then download it as a WebM file.',
@@ -34,6 +34,7 @@ const lede = 'Capture a tab, a window, or your whole screen. No time cap, no wat
     ['Time limit', 'None imposed. Limited by your device\u2019s available memory.'],
     ['Where it records', 'In your browser, on your device. Nothing is uploaded.'],
     ['Microphone', 'Optional toggle before recording starts'],
+    ['Webcam overlay', 'Optional picture-in-picture in the corner of your choice'],
     ['System audio', 'Captured when the browser offers it (usually when sharing a tab)'],
     ['Output', 'WebM video'],
     ['Pause / resume', 'Yes'],
@@ -55,6 +56,10 @@ const lede = 'Capture a tab, a window, or your whole screen. No time cap, no wat
     {
       q: 'Can it record my voice and the system audio?',
       a: 'Your voice, yes: tick the microphone box before starting. System audio depends on the browser: when you share a browser tab, Chrome usually offers a "share tab audio" option that this recorder picks up. Sharing a window or the whole screen often excludes system sound, which is a browser limitation, not this tool\'s.',
+    },
+    {
+      q: 'Why is there a countdown before recording starts?',
+      a: 'So you get a moment to switch to the tab or window you actually want to capture after picking it in the browser prompt. Without it, the first seconds of many recordings are just the recorder page itself. Untick the box before starting if you would rather begin immediately.',
     },
     {
       q: 'What format is the download?',
@@ -84,6 +89,25 @@ const lede = 'Capture a tab, a window, or your whole screen. No time cap, no wat
     <div class="field checkline">
       <input type="checkbox" id="mic-toggle" />
       <label for="mic-toggle">Include microphone</label>
+    </div>
+    <div class="field checkline">
+      <input type="checkbox" id="webcam-toggle" />
+      <label for="webcam-toggle">Include webcam <span class="hint-inline">(picture-in-picture)</span></label>
+    </div>
+    <div class="field" id="webcam-corner-row" hidden>
+      <label class="rb-field"><span>Webcam position</span>
+        <select id="webcam-corner">
+          <option value="bottom-right" selected>Bottom right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="top-right">Top right</option>
+          <option value="top-left">Top left</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="field checkline">
+      <input type="checkbox" id="countdown-toggle" checked />
+      <label for="countdown-toggle">3-second countdown before recording starts</label>
     </div>
 
     <div class="btn-row">

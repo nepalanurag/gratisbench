@@ -1,5 +1,14 @@
-// Split PDF tool: DOM glue. Core logic lives in ../lib/pdf-core.ts
+// Split PDF tool: DOM glue. Core logic lives in ../lib/pdf-core.ts (ranges)
+// and ../lib/pdf-split-x.ts (bookmarks, text search).
 import { splitPdf, splitEveryPage, splitEveryNPages, getPageCount, extractPages, type SplitPart } from '../lib/pdf-core.ts';
+import {
+  getFlatBookmarks,
+  bookmarksToChapters,
+  splitByBookmarks,
+  findTextSplitPages,
+  splitByText,
+  type BookmarkChapter,
+} from '../lib/pdf-split-x.ts';
 import { loadPdfjs, renderPageToCanvas, renderPdfThumb } from './pdf-render.ts';
 import {
   el,
@@ -38,6 +47,28 @@ export function initSplitPdf(): void {
   const pickAllBtn = el<HTMLButtonElement>('pick-all');
   const pickNoneBtn = el<HTMLButtonElement>('pick-none');
   const extractBtn = el<HTMLButtonElement>('extract-btn');
+  const smartSplit = el('smart-split');
+  const bookmarkStatus = el('bookmark-status');
+  const chapterList = el('chapter-list');
+  const bookmarksBtn = el<HTMLButtonElement>('bookmarks-btn');
+  const textSplitInput = el<HTMLInputElement>('text-split-input');
+  const textSplitBtn = el<HTMLButtonElement>('text-split-btn');
+
+  /** Chapters from the PDF's own bookmarks, set after a file loads. */
+  let smartChapters: BookmarkChapter[] = [];
+
+  /**
+   * Release a pdf.js document. destroy() exists at runtime but is missing
+   * from this pdfjs-dist version's types, so go through unknown.
+   */
+  async function closeDoc(doc: unknown): Promise<void> {
+    try {
+      const d = doc as { destroy?: () => Promise<void> | void };
+      if (typeof d.destroy === 'function') await d.destroy();
+    } catch {
+      /* ignore */
+    }
+  }
 
   /** The parts from the most recent split run, for the download-all ZIP. */
   let lastParts: { name: string; data: Uint8Array }[] = [];
@@ -46,6 +77,67 @@ export function initSplitPdf(): void {
   function displayName(coreName: string): string {
     const stem = pdfName || 'split';
     return coreName.replace(/^split/, stem);
+  }
+
+  /** Add the file size to each part's description line. */
+  function withSize(parts: { name: string; data: Uint8Array; meta: string }[]) {
+    return parts.map((p) => ({ ...p, meta: `${p.meta} · ${formatBytes(p.data.length)}` }));
+  }
+
+  /** Read the PDF's bookmarks in the background and offer chapter splitting. */
+  async function wireSmartSplit(bytes: Uint8Array): Promise<void> {
+    smartChapters = [];
+    bookmarksBtn.disabled = true;
+    bookmarksBtn.textContent = 'Split by bookmarks';
+    chapterList.hidden = true;
+    chapterList.innerHTML = '';
+    bookmarkStatus.textContent = 'Checking this PDF for bookmarks…';
+    try {
+      const pdfjs = await loadPdfjs();
+      const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise;
+      let chapters: BookmarkChapter[] = [];
+      try {
+        const flat = await getFlatBookmarks(doc);
+        chapters = bookmarksToChapters(flat, pageCount);
+      } finally {
+        await closeDoc(doc);
+      }
+      smartChapters = chapters;
+      if (chapters.length >= 2) {
+        bookmarkStatus.textContent = `Found ${chapters.length} chapters in this PDF's own table of contents:`;
+        chapters.forEach((ch) => {
+          const row = document.createElement('div');
+          row.className = 'file-row';
+          const title = document.createElement('span');
+          title.className = 'file-name';
+          title.textContent = ch.title;
+          const meta = document.createElement('span');
+          meta.className = 'file-meta';
+          meta.textContent = ch.startPage === ch.endPage ? `page ${ch.startPage}` : `pages ${ch.startPage}-${ch.endPage}`;
+          row.append(title, meta);
+          chapterList.appendChild(row);
+        });
+        chapterList.hidden = false;
+        bookmarksBtn.disabled = false;
+        bookmarksBtn.textContent = `Split into ${chapters.length} chapters`;
+      } else if (chapters.length === 1) {
+        bookmarkStatus.textContent =
+          'This PDF has only one bookmark, so splitting by bookmarks would give a single file. Use page ranges above instead.';
+      } else {
+        bookmarkStatus.textContent =
+          'This PDF has no bookmarks (table of contents), so there is nothing to split by. Use page ranges above instead.';
+      }
+    } catch {
+      bookmarkStatus.textContent = 'Could not read this PDF\u2019s bookmarks. Use page ranges above instead.';
+    }
+  }
+
+  function resetSmartSplit(): void {
+    smartChapters = [];
+    smartSplit.hidden = true;
+    textSplitInput.value = '';
+    textSplitInput.disabled = true;
+    textSplitBtn.disabled = true;
   }
 
   function refreshZip(): void {
@@ -210,6 +302,7 @@ export function initSplitPdf(): void {
     pickerWrap.hidden = true;
     pageGrid.innerHTML = '';
     picked.clear();
+    resetSmartSplit();
     const file = files[0];
     if (!file) return;
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
@@ -228,6 +321,11 @@ export function initSplitPdf(): void {
       chunkBtn.disabled = false;
       chunkSize.disabled = false;
       everyPageBtn.textContent = `Split every page (${pageCount} file${pageCount === 1 ? '' : 's'})`;
+      // Smart split: reveal the section and read bookmarks in the background.
+      smartSplit.hidden = false;
+      textSplitInput.disabled = false;
+      textSplitBtn.disabled = false;
+      void wireSmartSplit(pdfBytes);
       void renderPicker(pdfBytes);
     } catch (err) {
       pdfBytes = null;
@@ -294,8 +392,7 @@ export function initSplitPdf(): void {
     }
   });
 
-  extractBtn.addEventListener('click', async () => {
-    if (!pdfBytes || picked.size === 0) return;
+  extractBtn.addEventListener('click', async () => {    if (!pdfBytes || picked.size === 0) return;
     hideError('error-box');
     result.hidden = true;
     setBusy('extract-btn', true, 'Extracting…');
@@ -314,6 +411,55 @@ export function initSplitPdf(): void {
       showError('error-box', err instanceof Error ? err.message : 'Extraction failed.');
     } finally {
       setBusy('extract-btn', false);
+    }
+  });
+
+  bookmarksBtn.addEventListener('click', async () => {
+    if (!pdfBytes || smartChapters.length < 2) return;
+    hideError('error-box');
+    result.hidden = true;
+    setBusy('bookmarks-btn', true, 'Splitting…');
+    try {
+      await new Promise((r) => setTimeout(r, 30));
+      const parts = await splitByBookmarks(pdfBytes, smartChapters, pdfName || 'split');
+      showParts(withSize(parts));
+    } catch (err) {
+      showError('error-box', err instanceof Error ? err.message : 'Splitting failed.');
+    } finally {
+      setBusy('bookmarks-btn', false);
+    }
+  });
+
+  textSplitBtn.addEventListener('click', async () => {
+    if (!pdfBytes) return;
+    const query = textSplitInput.value.trim();
+    if (!query) {
+      showError('error-box', 'Type the words to split on, for example "Invoice".');
+      return;
+    }
+    hideError('error-box');
+    result.hidden = true;
+    setBusy('text-split-btn', true, 'Reading pages…');
+    try {
+      const pdfjs = await loadPdfjs();
+      const doc = await pdfjs.getDocument({ data: pdfBytes.slice() }).promise;
+      let hits: number[];
+      try {
+        hits = await findTextSplitPages(doc, query);
+      } finally {
+        await closeDoc(doc);
+      }
+      if (hits.length === 0) {
+        showError('error-box', `Could not find "${query}" on any page of this PDF.`);
+        return;
+      }
+      setBusy('text-split-btn', true, 'Splitting…');
+      const parts = await splitByText(pdfBytes, pageCount, hits, query, pdfName || 'split');
+      showParts(withSize(parts));
+    } catch (err) {
+      showError('error-box', err instanceof Error ? err.message : 'Splitting failed.');
+    } finally {
+      setBusy('text-split-btn', false);
     }
   });
 }

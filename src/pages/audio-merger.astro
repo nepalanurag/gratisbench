@@ -5,7 +5,7 @@ import ToolkitTabs from '../components/ToolkitTabs.astro';
 
 const title = 'Audio Merger - Join Audio Files Online Free | TruePDF';
 const description =
-  'Join multiple audio clips into one file online for free. Reorder clips, add fade in/out at each join, export WAV. No signup, no watermark. Your audio never leaves your browser.';
+  'Join multiple audio clips into one file online for free. Reorder clips, add crossfades at each join, export WAV. No signup, no watermark. Your audio never leaves your browser.';
 const h1 = 'Join audio clips';
 const lede = 'Stitch voice memos, song parts, or podcast segments into one file, in your order. Free, no account, no watermark.';
 ---
@@ -18,13 +18,13 @@ const lede = 'Stitch voice memos, song parts, or podcast segments into one file,
   toolName="TruePDF Audio Merger"
   intro={[
     'Joining audio clips is the kind of job that sounds trivial until a website makes it complicated: upload each file, wait in a queue, sit through an ad, then discover the download has a watermark or a daily limit attached. This merger does the whole thing in your tab. Your files stay on your device, are arranged in your order, joined, and handed back as a download. No queue, no account, nothing uploaded.',
-    'The part most mergers get wrong is the join itself. Slamming two clips together usually leaves an audible click where they meet. This tool fades the end of each clip out and the start of the next one in, with a fade length you control from zero to five seconds. A short fade of half a second is enough to kill the click; longer fades give you a smooth DJ-style blend between segments.',
+    'The part most mergers get wrong is the join itself. Slamming two clips together usually leaves an audible click where they meet. This tool overlaps the clips slightly and crossfades between them: the outgoing clip fades down as the incoming one fades up, with a blend length you control from zero to five seconds. A half-second blend is enough to kill the click; longer blends sound DJ-style. Prefer a clean dip to quiet between clips instead? Switch the join style to "Fade to quiet".',
     'Clips do not need to match: a phone voice memo and a desktop recording land in the same file without pitch or speed surprises. Pick WAV for a lossless file ready for any editor, or MP3 at 192 kbps when you want a much smaller file for sharing.',
   ]}
   steps={[
     'Drop your audio clips onto the box above, or click it to browse. Add as many as you like, in any order.',
-    'Reorder the clips with the up and down arrows. The number on each row is its position in the final file.',
-    'Set the fade length for the joins. Half a second removes clicks; longer fades blend the clips together. Set it to zero for hard cuts.',
+    'Reorder the clips by dragging them, or with the up and down arrows. The number on each row is its position in the final file.',
+    'Set the blend length for the joins. Half a second removes clicks; longer blends sound DJ-style. Set it to zero for hard cuts.',
     'Click "Join clips". The merged file is rendered on your device.',
     'Download the result as a WAV or MP3 file, whichever you picked.',
   ]}
@@ -34,7 +34,7 @@ const lede = 'Stitch voice memos, song parts, or podcast segments into one file,
     ['Watermark', 'None'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Clip limit', 'None enforced. Very long joins are limited only by your device\u2019s memory.'],
-    ['Fade at joins', '0 to 5 seconds, fade-out plus fade-in at every join'],
+    ['Join style', 'Crossfade (clips overlap) or fade-to-quiet, 0 to 5 seconds at each join'],
     ['Mixed formats', 'Different recording types are matched automatically'],
     ['Output', 'WAV (lossless) or MP3'],
     ['Works offline', 'Yes, once the page has loaded'],
@@ -49,8 +49,8 @@ const lede = 'Stitch voice memos, song parts, or podcast segments into one file,
       a: 'No. Your clips are joined entirely in your browser. Nothing is sent anywhere, which makes this safe for voice memos, interviews, and unreleased recordings. Closing the tab removes all trace of the files.',
     },
     {
-      q: 'Why add fades at the joins?',
-      a: 'When two clips meet, the waveform usually jumps from one level to another in a single sample. Your ear hears that jump as a click or pop. Fading the outgoing clip out and the incoming clip in over even half a second smooths the transition so the join disappears. Longer fades turn the join into a deliberate crossfade-style blend.',
+      q: 'What is the difference between crossfade and fade to quiet?',
+      a: 'When two clips meet, the waveform usually jumps from one level to another in a single sample. Your ear hears that jump as a click or pop. Crossfade overlaps the clips slightly and blends from one to the other, so the join disappears completely. "Fade to quiet" instead dips briefly toward silence at each join, which sounds cleaner when the clips are very different, like speech followed by music. Both use the blend length you set.',
     },
     {
       q: 'Can I join clips with different sample rates or formats?',
@@ -90,12 +90,18 @@ const lede = 'Stitch voice memos, song parts, or podcast segments into one file,
     <p id="empty-state" class="empty-state">No clips yet. Add your audio above, then arrange them in order.</p>
 
     <div class="field field-med">
-      <label for="fade-slider">Fade at each join</label>
+      <label for="fade-slider">Blend length at each join</label>
       <div class="range-row">
         <input type="range" id="fade-slider" min="0" max="5" step="0.5" value="0.5" />
         <span class="range-val" id="fade-val">0.5s</span>
       </div>
-      <p class="hint">Each join fades the outgoing clip out and the incoming clip in. Zero means a hard cut.</p>
+      <p class="hint" id="fade-hint">How long the clips overlap at each join. Half a second blends smoothly; longer overlaps sound DJ-style. Zero means a hard cut.</p>
+    </div>
+
+    <h3 class="tool-step">How clips join</h3>
+    <div class="radio-cards" role="radiogroup" aria-label="Join style">
+      <label class="radio-card"><input type="radio" name="join-style" value="crossfade" checked /><span><strong>Crossfade</strong><small>Clips overlap, blending together.</small></span></label>
+      <label class="radio-card"><input type="radio" name="join-style" value="fade" /><span><strong>Fade to quiet</strong><small>Each join dips briefly between clips.</small></span></label>
     </div>
 
     <h3 class="tool-step">Output format</h3>

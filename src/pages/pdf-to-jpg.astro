@@ -17,13 +17,13 @@ const lede = 'Turn every page of a PDF into a JPG or PNG image, at the resolutio
   toolName="TruePDF PDF to JPG"
   intro={[
     'Sometimes a PDF is the wrong shape for the job. A form that only accepts image uploads, a page you want to drop into a slide deck, a diagram to share in a chat app that previews images but not documents. Converting the pages to JPG or PNG images solves it, and it is the kind of one-off task that should not require installing software.',
-    'This converter renders each page of your PDF as an image right in your browser. You pick the resolution: 72 DPI for quick small files, 150 DPI for a good balance, 300 DPI when the image needs to stay sharp, or 600 DPI for archival-quality print output. JPG keeps file sizes small; PNG keeps edges and text crisp at the cost of larger files.',
+    'This converter renders each page of your PDF as an image right in your browser. You pick the size: Small for quick sharing, Medium for a good balance, Large when the image needs to stay sharp for printing, or Largest for professional print output. JPG keeps file sizes small (with a detail setting); PNG keeps edges and text crisp at the cost of larger files.',
     'When the conversion finishes you get a list of every page with a thumbnail, so you can check the result before downloading. Grab a single page on its own, or take them all as one ZIP file. As with every TruePDF tool, your PDF never leaves your device.',
   ]}
   steps={[
     'Drop your PDF onto the box above, or click it to browse.',
-    'Pick a resolution: 72, 150, 300, or 600 DPI. Higher numbers mean sharper, larger images.',
-    'Choose JPG for small files or PNG for maximum sharpness.',
+    'Pick an image size: Small for quick sharing, Medium for most uses, Large for printing, Largest for professional print.',
+    'Choose JPG for small files or PNG for maximum sharpness. Only need some pages? Type the page numbers.',
     'Click "Convert to images". Each page is rendered in turn.',
     'Download individual pages from the list, or use "Download all" to get everything as one ZIP file.',
   ]}
@@ -32,8 +32,9 @@ const lede = 'Turn every page of a PDF into a JPG or PNG image, at the resolutio
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None. The images are your pages, nothing added.'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['Output formats', 'JPG or PNG'],
-    ['Resolutions', '72, 150, 300, or 600 DPI'],
+    ['Output formats', 'JPG (with a detail setting) or PNG'],
+    ['Image sizes', 'Small, Medium, Large, or Largest'],
+    ['Page selection', 'Convert the whole PDF or only the pages you type, e.g. "1-3, 5"'],
     ['Filenames', 'Your document name with "-page-N" added, e.g. report-page-3.jpg'],
     ['Bulk download', 'All pages together as a single ZIP file'],
     ['Password-protected PDFs', 'Not supported. Remove the password first, then convert.'],
@@ -41,8 +42,8 @@ const lede = 'Turn every page of a PDF into a JPG or PNG image, at the resolutio
   ]}
   faqs={[
     {
-      q: 'Which resolution should I pick?',
-      a: 'It depends on what the images are for. 72 DPI is fine for quick sharing and small files. 150 DPI is the sweet spot for most uses: sharp enough on screen without huge files. 300 DPI is for printing or for zooming into fine detail like small print or diagrams. 600 DPI is archival quality for professional print. When unsure, start with 150 and re-run higher if you need more.',
+      q: 'Which image size should I pick?',
+      a: 'It depends on what the images are for. Small is fine for quick sharing and chat. Medium is the sweet spot for most uses: sharp enough on screen without huge files. Large is for printing or for zooming into fine detail like small print or diagrams. Largest is for professional print. When unsure, start with Medium and re-run larger if you need more.',
     },
     {
       q: 'Should I choose JPG or PNG?',
@@ -66,7 +67,7 @@ const lede = 'Turn every page of a PDF into a JPG or PNG image, at the resolutio
     },
     {
       q: 'Can I convert only some pages?',
-      a: 'This tool converts the whole document. To convert a subset, extract the pages you want first with the split tool, then convert the smaller file here.',
+      a: 'Yes. Type the pages into the "Only certain pages" box — for example "1-3, 5" — and only those pages are converted. The file names keep the original page numbers, so page-5.jpg is still page 5 of the PDF.',
     },
     {
       q: 'Can I convert PDF to PNG instead?',
@@ -100,12 +101,12 @@ const lede = 'Turn every page of a PDF into a JPG or PNG image, at the resolutio
 
     <div class="row-2">
       <div class="field">
-        <label for="dpi-select">Resolution</label>
+        <label for="dpi-select">Image size</label>
         <select id="dpi-select">
-          <option value="72">72 DPI, small files</option>
-          <option value="150" selected>150 DPI, balanced</option>
-          <option value="300">300 DPI, print sharp</option>
-          <option value="600">600 DPI, archival print</option>
+          <option value="72">Small — for quick sharing and chat</option>
+          <option value="150" selected>Medium — good for most uses</option>
+          <option value="300">Large — sharp for printing</option>
+          <option value="600">Largest — professional print</option>
         </select>
       </div>
       <div class="field">
@@ -116,7 +117,20 @@ const lede = 'Turn every page of a PDF into a JPG or PNG image, at the resolutio
         </select>
       </div>
     </div>
-    <p class="hint" id="dpi-warning" hidden>600 DPI makes very large images. A long PDF at this resolution can use a lot of memory and take a while.</p>
+    <div class="field" id="quality-field">
+      <label for="quality-select">JPG detail</label>
+      <select id="quality-select" style="max-width:16rem">
+        <option value="0.8">Smaller files</option>
+        <option value="0.9" selected>Balanced</option>
+        <option value="0.95">Best quality (bigger files)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="range-input">Only certain pages <span class="count-label">(optional)</span></label>
+      <input type="text" id="range-input" placeholder="e.g. 1-3, 5 — leave empty for the whole PDF" autocomplete="off" style="max-width:22rem" />
+      <p class="hint">Type page numbers and ranges to convert just those pages. File names keep the original page numbers.</p>
+    </div>
+    <p class="hint" id="dpi-warning" hidden>Largest makes very big images. A long PDF at this size can be slow and use a lot of memory.</p>
 
     <div id="progress-wrap" class="progress-wrap" hidden>
       <div id="progress-label" class="progress-label"></div>

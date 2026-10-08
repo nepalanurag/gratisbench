@@ -20,9 +20,9 @@ const lede = 'Try to fix a damaged PDF that will not open. The file\u2019s struc
     'Be clear-eyed about it: this fixes some damaged PDFs and not others. A file with its content destroyed, or something that was never a PDF, cannot be brought back by any tool. If the repair fails here, the file is likely beyond repair, and the tool says so instead of handing you a broken download.',
   ]}
   steps={[
-    'Drop the damaged PDF onto the box above, or click it to browse.',
-    'Click "Try to repair". The tool rebuilds the file\u2019s internal structure.',
-    'If it works, save the result.',
+    'Drop the damaged PDF onto the box above, or click it to browse. The tool first diagnoses what is wrong with the file.',
+    'Click "Try to repair". It tries a quick rebuild, then a deeper one, then a last-resort page-by-page rebuild, and tells you which one worked.',
+    'Check the preview of the repaired first page, then save the result.',
     'Open the repaired file and check every page. Skim for missing pages or garbled content before relying on it.',
   ]}
   specs={[
@@ -30,7 +30,8 @@ const lede = 'Try to fix a damaged PDF that will not open. The file\u2019s struc
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None.'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['What it does', 'Reads the damaged file and writes a fresh, clean copy'],
+    ['Diagnosis first', 'The tool inspects the file and says what kind of damage it sees'],
+    ['Repair stages', 'Quick rebuild \u2192 deeper read \u2192 last-resort page rebuild as pictures'],
     ['What it cannot do', 'Recover content that is actually destroyed, or fix files that were never PDFs'],
     ['Success rate', 'Honest answer: some files, not all. Truncated downloads repair best.'],
     ['Output filename', 'Your original name with "-repaired" added'],
@@ -55,6 +56,10 @@ const lede = 'Try to fix a damaged PDF that will not open. The file\u2019s struc
     {
       q: 'The file opens but looks wrong. Now what?',
       a: 'Try opening the original in a different reader first; some readers tolerate damage better than others. If the content is garbled everywhere, the damage is in the content itself and repair cannot help.',
+    },
+    {
+      q: 'What does "last resort: pages as pictures" mean?',
+      a: 'When the file\u2019s structure cannot be rebuilt at all, the tool renders each page it can still read into a picture and packs those into a fresh PDF. You can read every page, but the text is no longer selectable or searchable. It is a rescue copy, not a perfect restoration.',
     },
     {
       q: 'Can this remove a password from a damaged PDF?',
@@ -93,9 +98,16 @@ const lede = 'Try to fix a damaged PDF that will not open. The file\u2019s struc
 
     <div id="repair-wrap" hidden>
       <p id="file-info" class="hint"></p>
+      <p id="diagnosis" class="diagnosis" hidden></p>
       <div class="btn-row">
         <button id="repair-btn" class="btn">Try to repair</button>
       </div>
+      <ul id="repair-log" class="repair-log" hidden aria-live="polite"></ul>
+    </div>
+
+    <div id="repair-preview-wrap" hidden>
+      <h3>First page of the repaired file</h3>
+      <div id="repair-preview" class="repair-preview"></div>
     </div>
 
     <div id="result" class="result" hidden>
@@ -108,4 +120,59 @@ const lede = 'Try to fix a damaged PDF that will not open. The file\u2019s struc
     import { initRepairPdf } from '../tools/repair-pdf';
     initRepairPdf();
   </script>
+  <style>
+    /* Page-local styles for the diagnosis box, repair log, and preview. */
+    :global(.diagnosis) {
+      border-left: 3px solid var(--accent);
+      background: var(--paper);
+      padding: 0.7rem 1rem;
+      margin: 1rem 0;
+      font-size: 0.95rem;
+    }
+    :global(.repair-log) {
+      list-style: none;
+      margin: 1rem 0;
+      padding: 0;
+      display: grid;
+      gap: 0.45rem;
+      font-size: 0.92rem;
+    }
+    :global(.repair-log li) {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    :global(.log-dot) {
+      width: 0.7rem;
+      height: 0.7rem;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+    :global(.log-working) {
+      background: var(--muted);
+      animation: log-pulse 1s ease-in-out infinite alternate;
+    }
+    :global(.log-ok) {
+      background: #2e7d32;
+    }
+    :global(.log-fail) {
+      background: var(--accent);
+    }
+    @keyframes log-pulse {
+      from { opacity: 0.35; }
+      to { opacity: 1; }
+    }
+    :global(.repair-preview) {
+      display: flex;
+      justify-content: center;
+      margin: 0.6rem 0 1.2rem;
+    }
+    :global(.repair-preview canvas) {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+  </style>
 </ToolPage>

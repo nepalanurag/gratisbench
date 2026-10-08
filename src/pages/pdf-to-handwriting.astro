@@ -3,10 +3,32 @@ import ToolPage from '../layouts/ToolPage.astro';
 
 const title = 'PDF to Handwriting Free — Turn Typed Text into Realistic Handwriting';
 const description =
-  'Convert a PDF or pasted text into realistic handwriting. Three handwriting styles, ink colors, ruled notebook paper or your original layout. Free, no signup, files never leave your device.';
+  'Convert a PDF or pasted text into realistic handwriting. Three handwriting styles plus your own drawn alphabet, ink colors, ruled/grid/plain notebook paper or your original layout. Free, no signup, files never leave your device.';
 const h1 = 'PDF to Handwriting';
 const lede = 'Turn typed pages into pages that look handwritten. Pick a style, pick an ink, and download a PDF that looks like you wrote it by hand.';
 ---
+<style>
+  #hw-draw-canvas {
+    width: 320px; height: 320px; max-width: 100%;
+    border: 2px solid var(--line); border-radius: var(--radius);
+    background: #fff; touch-action: none; cursor: crosshair;
+  }
+  .hw-swatch.hw-mine { font-size: 30px; }
+  .hw-swatch.hw-grid {
+    background:
+      repeating-linear-gradient(#fff, #fff 13px, #c9d8e8 13px, #c9d8e8 14px),
+      repeating-linear-gradient(90deg, #fff, #fff 13px, #c9d8e8 13px, #c9d8e8 14px);
+  }
+  .hw-ink .hw-custom-ink { overflow: hidden; padding: 0; }
+  .hw-ink .hw-custom-ink input {
+    width: 100%; height: 100%; border: none; padding: 0;
+    background: none; cursor: pointer;
+  }
+  .hw-live-img {
+    width: 100%; max-width: 560px; border: 1px solid var(--line);
+    border-radius: var(--radius); background: #fff; display: block;
+  }
+</style>
 <ToolPage
   title={title}
   description={description}
@@ -15,8 +37,8 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
   crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'PDF to Handwriting', href: '/pdf-to-handwriting' }]}
   toolName="TruePDF PDF to Handwriting"
   intro={[
-    'Some things just read better handwritten: a letter, class notes, a quote for a gift. This tool takes a PDF or any text you paste and rewrites it in a handwriting style, letter by letter, with the small wobbles and tilts that keep it from looking like a plain font.',
-    'Choose from three styles, pick an ink color, and decide whether the words keep their original layout or flow onto ruled notebook paper. Everything renders in your browser, so your words never go to a server.',
+    'Some things just read better handwritten: a letter, class notes, a quote for a gift. This tool takes a PDF or any text you paste and rewrites it in a handwriting style, letter by letter, with the small wobbles and tilts that keep it from looking like a plain font. You can even draw your own alphabet once and have everything written in your hand.',
+    'Choose from three styles or your own drawn letters, pick an ink color, and decide whether the words keep their original layout or flow onto ruled notebook paper. The preview below the options updates as you change things. Everything renders in your browser, so your words never go to a server.',
   ]}
   steps={[
     'Drop a PDF or paste your text into the box above.',
@@ -30,12 +52,16 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
     ['Watermark', 'None.'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Inputs', 'PDF files or pasted/typed text'],
-    ['Styles', 'Casual, neat, and cursive handwriting'],
-    ['Paper', 'Ruled notebook or your original page layout'],
+    ['Styles', 'Casual, neat, and cursive handwriting — or draw your own alphabet'],
+    ['Paper', 'Ruled notebook, grid, plain, or your original page layout'],
     ['Output', 'PDF, one handwritten page per input page'],
     ['Works offline', 'Yes, once the page and fonts have loaded'],
   ]}
   faqs={[
+    {
+      q: 'Can I use my own handwriting?',
+      a: 'Yes. Pick the "My handwriting" style and draw each letter once in the box — a through z, capitals, and digits. Letters you skip fall back to the Casual style. Your drawings are saved in your browser only, and every page you make afterwards uses them. You can also load a photo of a letter as a faint tracing guide while you draw.',
+    },
     {
       q: 'Is this really free?',
       a: 'Yes. No paid tier, no watermark, no limits. The handwriting is drawn in your browser with code that ships with this page.',
@@ -91,8 +117,26 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
           <label class="hw-style"><input type="radio" name="hw-style" value="casual" checked /><span class="hw-swatch" style="font-family:'Caveat',cursive">Ag</span><small>Casual</small></label>
           <label class="hw-style"><input type="radio" name="hw-style" value="neat" /><span class="hw-swatch" style="font-family:'Kalam',cursive">Ag</span><small>Neat</small></label>
           <label class="hw-style"><input type="radio" name="hw-style" value="cursive" /><span class="hw-swatch" style="font-family:'Dancing Script',cursive">Ag</span><small>Cursive</small></label>
+          <label class="hw-style"><input type="radio" name="hw-style" value="custom" /><span class="hw-swatch hw-mine">✎</span><small>My handwriting</small></label>
         </div>
       </div>
+
+      <div id="hw-draw-section" class="field" hidden>
+        <label>Draw your alphabet</label>
+        <p class="hint">Draw each letter once in the box below. Letters you skip fall back to the Casual style. Your drawings stay in this browser only — nothing is uploaded.</p>
+        <canvas id="hw-draw-canvas" aria-label="Draw the letter here"></canvas>
+        <p id="hw-draw-label" class="count-label"></p>
+        <div class="btn-row" style="justify-content:flex-start;flex-wrap:wrap;">
+          <button type="button" id="hw-draw-prev" class="btn btn-secondary">← Previous</button>
+          <button type="button" id="hw-draw-next" class="btn btn-secondary">Next →</button>
+          <button type="button" id="hw-draw-save" class="btn">Save letter</button>
+          <button type="button" id="hw-draw-clear" class="btn btn-secondary">Clear</button>
+          <button type="button" id="hw-draw-photo" class="btn btn-secondary">Trace a photo</button>
+        </div>
+        <input type="file" id="hw-draw-photo-input" accept="image/*" hidden />
+        <p id="hw-draw-count" class="hint" role="status" aria-live="polite"></p>
+      </div>
+
       <div class="field">
         <label>Ink color</label>
         <div class="hw-inks" role="radiogroup" aria-label="Ink color">
@@ -101,6 +145,7 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
           <label class="hw-ink"><input type="radio" name="hw-ink" value="#b3242c" /><span style="background:#b3242c"></span><small>Red</small></label>
           <label class="hw-ink"><input type="radio" name="hw-ink" value="#1e6b3a" /><span style="background:#1e6b3a"></span><small>Green</small></label>
           <label class="hw-ink"><input type="radio" name="hw-ink" value="#6b3fa0" /><span style="background:#6b3fa0"></span><small>Purple</small></label>
+          <label class="hw-ink"><input type="radio" name="hw-ink" value="custom" /><span class="hw-custom-ink"><input type="color" id="hw-ink-custom" value="#7a2a1a" aria-label="Pick a custom ink color" /></span><small>Custom</small></label>
         </div>
       </div>
       <div class="field">
@@ -108,6 +153,7 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
         <div class="hw-papers" role="radiogroup" aria-label="Paper">
           <label class="hw-style"><input type="radio" name="hw-paper" value="ruled" checked /><span class="hw-swatch hw-ruled"></span><small>Notebook</small></label>
           <label class="hw-style"><input type="radio" name="hw-paper" value="plain" /><span class="hw-swatch hw-plain"></span><small>Plain</small></label>
+          <label class="hw-style"><input type="radio" name="hw-paper" value="grid" /><span class="hw-swatch hw-grid"></span><small>Grid</small></label>
           <label class="hw-style"><input type="radio" name="hw-paper" value="layout" /><span class="hw-swatch hw-layout"></span><small>Original layout</small></label>
         </div>
         <p class="hint">"Original layout" needs a PDF. It keeps your text where it was on the page.</p>
@@ -120,6 +166,17 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
         <label for="hw-slant">Slant</label>
         <input type="range" id="hw-slant" min="-12" max="12" value="0" />
       </div>
+      <div class="field">
+        <label for="hw-mess">Natural variation</label>
+        <input type="range" id="hw-mess" min="0" max="100" value="40" />
+        <p class="hint">Turn up for a more uneven, human look. Turn down for tidy and even.</p>
+      </div>
+    </div>
+
+    <div id="hw-live-wrap" class="field" hidden>
+      <label>Preview</label>
+      <img id="hw-live-img" class="hw-live-img" alt="Handwriting preview" />
+      <p class="hint">Updates as you change the options above.</p>
     </div>
 
     <div class="btn-row">

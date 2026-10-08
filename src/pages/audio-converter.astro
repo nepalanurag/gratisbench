@@ -18,7 +18,7 @@ const lede = 'Turn audio between MP3, WAV, and OGG. On your device, no upload qu
   toolName="TruePDF Audio Converter"
   intro={[
     'Audio conversion online usually means uploading your file to a stranger\'s server, waiting in a queue behind everyone else\'s files, and hoping the result is what the button promised. This converter never uploads anything. The conversion happens on your device, right in your browser: the file goes in and the result downloads straight to you.',
-    'The first conversion takes a moment because the conversion tool itself, about 30MB, downloads once and is then cached by your browser. After that, conversions start immediately. For MP3 or OGG you pick a bitrate, so you control the tradeoff between file size and sound quality.',
+    'The first conversion takes a moment because the conversion tool itself, about 30MB, downloads once and is then cached by your browser. After that, conversions start immediately. For MP3 or OGG you pick a quality level — small file, balanced, or best quality — so you control the tradeoff between file size and sound quality.',
     'One honest boundary: this tool converts between common formats, it does not improve audio. Converting a low-bitrate MP3 to WAV makes a bigger file, not a better-sounding one. Pick the format that fits the job: MP3 for sharing and players, OGG for open-source projects, WAV for editing and archiving.',
   ]}
   steps={[
@@ -34,7 +34,7 @@ const lede = 'Turn audio between MP3, WAV, and OGG. On your device, no upload qu
     ['Watermark', 'None'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Output formats', 'MP3, WAV, OGG'],
-    ['MP3 / OGG bitrates', '128, 192, or 320 kbps'],
+    ['Quality', 'Small file, balanced, or best quality (MP3 and OGG)'],
     ['Engine download', 'About 30MB on first use, cached afterwards'],
     ['Works offline', 'Yes, once the page and the engine have loaded'],
   ]}
@@ -56,8 +56,8 @@ const lede = 'Turn audio between MP3, WAV, and OGG. On your device, no upload qu
       a: 'MP3 plays everywhere and is the safe default for sharing. OGG Vorbis sounds slightly better than MP3 at the same bitrate and is fully open, but some players and car stereos skip it. WAV is lossless and best for editing or archiving, at the cost of much larger files.',
     },
     {
-      q: 'What bitrate should I pick for MP3 or OGG?',
-      a: '128 kbps is fine for voice and casual listening at small sizes. 192 kbps is the sweet spot for music most people cannot distinguish from the original. 320 kbps is near-transparent and worth it if storage is no concern. Going above the source bitrate never adds quality back.',
+      q: 'What quality should I pick for MP3 or OGG?',
+      a: '"Small file" is fine for voice and casual listening at small sizes. "Balanced" is the sweet spot for music that most people cannot distinguish from the original. "Best quality" is near-transparent and worth it if storage is no concern. Going above the source quality never adds quality back.',
     },
     {
       q: 'Will converting improve my audio quality?',
@@ -98,12 +98,13 @@ const lede = 'Turn audio between MP3, WAV, and OGG. On your device, no upload qu
     <p id="same-format-note" class="hint" hidden></p>
 
     <div class="field field-narrow" id="quality-row">
-      <label for="quality-select">Bitrate</label>
+      <label for="quality-select">Quality</label>
       <select id="quality-select">
-        <option value="128">128 kbps</option>
-        <option value="192" selected>192 kbps</option>
-        <option value="320">320 kbps</option>
+        <option value="128">Small file — good for voice</option>
+        <option value="192" selected>Balanced — good for music (recommended)</option>
+        <option value="320">Best quality — bigger file</option>
       </select>
+      <p class="hint">Higher quality sounds better and makes a bigger file. WAV is always full quality, so this choice only applies to MP3 and OGG.</p>
     </div>
 
     <div class="btn-row">

@@ -6,7 +6,9 @@ export const INVOICE_SCHEMA_VERSION = 1;
 export const INVOICE_STORAGE_KEY = 'freekit.invoice-generator.v1';
 export const INVOICE_NUMBER_KEY = 'freekit.invoice-generator.number';
 export const INVOICE_HISTORY_KEY = 'freekit.invoice-generator.history.v1';
+export const INVOICE_TEMPLATES_KEY = 'truepdf.invoice-generator.templates.v1';
 export const MAX_HISTORY = 50;
+export const MAX_TEMPLATES = 25;
 
 export interface InvoiceLineItem {
   id: string;

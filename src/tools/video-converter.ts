@@ -34,6 +34,47 @@ export function initVideoConverter(): void {
     return (checked?.value as OutFormat) || 'mp4';
   }
 
+  function selectedSpeed(): number {
+    const checked = document.querySelector<HTMLInputElement>('input[name="speed"]:checked');
+    const v = parseFloat(checked?.value ?? '1');
+    return [0.5, 1, 1.5, 2].includes(v) ? v : 1;
+  }
+
+  function selectedAspect(): string {
+    const checked = document.querySelector<HTMLInputElement>('input[name="aspect"]:checked');
+    const v = checked?.value ?? 'original';
+    return ['original', '16:9', '9:16', '1:1', '4:3'].includes(v) ? v : 'original';
+  }
+
+  /** Crop filter that trims the frame to the target aspect ratio, centered.
+   *  The trailing scale forces even dimensions (required by yuv420p). */
+  function aspectCropFilter(aspect: string): string | null {
+    const ratio: Record<string, [number, number]> = {
+      '16:9': [16, 9],
+      '9:16': [9, 16],
+      '1:1': [1, 1],
+      '4:3': [4, 3],
+    };
+    const r = ratio[aspect];
+    if (!r) return null;
+    const [w, h] = r;
+    return (
+      `crop=w='min(iw,ih*${w}/${h})':h='min(ih,iw*${h}/${w})'` +
+      `,scale=trunc(iw/2)*2:trunc(ih/2)*2`
+    );
+  }
+
+  /** Combined -vf chain for speed + aspect. Empty array when neither applies. */
+  function videoFilters(speed: number, aspect: string): string[] {
+    const chain: string[] = [];
+    if (speed !== 1) chain.push(`setpts=${1 / speed}*PTS`);
+    const crop = aspectCropFilter(aspect);
+    if (crop) chain.push(crop);
+    // atempo supports 0.5–2.0 in a single filter.
+    const audio = speed === 1 ? [] : ['-af', `atempo=${speed}`];
+    return chain.length > 0 ? ['-vf', chain.join(','), ...audio] : audio;
+  }
+
   /** True when the input file is already in the chosen output container,
    *  so ffmpeg can copy the streams instead of re-encoding them. */
   function canFastCopy(): boolean {
@@ -45,7 +86,9 @@ export function initVideoConverter(): void {
 
   function updateFastCopyRow(): void {
     const row = el('fastcopy-row');
-    const match = canFastCopy();
+    // Fast copy needs 1× speed, matching container, and no aspect change —
+    // any of those requires re-encoding.
+    const match = selectedSpeed() === 1 && selectedAspect() === 'original' && canFastCopy();
     row.hidden = !match;
     if (match) el<HTMLInputElement>('fastcopy-check').checked = true;
   }
@@ -53,6 +96,24 @@ export function initVideoConverter(): void {
   document.querySelectorAll('input[name="format"]').forEach((r) => {
     r.addEventListener('change', updateFastCopyRow);
   });
+  document.querySelectorAll('input[name="speed"]').forEach((r) => {
+    r.addEventListener('change', updateFastCopyRow);
+  });
+  document.querySelectorAll('input[name="aspect"]').forEach((r) => {
+    r.addEventListener('change', updateFastCopyRow);
+  });
+
+  /** Smart default: match the output format to the input container when the
+   *  user hasn't picked one yet — converting webm→webm is usually a tweak
+   *  (speed, aspect), not a format change. MP4 stays the default otherwise. */
+  function applyFormatDefault(fileName: string): void {
+    const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
+    const map: Record<string, string> = { '.webm': 'webm', '.mov': 'mov' };
+    const fmt = map[ext];
+    if (!fmt) return;
+    const radio = document.querySelector<HTMLInputElement>(`input[name="format"][value="${fmt}"]`);
+    if (radio) radio.checked = true;
+  }
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
@@ -73,6 +134,7 @@ export function initVideoConverter(): void {
     file = f;
     el('file-info').textContent = `${f.name} · ${formatBytes(f.size)}`;
     el<HTMLButtonElement>('convert-btn').disabled = false;
+    applyFormatDefault(f.name);
     updateFastCopyRow();
     status.hidden = false;
     status.textContent = 'Loading the video engine (about 30MB, first use only)…';
@@ -96,8 +158,15 @@ export function initVideoConverter(): void {
     // prompt — and with no stdin in wasm, exec() hangs forever silently.
     let ffmpeg: import('@ffmpeg/ffmpeg').FFmpeg | null = null;
     const fmt = selectedFormat();
+    const speed = selectedSpeed();
+    const aspect = selectedAspect();
+    const mute = el<HTMLInputElement>('mute-check').checked;
     const inName = 'input' + extOf(file.name);
     const outName = 'output.' + fmt;
+    // Re-encoding is required for speed, aspect, or container changes; fast
+    // copy only works when everything stays as-is. Muting does not force a
+    // re-encode: the video stream can still be copied while audio is dropped.
+    const useFastCopy = speed === 1 && aspect === 'original' && canFastCopy() && el<HTMLInputElement>('fastcopy-check').checked;
     try {
       ffmpeg = await loadFFmpeg();
       await ffmpeg.writeFile(inName, await fetchFileBytes(file));
@@ -105,21 +174,23 @@ export function initVideoConverter(): void {
         const pct = Math.round(progress * 100);
         setProgress(pct, `Converting… ${pct}%`);
       });
+      const vf = videoFilters(speed, aspect);
+      const noAudio = mute ? ['-an'] : [];
       const args =
-        canFastCopy() && el<HTMLInputElement>('fastcopy-check').checked
+        useFastCopy
           ? // Same container: copy the original streams. No re-encode, no
             // quality loss, and it finishes in seconds. faststart only
             // applies to the MP4/MOV muxers.
-            ['-y', '-i', inName, '-c', 'copy',
+            ['-y', '-i', inName, ...(mute ? ['-c:v', 'copy', '-an'] : ['-c', 'copy']),
              ...(fmt === 'webm' ? [] : ['-movflags', '+faststart']), outName]
           : fmt === 'mp4'
-          ? ['-y', '-i', inName, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
-             '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', outName]
+          ? ['-y', '-i', inName, ...vf, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+             '-pix_fmt', 'yuv420p', ...(mute ? noAudio : ['-c:a', 'aac']), '-movflags', '+faststart', outName]
           : fmt === 'webm'
-            ? ['-y', '-i', inName, '-c:v', 'libvpx', '-b:v', '0', '-crf', '28',
-               '-deadline', 'good', '-cpu-used', '5', '-c:a', 'libvorbis', outName]
-            : ['-y', '-i', inName, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
-               '-pix_fmt', 'yuv420p', '-c:a', 'aac', outName];
+            ? ['-y', '-i', inName, ...vf, '-c:v', 'libvpx', '-b:v', '0', '-crf', '28',
+               '-deadline', 'good', '-cpu-used', '5', ...(mute ? noAudio : ['-c:a', 'libvorbis']), outName]
+            : ['-y', '-i', inName, ...vf, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+               '-pix_fmt', 'yuv420p', ...(mute ? noAudio : ['-c:a', 'aac']), outName];
       await ffmpeg.exec(args);
       const data = (await ffmpeg.readFile(outName)) as Uint8Array;
       const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
@@ -127,7 +198,7 @@ export function initVideoConverter(): void {
       downloadBytes(name, out, MIME[fmt]);
       setProgress(100, 'Done.');
       el('result').hidden = false;
-      el('result-info').textContent = `${name} · ${formatBytes(out.length)}`;
+      el('result-info').textContent = `${name} · ${formatBytes(out.length)}${mute ? ' · sound removed' : ''}`;
     } catch (err) {
       showError('error-box', ffmpegErrorMessage(err));
     } finally {

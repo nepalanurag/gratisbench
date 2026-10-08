@@ -19,6 +19,10 @@ export function initVideoTrimmer(): void {
   let duration = 0;
   let timelineReady = false;
   let filmstripRun = 0;
+  // 'keep': one continuous section (existing flow). 'cut': mark sections to
+  // remove; the rest is joined back together (multi-segment trim).
+  let trimMode: 'keep' | 'cut' = 'keep';
+  let cuts: { start: number; end: number }[] = [];
   const status = el('engine-status');
 
   /**
@@ -62,17 +66,178 @@ export function initVideoTrimmer(): void {
   el('start-input').addEventListener('input', () => { refreshHint(); syncTimeline(); });
   el('end-input').addEventListener('input', () => { refreshHint(); syncTimeline(); });
 
-  /** Timeline scrubber: visual start/end selection synced with text inputs. */
+  /** Validate the cut list: every cut inside [0, duration], start < end, and
+   *  no two cuts overlapping. Returns the cuts sorted by start time. */
+  function validateCuts(): { start: number; end: number }[] {
+    if (cuts.length === 0) throw new Error('Add at least one section to cut.');
+    const sorted = [...cuts].sort((a, b) => a.start - b.start);
+    for (const c of sorted) {
+      if (!Number.isFinite(c.start) || !Number.isFinite(c.end) || c.start < 0 || c.end > duration) {
+        throw new Error('Every cut section must sit inside the video.');
+      }
+      if (c.end - c.start < 0.1) {
+        throw new Error('Every cut section must be at least 0.1 seconds long.');
+      }
+    }
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].start < sorted[i - 1].end - 0.001) {
+        throw new Error('Cut sections must not overlap. Remove or resize one of them.');
+      }
+    }
+    return sorted;
+  }
+
+  /** The parts that survive the cuts: the complement of the cut ranges. */
+  function keepRangesFromCuts(sorted: { start: number; end: number }[]): { start: number; end: number }[] {
+    const keeps: { start: number; end: number }[] = [];
+    let cur = 0;
+    for (const c of sorted) {
+      if (c.start > cur + 0.001) keeps.push({ start: cur, end: c.start });
+      cur = c.end;
+    }
+    if (cur < duration - 0.001) keeps.push({ start: cur, end: duration });
+    return keeps;
+  }
+
+  function updateCutHint(): void {
+    const hint = el('cut-hint');
+    if (duration <= 0 || trimMode !== 'cut') {
+      hint.textContent = '';
+      return;
+    }
+    try {
+      const sorted = validateCuts();
+      const keeps = keepRangesFromCuts(sorted);
+      const kept = keeps.reduce((a, k) => a + (k.end - k.start), 0);
+      const n = sorted.length;
+      hint.textContent =
+        keeps.length === 0
+          ? 'The cuts remove the whole video — shrink or remove one of them.'
+          : `Keeping ${formatTime(kept)} of ${formatTime(duration)} · ${n} section${n === 1 ? '' : 's'} cut out.`;
+      el<HTMLButtonElement>('trim-btn').disabled = keeps.length === 0;
+    } catch {
+      hint.textContent = cuts.length === 0 ? 'Add at least one section to cut above.' : '';
+      el<HTMLButtonElement>('trim-btn').disabled = true;
+    }
+  }
+
+  function renderCuts(): void {
+    const box = el('cut-list');
+    box.innerHTML = '';
+    if (cuts.length === 0) {
+      box.innerHTML = '<p class="hint">No sections marked yet. Add the first one below.</p>';
+    }
+    cuts.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'cue-row';
+      row.innerHTML =
+        `<span class="cue-num">${i + 1}</span>` +
+        `<span class="cue-time">Cut out</span>` +
+        `<input type="text" value="${formatTime(c.start)}" data-i="${i}" data-f="start" ` +
+        `aria-label="Cut section ${i + 1} start" style="width:5.5em" inputmode="decimal" />` +
+        `<span class="hint">to</span>` +
+        `<input type="text" value="${formatTime(c.end)}" data-i="${i}" data-f="end" ` +
+        `aria-label="Cut section ${i + 1} end" style="width:5.5em" inputmode="decimal" />` +
+        `<button type="button" class="icon-btn" data-del="${i}" aria-label="Remove cut section ${i + 1}">✕</button>`;
+      box.appendChild(row);
+    });
+    box.querySelectorAll('input').forEach((input) => {
+      input.addEventListener('change', () => {
+        const i = Number(input.getAttribute('data-i'));
+        const f = input.getAttribute('data-f') as 'start' | 'end';
+        try {
+          const t = parseTimeLoose(input.value);
+          const next = Math.round(t * 10) / 10;
+          cuts[i] = { ...cuts[i], [f]: next };
+          validateCuts();
+          hideError('error-box');
+        } catch (err) {
+          showError('error-box', err instanceof Error ? err.message : 'Could not read that time.');
+        }
+        renderCuts();
+        syncTimeline();
+      });
+    });
+    box.querySelectorAll('button[data-del]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        cuts.splice(Number(btn.getAttribute('data-del')), 1);
+        hideError('error-box');
+        renderCuts();
+        syncTimeline();
+      });
+    });
+    updateCutHint();
+  }
+
+  el('add-cut-btn').addEventListener('click', () => {
+    hideError('error-box');
+    // Default the new cut around the current preview spot, so marking a
+    // mistake you just watched takes one click plus a nudge.
+    const preview = el<HTMLVideoElement>('preview');
+    const center = duration > 0 ? Math.min(Math.max(preview.currentTime || 0, 1), duration - 1) : 5;
+    const s = Math.round(Math.max(0, center - 2.5) * 10) / 10;
+    const e = Math.round(Math.min(duration, center + 2.5) * 10) / 10;
+    cuts.push({ start: s, end: Math.max(e, s + 0.1) });
+    renderCuts();
+    syncTimeline();
+  });
+
+  document.querySelectorAll('input[name="trim-mode"]').forEach((r) => {
+    r.addEventListener('change', () => {
+      trimMode = document.querySelector<HTMLInputElement>('input[name="trim-mode"]:checked')?.value === 'cut'
+        ? 'cut'
+        : 'keep';
+      hideError('error-box');
+      el('keep-ui').hidden = trimMode !== 'keep';
+      el('cut-ui').hidden = !(trimMode === 'cut' && duration > 0);
+      if (trimMode === 'cut') {
+        renderCuts();
+      } else {
+        refreshHint();
+        el<HTMLButtonElement>('trim-btn').disabled = duration <= 0;
+      }
+      syncTimeline();
+    });
+  });
+
+  /** Timeline scrubber: visual start/end selection synced with text inputs.
+   *  In "cut" mode the keep handles hide and the cut sections show as red
+   *  overlays instead. */
   function syncTimeline(): void {
     if (duration <= 0) return;
+    const startH = el('timeline-start');
+    const endH = el('timeline-end');
+    const range = el('timeline-range');
+    // Cut overlays are rebuilt from scratch each time (inline styles, no CSS).
+    el('timeline').querySelectorAll('.timeline-cut-ov').forEach((n) => n.remove());
+    if (trimMode === 'cut') {
+      startH.style.display = 'none';
+      endH.style.display = 'none';
+      range.style.display = 'none';
+      const timeline = el('timeline');
+      for (const c of cuts) {
+        const ov = document.createElement('div');
+        ov.className = 'timeline-cut-ov';
+        ov.style.cssText =
+          `position:absolute;top:0;bottom:0;left:${(c.start / duration) * 100}%;` +
+          `width:${((c.end - c.start) / duration) * 100}%;` +
+          `background:rgba(190,40,30,0.45);border-left:2px solid #d34a3a;` +
+          `border-right:2px solid #d34a3a;pointer-events:none;border-radius:2px;`;
+        timeline.appendChild(ov);
+      }
+      updateCutHint();
+      return;
+    }
+    startH.style.display = '';
+    endH.style.display = '';
+    range.style.display = '';
     try {
       const { start, end } = readRange();
       const pct = (t: number) => `${(t / duration) * 100}%`;
-      const range = el('timeline-range');
       range.style.left = pct(start);
       range.style.width = `calc(${pct(end)} - ${pct(start)})`;
-      el('timeline-start').style.left = pct(start);
-      el('timeline-end').style.left = pct(end);
+      startH.style.left = pct(start);
+      endH.style.left = pct(end);
     } catch {
       /* invalid range — leave timeline as-is */
     }
@@ -167,6 +332,13 @@ export function initVideoTrimmer(): void {
 
     timeline.addEventListener('pointerdown', (e) => {
       const t = timeFromEvent(e);
+      // In "cut" mode there are no handles: clicking just previews the spot.
+      if (trimMode === 'cut') {
+        dragging = 'scrub';
+        timeline.setPointerCapture(e.pointerId);
+        preview.currentTime = t;
+        return;
+      }
       const rect = timeline.getBoundingClientRect();
       const x = e.clientX - rect.left;
       let startX = -Infinity;
@@ -253,6 +425,11 @@ export function initVideoTrimmer(): void {
     el<HTMLInputElement>('start-input').value = '0:00.0';
     el<HTMLInputElement>('end-input').value = formatTime(duration);
     el<HTMLButtonElement>('trim-btn').disabled = false;
+    // A new file resets the cut list; the visible UI follows the mode.
+    cuts = [];
+    el('keep-ui').hidden = trimMode !== 'keep';
+    el('cut-ui').hidden = trimMode !== 'cut';
+    if (trimMode === 'cut') renderCuts();
     el('timeline-wrap').hidden = false;
     el('timeline-caption').textContent =
       `Full video: ${formatTime(duration)}. Drag a handle to set a cut point. Click anywhere else to preview that spot.`;
@@ -272,10 +449,91 @@ export function initVideoTrimmer(): void {
     }
   });
 
+  /**
+   * Cut mode: extract every kept section (re-encoded so the cuts land exactly
+   * and every segment has identical codec settings), then join the sections
+   * with the concat demuxer without re-encoding.
+   */
+  async function trimCutMode(): Promise<void> {
+    const f = file;
+    if (!f) return;
+    let sorted: { start: number; end: number }[];
+    try {
+      sorted = validateCuts();
+    } catch (err) {
+      showError('error-box', err instanceof Error ? err.message : 'Could not read the cut sections.');
+      return;
+    }
+    const keeps = keepRangesFromCuts(sorted);
+    if (keeps.length === 0) {
+      showError('error-box', 'The cuts remove the whole video — shrink or remove one of them.');
+      return;
+    }
+    setBusy('trim-btn', true, 'Cutting…');
+    setProgress(0, 'Starting…');
+    // Hoisted so finally can clean up MEMFS even on failure (same overwrite-
+    // prompt hang note as the keep-mode path above).
+    let ffmpeg: import('@ffmpeg/ffmpeg').FFmpeg | null = null;
+    const inName = 'input' + extOf(f.name);
+    const outName = 'output.mp4';
+    const segNames: string[] = [];
+    let phase = 'Cutting';
+    try {
+      ffmpeg = await loadFFmpeg();
+      await ffmpeg.writeFile(inName, await fetchFileBytes(f));
+      ffmpeg.on('progress', ({ progress }) => {
+        const pct = Math.round(progress * 100);
+        setProgress(pct, `${phase}… ${pct}%`);
+      });
+      // One re-encoded pass per kept section.
+      for (let i = 0; i < keeps.length; i++) {
+        const k = keeps[i];
+        const segName = `seg${i}.mp4`;
+        segNames.push(segName);
+        phase = `Cutting section ${i + 1} of ${keeps.length}`;
+        setProgress(0, `${phase}…`);
+        await ffmpeg.exec(['-y', '-ss', String(k.start), '-i', inName, '-t', String(k.end - k.start),
+          '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+          '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', segName]);
+      }
+      // Join the sections without re-encoding.
+      phase = 'Joining sections';
+      setProgress(0, `${phase}…`);
+      const listText = segNames.map((n) => `file '${n}'`).join('\n');
+      await ffmpeg.writeFile('list.txt', new TextEncoder().encode(listText));
+      await ffmpeg.exec(['-y', '-f', 'concat', '-safe', '0', '-i', 'list.txt',
+        '-c', 'copy', '-movflags', '+faststart', outName]);
+      const data = (await ffmpeg.readFile(outName)) as Uint8Array;
+      const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
+      const kept = keeps.reduce((a, k) => a + (k.end - k.start), 0);
+      const name = withExtension(f.name.replace(/(\.\w+)?$/, '-cut$1'), 'mp4');
+      downloadBytes(name, out, 'video/mp4');
+      setProgress(100, 'Done.');
+      el('result').hidden = false;
+      const n = sorted.length;
+      el('result-info').textContent =
+        `${name} · ${formatTime(kept)} kept · ${n} section${n === 1 ? '' : 's'} cut · ${formatBytes(out.length)}`;
+    } catch (err) {
+      showError('error-box', ffmpegErrorMessage(err));
+    } finally {
+      if (ffmpeg) {
+        await ffmpeg.deleteFile(inName).catch(() => {});
+        await ffmpeg.deleteFile(outName).catch(() => {});
+        await ffmpeg.deleteFile('list.txt').catch(() => {});
+        for (const s of segNames) await ffmpeg.deleteFile(s).catch(() => {});
+      }
+      setBusy('trim-btn', false);
+    }
+  }
+
   el('trim-btn').addEventListener('click', async () => {
     if (!file) return;
     hideError('error-box');
     el('result').hidden = true;
+    if (trimMode === 'cut') {
+      await trimCutMode();
+      return;
+    }
     let range: { start: number; end: number };
     try {
       range = readRange();

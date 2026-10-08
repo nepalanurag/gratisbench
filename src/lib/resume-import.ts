@@ -270,7 +270,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
 // ---------- parsing ----------
 
-type SectionKey = 'summary' | 'experience' | 'education' | 'skills' | 'projects' | 'certifications' | 'languages' | 'awards' | 'publications' | 'volunteer' | 'courses';
+type SectionKey = 'summary' | 'experience' | 'education' | 'skills' | 'projects' | 'certifications' | 'languages' | 'awards' | 'publications' | 'volunteer' | 'courses' | 'certskills';
 
 const SECTION_DEFS: { re: RegExp; section: SectionKey }[] = [
   { re: /^(work\s+)?experience$/, section: 'experience' },
@@ -285,6 +285,9 @@ const SECTION_DEFS: { re: RegExp; section: SectionKey }[] = [
   { re: /^objective$/, section: 'summary' },
   { re: /^profile$/, section: 'summary' },
   { re: /^certifications?$/, section: 'certifications' },
+  // Combined header some templates use ("CERTIFICATIONS, LANGUAGES & SKILLS"):
+  // lines are routed by their prefix below.
+  { re: /^certifications?,?\s+languages?\s*(&|and)?\s*skills?$/, section: 'certskills' },
   { re: /^licenses(\s+(and|&)\s+certifications?)?$/, section: 'certifications' },
   { re: /^languages?$/, section: 'languages' },
   { re: /^awards?$/, section: 'awards' },
@@ -490,6 +493,17 @@ function looksLikeLocation(s: string): boolean {
   return t.length > 0 && t.length <= 60 && /,/.test(t) && /[A-Za-z]/.test(t) && !/\d{4}/.test(t);
 }
 
+/** A line that reads as an entry header rather than a location: degree
+ * words, company suffixes, or simply too many words for "City, Region". */
+function looksLikeEntryHeader(s: string): boolean {
+  const t = s.trim();
+  return (
+    DEGREE_RE.test(t) ||
+    /\b(inc|llc|corp|ltd|pvt|gmbh|co)\b\.?/i.test(t) ||
+    t.split(/\s+/).filter(Boolean).length > 4
+  );
+}
+
 /**
  * Split a section into entries on date-range lines.
  *
@@ -539,18 +553,27 @@ function splitEntries(lines: string[]): EntryBlock[] {
       if (headers.length === 2) break;
     }
     // A location line right under the date ("Lalitpur, Nepal"), possibly
-    // wrapped across two lines ("Kavrepalanchowk," / "Nepal").
+    // wrapped across two lines ("Kavrepalanchowk," / "Nepal"). But if the line
+    // after it is another date range and the line itself looks like an entry
+    // header ("M.S. Physics, State Univ"), it starts the next entry — it is
+    // not this entry's location.
     let trailingLocation = '';
     let consumed = 0;
     const after1 = lines[di + 1];
+    const after2 = lines[di + 2];
+    const after1IsNextHeader =
+      after1 !== undefined &&
+      after2 !== undefined &&
+      DATE_RANGE_RE.test(after2) &&
+      looksLikeEntryHeader(after1);
     if (
       after1 !== undefined &&
+      !after1IsNextHeader &&
       !isBulletLine(after1) &&
       !detectSection(after1) &&
       !DATE_RANGE_RE.test(after1)
     ) {
       let loc = after1;
-      const after2 = lines[di + 2];
       if (
         /,\s*$/.test(after1) &&
         after2 !== undefined &&
@@ -648,6 +671,30 @@ function bodyToBullets(bodyLines: string[]): string[] {
 }
 
 /**
+ * Split inline bullet separators into separate lines. PDF extraction often
+ * merges "Degree … Bengaluru, India • GPA: 9.34/10.0 • Ranked Top 5" into one
+ * line; each "•"-separated chunk is really its own line. Only the bullet
+ * character U+2022 splits — the middle dot "·" is a common field separator
+ * ("San Francisco, CA · Mar 2021 – Present") and must not split.
+ */
+function splitInlineBullets(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const line of lines) {
+    if (/[^\s] • /.test(line)) {
+      const lead = line.match(/^[•·▪◦▸‣⁃]\s*/)?.[0] ?? '';
+      const parts = line.split(/\s+•\s+/);
+      parts.forEach((p, i) => {
+        const t = ((i === 0 ? lead : '') + p).trim();
+        if (t.replace(/^[•·▪◦▸‣⁃]\s*/, '').trim()) out.push(t);
+      });
+    } else {
+      out.push(line);
+    }
+  }
+  return out;
+}
+
+/**
  * Join wrapped bullet continuations at the line level (markers still intact).
  * A non-bullet line that follows a bullet is a continuation of that bullet
  * when: the bullet doesn't end with terminal punctuation, and the line looks
@@ -655,8 +702,20 @@ function bodyToBullets(bodyLines: string[]): string[] {
  * and it isn't a date, year, location, or section header.
  */
 function joinBulletContinuations(lines: string[]): string[] {
+  // A line that is only a bullet marker ("•") belongs at the start of the
+  // next line — some PDFs emit the marker as its own text item.
+  const fixed: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^[•·▪◦▸‣⁃]\s*$/.test(line) && i + 1 < lines.length) {
+      fixed.push(`${line.trim()} ${lines[i + 1].trim()}`);
+      i++;
+    } else {
+      fixed.push(line);
+    }
+  }
   const out: string[] = [];
-  for (const line of lines) {
+  for (const line of fixed) {
     const prev = out[out.length - 1];
     const prevBullet = prev !== undefined ? stripBullet(prev) : null;
     const curBullet = stripBullet(line);
@@ -700,62 +759,94 @@ function parseExperience(lines: string[]): ParsedWorkEntry[] {
   }).filter((e) => e.title || e.company || e.bullets.length > 0);
 }
 
-function parseEducation(lines: string[]): ParsedEducationEntry[] {
-  return splitEntries(lines).map((block) => {
+function parseEducation(lines: string[], schoolHint = '', sectionDate = ''): ParsedEducationEntry[] {
+  // If the section's date range isn't on any remaining line (it was on a
+  // pulled award line, right-aligned in the original layout), put it on its
+  // own line after the degree line so splitEntries still finds it.
+  let work = lines;
+  if (sectionDate && !DATE_RANGE_RE.test(lines.join(' '))) {
+    const di = lines.findIndex((l) => stripBullet(l) === null);
+    work = di >= 0
+      ? [...lines.slice(0, di + 1), sectionDate, ...lines.slice(di + 1)]
+      : [...lines, sectionDate];
+  }
+  return splitEntries(work).map((block) => {
     const { start, end: dateEnd, location: dateLoc } = parseDateLine(block.dateLine);
     let degree = '';
-    let school = '';
+    let school = schoolHint;
     let endYear = dateEnd;
     let location = dateLoc || block.trailingLocation;
     if (block.headerLines.length >= 2) {
       degree = block.headerLines[0].trim();
       const [sc, loc] = splitCompanyLocation(block.headerLines[1]);
-      school = sc;
+      if (!school) school = sc;
       if (!location) location = loc;
     } else if (block.headerLines.length === 1) {
       const line = block.headerLines[0];
-      let splitAt = -1;
-      let splitLen = 0;
-      for (const sep of HEADER_SEPS) {
-        const i = line.indexOf(sep);
-        if (i > 0) { splitAt = i; splitLen = sep.length; break; }
-      }
-      if (splitAt > 0) {
-        degree = line.slice(0, splitAt).trim();
-        const [sc, loc] = splitCompanyLocation(line.slice(splitAt + splitLen).trim());
-        school = sc;
-        if (!location) location = loc;
+      // "Bachelors' in Computer Science & Engineering Bengaluru, India":
+      // trailing "City, Country" is the location, not the degree.
+      const cityCountry = line.match(/^(.*?)\s+([A-Z][a-zA-Z]+,\s*[A-Z][a-zA-Z]+)$/);
+      if (cityCountry && !DEGREE_RE.test(cityCountry[2])) {
+        degree = cityCountry[1].trim();
+        if (!location) location = cityCountry[2].trim();
       } else {
-        const lastComma = line.lastIndexOf(',');
-        if (lastComma > 0) {
-          degree = line.slice(0, lastComma).trim();
-          const tail = line.slice(lastComma + 1).trim();
-          // A trailing year ("B.S. Computer Science, State University, 2019")
-          // is the graduation year, not the school.
-          if (/^(19|20)\d{2}$/.test(tail)) {
-            endYear = tail;
-            const prevComma = degree.lastIndexOf(',');
-            if (prevComma > 0) {
-              school = degree.slice(prevComma + 1).trim();
-              degree = degree.slice(0, prevComma).trim();
-            } else {
-              school = degree;
-              degree = '';
-            }
-          } else {
-            school = tail;
-          }
+        let splitAt = -1;
+        let splitLen = 0;
+        for (const sep of HEADER_SEPS) {
+          const i = line.indexOf(sep);
+          if (i > 0) { splitAt = i; splitLen = sep.length; break; }
+        }
+        if (splitAt > 0) {
+          degree = line.slice(0, splitAt).trim();
+          const [sc, loc] = splitCompanyLocation(line.slice(splitAt + splitLen).trim());
+          if (!school) school = sc;
+          if (!location) location = loc;
         } else {
-          school = line.trim();
+          const lastComma = line.lastIndexOf(',');
+          if (lastComma > 0) {
+            degree = line.slice(0, lastComma).trim();
+            const tail = line.slice(lastComma + 1).trim();
+            // A trailing year ("B.S. Computer Science, State University, 2019")
+            // is the graduation year, not the school.
+            if (/^(19|20)\d{2}$/.test(tail)) {
+              endYear = tail;
+              const prevComma = degree.lastIndexOf(',');
+              if (prevComma > 0) {
+                if (!school) school = degree.slice(prevComma + 1).trim();
+                degree = degree.slice(0, prevComma).trim();
+              } else if (!school) {
+                school = degree;
+                degree = '';
+              }
+            } else if (!school) {
+              school = tail;
+            }
+          } else if (!school) {
+            school = line.trim();
+          } else {
+            degree = line.trim();
+          }
         }
       }
     }
+    // Detail: dedupe repeated lines and keep only the first GPA mention so
+    // conflicting duplicates can't both show up.
+    const seen = new Set<string>();
+    let gpaSeen = false;
     const detail = block.bodyLines
       .map((l) => {
         const b = stripBullet(l);
         return (b !== null ? b : l).trim();
       })
-      .filter(Boolean)
+      .filter((t) => {
+        if (!t || seen.has(t.toLowerCase())) return false;
+        seen.add(t.toLowerCase());
+        if (/\bgpa\b/i.test(t)) {
+          if (gpaSeen) return false;
+          gpaSeen = true;
+        }
+        return true;
+      })
       .join(' ');
     return { degree, school, location, start, end: endYear, detail };
   }).filter((e) => e.degree || e.school);
@@ -765,25 +856,29 @@ function parseSkills(lines: string[]): ParsedSkillGroup[] {
   const groups: ParsedSkillGroup[] = [];
   let current: ParsedSkillGroup | null = null;
   // "C/C++" splits into C and C++; single capital letters are kept so neither
-  // half (nor single-letter skills like R) is dropped.
+  // half (nor single-letter skills like R) is dropped. "Python:PyTorch"
+  // sub-categories split on the colon too (URLs are left alone).
   const splitItems = (s: string): string[] =>
     s
       .split(/[,;•·|/]/)
-      .map((x) => x.trim())
-      .filter((x) => x.length > 1 || /^[A-Za-z]$/.test(x));
+      .flatMap((x) => (/https?:\/\//i.test(x) ? [x] : x.split(':')))
+      .map((x) => x.trim().replace(/[.]+$/, ''))
+      .filter((x, i, arr) => (x.length > 1 || /^[A-Za-z]$/.test(x)) && arr.indexOf(x) === i);
   for (const line of lines) {
     const colon = line.indexOf(':');
     if (colon > 0 && colon <= 40) {
-      current = { label: line.slice(0, colon).trim(), items: splitItems(line.slice(colon + 1)) };
+      current = { label: stripLineBullet(line.slice(0, colon).trim()), items: splitItems(line.slice(colon + 1)) };
       groups.push(current);
     } else {
-      const items = splitItems(line);
+      const items = splitItems(stripLineBullet(line));
       if (items.length === 0) continue;
       if (!current) {
         current = { label: '', items: [] };
         groups.push(current);
       }
-      current.items.push(...items);
+      for (const it of items) {
+        if (!current.items.includes(it)) current.items.push(it);
+      }
     }
   }
   return groups.filter((g) => g.items.length > 0);
@@ -822,20 +917,61 @@ function parseProjects(lines: string[]): ParsedProjectEntry[] {
 
 /** Lines that are really awards, even when they appear under Education. */
 const AWARD_LINE_RE = /\b(award|prize|honou?rs?|distinction|fellowship|scholarship|dean'?s list|cum laude)\b/i;
+/** For bulleted lines the bar is higher: only a concrete award noun
+ * ("Distinguished Graduate Award") is pulled. A bulleted "Graduated with
+ * honors" reads as an education detail, so it stays. */
+const BULLET_AWARD_RE = /\b(award|prize|fellowship|scholarship|dean'?s list)\b/i;
 const DEGREE_RE = /\b(B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D\.?|bachelor'?s?|master'?s?|doctorate|MBA)\b/i;
 
-/** Pull award-like lines out of a section's lines (they belong in Awards).
- * Only standalone lines (no bullet marker): a bulleted "Graduated with
- * honors" is an education detail, while a bare "Distinguished Graduate
- * Award, 2019" is an award. */
+/**
+ * Pull award-like lines out of a section's lines (they belong in Awards).
+ * Handles both bare lines ("Distinguished Graduate Award, 2019") and short
+ * bulleted award noun phrases ("• Distinguished Graduate Award"). GPA lines
+ * are never pulled — the GPA belongs to the education detail.
+ */
 function pullAwardLines(lines: string[]): { kept: string[]; awards: string[] } {
   const kept: string[] = [];
   const awards: string[] = [];
   for (const line of lines) {
-    if (stripBullet(line) === null && AWARD_LINE_RE.test(line) && !DEGREE_RE.test(line)) awards.push(line);
-    else kept.push(line);
+    const isBulleted = stripBullet(line) !== null;
+    const stripped = (stripBullet(line) ?? line).trim();
+    const words = stripped.split(/\s+/).filter(Boolean).length;
+    const re = isBulleted ? BULLET_AWARD_RE : AWARD_LINE_RE;
+    if (
+      re.test(stripped) &&
+      !DEGREE_RE.test(stripped) &&
+      !/\bgpa\b/i.test(stripped) &&
+      words <= 12
+    ) {
+      awards.push(stripped);
+    } else {
+      kept.push(line);
+    }
   }
   return { kept, awards };
+}
+
+/** Role/position lines ("General Officer at Data Science Society") are not
+ * education — they belong in volunteer/extracurricular. Also lifts a school
+ * name out of the line when it names an institution ("…, Nitte Meenakshi
+ * Institute of Technology"), since the degree line often omits it. */
+const ROLE_RE = /\b(officer|president|vice[\s-]?president|chair|coordinator|lead|member|volunteer|mentor|tutor|ambassador|representative|secretary|treasurer|captain|founder|organizer|chairperson)\b/i;
+const INSTITUTION_RE = /,\s*([^,()]*\b(?:institute|university|college|school|academy)[^,()]*)$/i;
+function pullRoleLines(lines: string[]): { kept: string[]; roles: string[]; schoolHint: string } {
+  const kept: string[] = [];
+  const roles: string[] = [];
+  let schoolHint = '';
+  for (const line of lines) {
+    const text = (stripBullet(line) ?? line).trim();
+    if (ROLE_RE.test(text) && /\b(at|of|for)\b/i.test(text) && !DEGREE_RE.test(text)) {
+      const m = text.match(INSTITUTION_RE);
+      if (m && !schoolHint) schoolHint = m[1].trim();
+      roles.push(text);
+    } else {
+      kept.push(line);
+    }
+  }
+  return { kept, roles, schoolHint };
 }
 function stripLineBullet(l: string): string {
   const b = stripBullet(l);
@@ -843,16 +979,27 @@ function stripLineBullet(l: string): string {
 }
 
 function parseCertifications(lines: string[]): ParsedCertificationEntry[] {
-  return lines.map((line) => {
+  const out: ParsedCertificationEntry[] = [];
+  for (const line of lines) {
     const text = stripLineBullet(line);
-    const parts = text.split(',').map((p) => p.trim()).filter(Boolean);
-    if (parts.length >= 3) return { name: parts[0], issuer: parts.slice(1, -1).join(', '), year: parts[parts.length - 1] };
-    if (parts.length === 2) {
-      const yearLike = /^\d{4}$/.test(parts[1]);
-      return { name: parts[0], issuer: yearLike ? '' : parts[1], year: yearLike ? parts[1] : '' };
+    // "Data Analyst(Datacamp), Intermediate SQL(Datacamp)" — several
+    // "Name(Issuer)" certifications on one line.
+    const grouped = [...text.matchAll(/([^,()]+?)\s*\(([^()]*)\)/g)];
+    if (grouped.length >= 2) {
+      for (const m of grouped) {
+        out.push({ name: m[1].trim(), issuer: m[2].trim(), year: '' });
+      }
+      continue;
     }
-    return { name: text, issuer: '', year: '' };
-  }).filter((c) => c.name);
+    const parts = text.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 3) out.push({ name: parts[0], issuer: parts.slice(1, -1).join(', '), year: parts[parts.length - 1] });
+    else if (parts.length === 2) {
+      const yearLike = /^\d{4}$/.test(parts[1]);
+      out.push({ name: parts[0], issuer: yearLike ? '' : parts[1], year: yearLike ? parts[1] : '' });
+    }
+    else if (text) out.push({ name: text, issuer: '', year: '' });
+  }
+  return out.filter((c) => c.name);
 }
 
 function parseLanguages(lines: string[]): ParsedLanguageEntry[] {
@@ -955,9 +1102,9 @@ export function parseResumeText(text: string): ParsedResume {
     .filter((l) => l.length > 0 && !/^[-_=*#]{4,}$/.test(l) && !/^pages?\s+\d+(\s+of\s+\d+)?$/i.test(l));
   if (lines.length === 0) return out;
 
-  // Join wrapped bullet continuations before section detection, while the
-  // bullet markers are still intact.
-  const joined = joinBulletContinuations(lines);
+  // Split "•"-joined chunks ("…Bengaluru, India • GPA: 9.34/10.0") into lines,
+  // then join wrapped bullet continuations while the markers are intact.
+  const joined = joinBulletContinuations(splitInlineBullets(lines));
 
   const sections = new Map<SectionKey, string[]>();
   const contactLines: string[] = [];
@@ -991,17 +1138,63 @@ export function parseResumeText(text: string): ParsedResume {
   if (experience) out.experience = parseExperience(experience);
   const education = sections.get('education');
   if (education) {
-    // Awards often hide in the education section ("Distinguished Graduate
-    // Award, 2019"). Pull them out so they land in Awards, not Education.
+    // Awards hide in the education section ("• Distinguished Graduate
+    // Award"). Pull them out so they land in Awards, not Education. A date
+    // range on a pulled award line is usually the degree's right-aligned
+    // dates — recover it for the education entry.
     const { kept, awards: eduAwards } = pullAwardLines(education);
-    out.education = parseEducation(kept);
-    if (eduAwards.length > 0) {
+    let sectionDate = '';
+    const cleanAwards = eduAwards
+      .map((a) => {
+        const m = a.match(DATE_RANGE_RE);
+        if (m && !sectionDate) {
+          sectionDate = m[0];
+          return a.replace(m[0], '').replace(/[·|\-–—\s]+$/, '').trim();
+        }
+        return a;
+      })
+      .filter(Boolean);
+    // Role lines ("General Officer at Data Science Society") are positions,
+    // not education — they belong in volunteer.
+    const { kept: kept2, roles, schoolHint } = pullRoleLines(kept);
+    if (roles.length > 0) {
+      sections.set('volunteer', [...(sections.get('volunteer') ?? []), ...roles]);
+    }
+    out.education = parseEducation(kept2, schoolHint, sectionDate);
+    if (cleanAwards.length > 0) {
       const existing = sections.get('awards') ?? [];
-      sections.set('awards', [...existing, ...eduAwards]);
+      sections.set('awards', [...existing, ...cleanAwards]);
     }
   }
   const skills = sections.get('skills');
   if (skills) out.skills = parseSkills(skills);
+  // A combined "CERTIFICATIONS, LANGUAGES & SKILLS" header: route each line
+  // by its prefix ("Certifications: …" → certifications, rest → skills).
+  const certskills = sections.get('certskills');
+  if (certskills) {
+    const certLines: string[] = [];
+    const langLines: string[] = [];
+    const skillLines: string[] = [];
+    for (const l of certskills) {
+      const t = (stripBullet(l) ?? l).trim();
+      if (/^certifications?\s*:/i.test(t)) {
+        certLines.push(t.replace(/^certifications?\s*:\s*/i, ''));
+      } else if (/^languages?\s*:/i.test(t)) {
+        langLines.push(t.replace(/^languages?\s*:\s*/i, ''));
+      } else {
+        skillLines.push(l);
+      }
+    }
+    if (certLines.length > 0) {
+      out.certifications = [...out.certifications, ...parseCertifications(certLines)];
+    }
+    if (langLines.length > 0) {
+      out.languages = [...out.languages, ...parseLanguages(langLines)];
+    }
+    if (skillLines.length > 0) {
+      out.skills = [...out.skills, ...parseSkills(skillLines)];
+    }
+  }
   const projects = sections.get('projects');
   if (projects) out.projects = parseProjects(projects);
   const certifications = sections.get('certifications');

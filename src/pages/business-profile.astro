@@ -107,6 +107,26 @@ const lede =
       <input id="bp-logo-input" type="file" accept="image/*" hidden />
     </div>
 
+    <p class="mono-label mono-label-gap">More about your business</p>
+    <div class="row-2">
+      <div class="field">
+        <label for="bp-category">Industry</label>
+        <input id="bp-category" type="text" placeholder="Design studio" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="bp-hours">Opening hours</label>
+      <textarea id="bp-hours" rows="2" placeholder="Mon to Fri, 9am to 6pm"></textarea>
+    </div>
+    <div class="field">
+      <label>Social profiles</label>
+      <p class="hint">These are offered to the email signature generator as social links.</p>
+      <div id="bp-socials"></div>
+      <div class="btn-row btn-row-none">
+        <button id="bp-add-social" class="btn btn-secondary btn-small" type="button">Add social profile</button>
+      </div>
+    </div>
+
     <p class="mono-label mono-label-gap">Backup</p>
     <div class="btn-row">
       <button id="bp-save" class="btn" type="button">Save profile</button>

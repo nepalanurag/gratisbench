@@ -5,6 +5,8 @@ import {
   INVOICE_STORAGE_KEY,
   INVOICE_NUMBER_KEY,
   INVOICE_HISTORY_KEY,
+  INVOICE_TEMPLATES_KEY,
+  MAX_TEMPLATES,
   blankInvoice,
   blankLineItem,
   exampleInvoice,
@@ -24,6 +26,14 @@ import {
 } from '../lib/invoice-core.ts';
 import { el, showError, hideError, ICONS, downscaleImageFile } from './common.ts';
 import { loadBusinessProfile, saveBusinessProfile, profileIsEmpty } from '../lib/business-profile.ts';
+import {
+  INVOICE_EXTRAS_KEY,
+  blankInvoiceExtras,
+  serializeExtras,
+  deserializeExtras,
+  applyExtrasToPreview,
+  type InvoiceExtras,
+} from '../lib/invoice-extras.ts';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -31,8 +41,10 @@ function escapeHtml(s: string): string {
 
 export function initInvoiceGenerator(): void {
   let invoice: InvoiceData = loadInvoice();
+  let extras: InvoiceExtras = loadExtras();
   syncBusinessProfile();
   let history: InvoiceData[] = loadHistory();
+  let templates: InvoiceTemplate[] = loadTemplates();
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   const editor = el('inv-editor');
@@ -57,8 +69,15 @@ export function initInvoiceGenerator(): void {
     return inv;
   }
 
-  function loadHistory(): InvoiceData[] {
+  function loadExtras(): InvoiceExtras {
     try {
+      return deserializeExtras(localStorage.getItem(INVOICE_EXTRAS_KEY));
+    } catch {
+      return blankInvoiceExtras(); // storage blocked or unavailable
+    }
+  }
+
+  function loadHistory(): InvoiceData[] {    try {
       const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
       if (!raw) return [];
       const arr: unknown = JSON.parse(raw);
@@ -111,6 +130,7 @@ export function initInvoiceGenerator(): void {
   function persist(): void {
     try {
       localStorage.setItem(INVOICE_STORAGE_KEY, serializeInvoice(invoice));
+      localStorage.setItem(INVOICE_EXTRAS_KEY, serializeExtras(extras));
     } catch {
       // Storage full or blocked: the tool still works for this session.
     }
@@ -147,7 +167,7 @@ export function initInvoiceGenerator(): void {
   // ---------- preview ----------
 
   function renderPreview(): void {
-    preview.innerHTML = renderInvoice(invoice);
+    preview.innerHTML = applyExtrasToPreview(renderInvoice(invoice), invoice, extras);
   }
 
   // ---------- editor ----------
@@ -240,11 +260,105 @@ export function initInvoiceGenerator(): void {
   }
 
   function renderEditor(): void {
-    editor.innerHTML = businessHtml() + clientHtml() + detailsHtml() + itemsHtml() + totalsHtml();
+    editor.innerHTML = businessHtml() + clientHtml() + detailsHtml() + itemsHtml() + totalsHtml() + extrasHtml();
   }
 
   function renderItemsOnly(): void {
     el('inv-items').innerHTML = invoice.items.map((it, i) => itemRow(it, i, invoice.items.length)).join('');
+  }
+
+  function extrasHtml(): string {
+    const ex = extras;
+    return `<section class="rb-section" aria-label="More invoice options">
+      <div class="rb-section-head"><h3>More options</h3></div>
+      <div class="rb-grid">
+        <label class="rb-field"><span>PO number</span><input type="text" data-sec="extras" data-field="poNumber" value="${escapeHtml(ex.poNumber)}" placeholder="Optional" /></label>
+        <label class="rb-field"><span>Tax name</span><input type="text" data-sec="extras" data-field="taxName" value="${escapeHtml(ex.taxName)}" placeholder="Tax (e.g. VAT, GST)" /></label>
+        <label class="rb-field"><span>Shipping</span><input type="text" inputmode="decimal" data-sec="extras" data-field="shipping" value="${escapeHtml(ex.shipping)}" placeholder="0.00" /></label>
+        <label class="rb-field"><span>Amount paid</span><input type="text" inputmode="decimal" data-sec="extras" data-field="paid" value="${escapeHtml(ex.paid)}" placeholder="0.00" /></label>
+      </div>
+      <label class="checkline" style="margin-top:0.65rem;"><input type="checkbox" data-sec="extras" data-field="taxInclusive" ${ex.taxInclusive ? 'checked' : ''} /> Line prices already include tax</label>
+      <p class="hint">For VAT/GST regions: the tax is backed out of the totals instead of added on top. Amount paid shows a balance-due line on the invoice.</p>
+    </section>`;
+  }
+
+  // ---------- templates (reusable starting points for recurring billing) ----------
+
+  interface InvoiceTemplate {
+    name: string;
+    invoice: InvoiceData;
+  }
+
+  function loadTemplates(): InvoiceTemplate[] {
+    try {
+      const raw = localStorage.getItem(INVOICE_TEMPLATES_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw) as Array<{ name: string; invoice: string }>;
+      return arr
+        .filter((t) => t && typeof t.name === 'string' && typeof t.invoice === 'string')
+        .map((t) => ({ name: t.name, invoice: deserializeInvoice(t.invoice) }))
+        .slice(0, MAX_TEMPLATES);
+    } catch {
+      return [];
+    }
+  }
+
+  function persistTemplates(): void {
+    try {
+      localStorage.setItem(
+        INVOICE_TEMPLATES_KEY,
+        JSON.stringify(templates.map((t) => ({ name: t.name, invoice: serializeInvoice(t.invoice) }))),
+      );
+    } catch {
+      // storage blocked — templates just won't persist
+    }
+  }
+
+  function renderTemplates(): void {
+    const box = el('inv-templates');
+    if (templates.length === 0) {
+      box.innerHTML =
+        '<p class="empty-state">No templates yet. Set up an invoice once, save it as a template, and reuse it every billing cycle.</p>';
+      return;
+    }
+    box.innerHTML = templates
+      .map((t, i) => {
+        const client = t.invoice.client.name.trim() || 'Unnamed client';
+        return `<div class="file-row">
+          <span class="file-name">${escapeHtml(t.name)}</span>
+          <span class="file-meta">${escapeHtml(client)} · ${formatMoney(computeTotals(t.invoice).totalCents, t.invoice.currency)}</span>
+          <span class="file-actions">
+            <button type="button" class="btn btn-secondary btn-small" data-tact="use" data-idx="${i}">New invoice</button>
+            <button type="button" class="icon-btn" data-tact="delete" data-idx="${i}" aria-label="Delete template">${ICONS.x}</button>
+          </span>
+        </div>`;
+      })
+      .join('');
+  }
+
+  function todayISO(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function plusDaysISO(days: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  /** Start a fresh invoice from a template: new number, today's dates. */
+  function invoiceFromTemplate(t: InvoiceTemplate): InvoiceData {
+    const fresh = deserializeInvoice(serializeInvoice(t.invoice));
+    let last: string | null = null;
+    try {
+      last = localStorage.getItem(INVOICE_NUMBER_KEY);
+    } catch {
+      // ignore
+    }
+    fresh.number = last ? nextInvoiceNumber(last) : 'INV-0001';
+    fresh.issueDate = todayISO();
+    fresh.dueDate = plusDaysISO(30);
+    return fresh;
   }
 
   // ---------- history ----------
@@ -294,6 +408,14 @@ export function initInvoiceGenerator(): void {
       }
       return;
     }
+    if (sec === 'extras') {
+      if (fieldName === 'taxInclusive') {
+        extras.taxInclusive = value === 'true';
+      } else if (fieldName === 'poNumber' || fieldName === 'taxName' || fieldName === 'shipping' || fieldName === 'paid') {
+        extras[fieldName] = value;
+      }
+      return;
+    }
     if (sec === 'item') {
       const item = invoice.items.find((i) => i.id === id);
       if (!item) return;
@@ -310,7 +432,11 @@ export function initInvoiceGenerator(): void {
     const id = input.getAttribute('data-id') ?? '';
     const fieldName = input.getAttribute('data-field');
     if (!fieldName) return;
-    setValue(sec, id, fieldName, (input as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value);
+    const rawValue =
+      input instanceof HTMLInputElement && input.type === 'checkbox'
+        ? String(input.checked)
+        : (input as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
+    setValue(sec, id, fieldName, rawValue);
     scheduleSave();
     renderPreview();
   });
@@ -416,6 +542,49 @@ export function initInvoiceGenerator(): void {
     }, 2500);
   });
 
+  el('inv-template-save').addEventListener('click', () => {
+    hideError('inv-error');
+    const problems = validateInvoice(invoice);
+    if (problems.length > 0) {
+      showError('inv-error', 'Before saving as a template: ' + problems.join(' '));
+      el('inv-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    const def = `${invoice.client.name.trim() || 'Untitled'} template`;
+    const name = window.prompt('Name this template:', def);
+    if (name === null) return; // cancelled
+    const clean = name.trim() || def;
+    templates.unshift({ name: clean, invoice: deserializeInvoice(serializeInvoice(invoice)) });
+    templates = templates.slice(0, MAX_TEMPLATES);
+    persistTemplates();
+    renderTemplates();
+    el('inv-saved-note').textContent = `Template "${clean}" saved. Reuse it for the next billing cycle.`;
+    el('inv-saved-note').hidden = false;
+    window.setTimeout(() => {
+      el('inv-saved-note').hidden = true;
+    }, 2500);
+  });
+
+  el('inv-templates').addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('button[data-tact]') as HTMLElement | null;
+    if (!btn) return;
+    const idx = parseInt(btn.getAttribute('data-idx') ?? '-1', 10);
+    const t = templates[idx];
+    if (!t) return;
+    if (btn.getAttribute('data-tact') === 'use') {
+      invoice = invoiceFromTemplate(t);
+      scheduleSave();
+      renderEditor();
+      renderPreview();
+      el('inv-editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (btn.getAttribute('data-tact') === 'delete') {
+      if (!window.confirm(`Delete template "${t.name}"?`)) return;
+      templates.splice(idx, 1);
+      persistTemplates();
+      renderTemplates();
+    }
+  });
+
   el('inv-example').addEventListener('click', () => {
     if (!window.confirm('Replace your current invoice with the example content?')) return;
     invoice = exampleInvoice();
@@ -469,4 +638,5 @@ export function initInvoiceGenerator(): void {
   renderEditor();
   renderPreview();
   renderHistory();
+  renderTemplates();
 }

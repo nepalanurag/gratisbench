@@ -24,7 +24,8 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
   steps={[
     'Drop your images onto the box above, or click it to browse. PNG, JPEG, WebP, GIF, BMP, and TIFF are accepted as inputs.',
     'Choose the output format: PNG, JPEG, WebP, or AVIF when your browser supports it.',
-    'Set the quality slider (JPEG, WebP, and AVIF). If you picked JPEG and any image is transparent, decide on the white fill.',
+    'Set the quality slider (JPEG, WebP, and AVIF). If you picked JPEG and any image is transparent, decide on the white fill. Optionally shrink images first with the size options.',
+    'Check the live preview: drag the divider to compare the original with the converted result before you convert.',
     'Click "Convert images". Each file shows its original and converted size.',
     'Download files individually, or take them all at once with "Download all as ZIP".',
   ]}
@@ -36,6 +37,7 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
     ['Input formats', 'PNG, JPEG, WebP, GIF, BMP, TIFF'],
     ['Output formats', 'PNG, JPEG, WebP; AVIF only when your browser supports it'],
     ['Quality control', 'Slider from 5 to 100 for JPEG, WebP, and AVIF'],
+    ['Resize', 'Keep original, half size, fit-for-web (1920 px), or a custom width'],
     ['Batch + ZIP', 'Yes. Convert many files, download individually or as one ZIP.'],
     ['Transparency', 'Kept for PNG, WebP, and AVIF. JPEG has no transparency; a white fill is offered with a warning.'],
     ['Animated GIFs', 'Convert as a single still frame (the first one)'],
@@ -61,6 +63,10 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
     {
       q: 'Can I convert animated GIFs?',
       a: 'Only as stills. The converter reads the first frame of an animated GIF and converts that single image, because it works with still pictures rather than animation. If you need the animation preserved, this is the wrong tool; a desktop video or GIF editor will handle frame-by-frame work better.',
+    },
+    {
+      q: 'Can I resize images while converting?',
+      a: 'Yes. The size options shrink images before conversion: half size, fit-for-web (long edge at most 1920 px, plenty for screens), or a custom width you type in. Resizing never enlarges an image. The live preview shows the resized result, and each converted file lists its new dimensions.',
     },
     {
       q: 'Are my images uploaded to a server?',
@@ -107,13 +113,44 @@ const lede = 'Turn PNG, JPEG, WebP, GIF, BMP, or TIFF images into the format you
       <p class="hint">Applies to JPEG, WebP, and AVIF. PNG is lossless and ignores it.</p>
     </div>
 
-    <div id="jpeg-fill-block" class="field" hidden>
-      <label class="checkline"><input type="checkbox" id="fill-white" checked /> Fill transparent areas with white</label>
+    <div class="field">
+      <label id="resize-label">Image size</label>
+      <div class="radio-cards" role="radiogroup" aria-labelledby="resize-label">
+        <label class="radio-card"><input type="radio" name="resize-mode" value="original" checked /><span><strong>Keep original size</strong><small>No resizing</small></span></label>
+        <label class="radio-card"><input type="radio" name="resize-mode" value="half" /><span><strong>Half size</strong><small>Quarter of the pixels, much smaller files</small></span></label>
+        <label class="radio-card"><input type="radio" name="resize-mode" value="web" /><span><strong>Fit for the web</strong><small>Long edge at most 1920 px</small></span></label>
+        <label class="radio-card"><input type="radio" name="resize-mode" value="custom" /><span><strong>Custom width</strong><small>You pick the width in pixels</small></span></label>
+      </div>
+      <div id="custom-width-row" class="field-row field-narrow" hidden>
+        <input type="text" inputmode="numeric" id="custom-width" placeholder="Width in pixels, e.g. 1200" aria-label="Custom width in pixels" />
+      </div>
+      <p class="hint" id="resize-hint">Resizing happens before conversion. Resizing never enlarges.</p>
+    </div>
+
+    <div id="jpeg-fill-block" class="field" hidden>      <label class="checkline"><input type="checkbox" id="fill-white" checked /> Fill transparent areas with white</label>
       <p id="alpha-warning" class="honest-note" hidden><strong>Transparency:</strong> at least one of your images has transparent areas. JPEG cannot store transparency, so without the white fill those areas turn black.</p>
     </div>
 
     <ul id="file-list" class="file-list"></ul>
     <p id="empty-state" class="empty-state">No images yet. Add your images above, pick an output format, then convert.</p>
+    <div id="live-preview" class="live-preview" hidden>
+      <h3>Live preview</h3>
+      <p class="hint">Drag the slider to compare. Change the format, quality, or size and watch the result update.</p>
+      <div id="compare-wrap" class="compare-wrap">
+        <img id="compare-before" class="compare-img" alt="Original image" />
+        <div id="compare-after" class="compare-after">
+          <img id="compare-after-img" class="compare-img" alt="Converted preview" />
+        </div>
+        <div id="compare-divider" class="compare-divider"></div>
+        <div id="compare-handle" class="compare-handle" role="slider" aria-label="Comparison divider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0">
+          <span class="compare-handle-grip"></span>
+        </div>
+        <span class="compare-label compare-label-before">Original</span>
+        <span class="compare-label compare-label-after">Converted</span>
+      </div>
+      <p id="compare-sizes" class="compare-sizes"></p>
+    </div>
+
     <div class="btn-row">
       <button id="convert-btn" class="btn" disabled>Convert images</button>
       <button id="download-all-btn" class="btn btn-secondary" hidden>Download all as ZIP</button>

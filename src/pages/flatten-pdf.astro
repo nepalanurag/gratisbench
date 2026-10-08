@@ -20,17 +20,19 @@ const lede = 'Bake a PDF form\u2019s fields into the page. The answers stay visi
     'Do this when the form is finished: before sending an application, archiving a record, or sharing a filled document. Keep an unflattened copy for yourself if you might need to edit the answers later, because flattening cannot be undone.',
   ]}
   steps={[
-    'Drop your filled PDF form onto the box above, or click it to browse.',
-    'The tool counts the form fields that will be baked in.',
-    'Click "Flatten PDF".',
-    'Save the result. Open it and try clicking a field: nothing should respond.',
+    'Drop one or more filled PDF forms onto the box above, or click it to browse.',
+    'The tool counts the form fields in each file that will be baked in.',
+    'Click "Flatten". Download each file on its own, or take them all as a ZIP.',
+    'Open a result and try clicking a field: nothing should respond.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None.'],
     ['Where files are processed', 'In your browser, on your device'],
+    ['Batch', 'Flatten several PDFs at once; download individually or as one ZIP'],
     ['What is flattened', 'Text fields, checkboxes, dropdowns, lists, radio buttons'],
+    ['Markups', 'Optional: also remove comments, highlights, and sticky notes'],
     ['What stays the same', 'Everything else: pages, text, images, layout'],
     ['Reversible?', 'No. Keep an unflattened copy if you may edit answers later.'],
     ['Output filename', 'Your original name with "-flattened" added'],
@@ -55,7 +57,7 @@ const lede = 'Bake a PDF form\u2019s fields into the page. The answers stay visi
     },
     {
       q: 'My PDF has no form fields. Will this do anything?',
-      a: 'No, and the tool tells you so instead of pretending. Flattening only matters for fillable forms.',
+      a: 'Flattening alone does nothing for it, and the tool says so instead of pretending. But if you tick "Also remove comments, highlights, and sticky notes", the file still goes through that cleanup pass.',
     },
     {
       q: 'Does this lock the whole PDF against editing?',
@@ -78,12 +80,12 @@ const lede = 'Bake a PDF form\u2019s fields into the page. The answers stay visi
   ]}
 >
   <section class="tool-card" slot="tool" aria-label="Flatten PDF tool">
-    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF form to flatten">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add PDF forms to flatten">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
-      <div class="dz-title">Drop a PDF form here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-title">Drop PDF forms here</div>
+      <div class="dz-sub">or click to choose files &middot; it stays on your device</div>
     </div>
-    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <input type="file" id="file-input" accept="application/pdf,.pdf" multiple hidden />
     <p id="size-note" class="hint" hidden></p>
     <div id="error-box" class="error-box" hidden></div>
 
@@ -92,24 +94,73 @@ const lede = 'Bake a PDF form\u2019s fields into the page. The answers stay visi
       content and the interactive field is removed. This cannot be undone, so keep your original.
     </p>
 
-    <p id="file-info" class="hint" hidden></p>
-    <p id="no-fields" class="empty-state" hidden>Drop a PDF form above to flatten its fields.</p>
+    <p id="file-info" class="empty-state">Drop one or more PDF forms above to flatten their fields.</p>
 
-    <div id="flatten-wrap" hidden>
-      <p id="fields-note" class="hint"></p>
+    <div id="files-wrap" hidden>
+      <div id="file-list" class="flat-list"></div>
+      <div class="checkline" style="margin-top:1rem;">
+        <input type="checkbox" id="opt-annots" />
+        <label for="opt-annots">Also remove comments, highlights, and sticky notes</label>
+      </div>
       <div class="btn-row">
-        <button id="flatten-btn" class="btn">Flatten PDF</button>
+        <button id="flatten-btn" class="btn">Flatten</button>
+        <button id="zip-btn" class="btn btn-secondary" disabled>Download all as ZIP</button>
       </div>
     </div>
 
     <div id="result" class="result" hidden>
       <h3>Flattened</h3>
       <p id="result-info"></p>
-      <button id="download-btn" class="btn">Download PDF</button>
     </div>
   </section>
   <script>
     import { initFlattenPdf } from '../tools/flatten-pdf';
     initFlattenPdf();
   </script>
+  <style>
+    /* Page-local styles for the batch file list. */
+    :global(.flat-list) {
+      display: grid;
+      gap: 0.6rem;
+      margin: 1rem 0;
+    }
+    :global(.flat-file) {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 0.6rem 0.8rem;
+      background: var(--paper);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+    :global(.flat-file-info) {
+      display: grid;
+      gap: 0.15rem;
+      min-width: 0;
+    }
+    :global(.flat-file-info strong) {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    :global(.flat-file-sub) {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    :global(.flat-file-right) {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    :global(.flat-status) {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    :global(.btn-small) {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+    }
+  </style>
 </ToolPage>

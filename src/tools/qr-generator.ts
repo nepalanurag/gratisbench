@@ -17,6 +17,9 @@ export function initQrGenerator(): void {
   const darkInput = el<HTMLInputElement>('qr-dark');
   const lightInput = el<HTMLInputElement>('qr-light');
   const transparentChk = el<HTMLInputElement>('qr-transparent');
+  const marginSel = el<HTMLSelectElement>('qr-margin');
+  const kindSel = el<HTMLSelectElement>('qr-kind');
+  const kindFields = el('qr-kind-fields');
   const logoInput = el<HTMLInputElement>('logo-input');
   const logoName = el('logo-name');
   const preview = el<HTMLImageElement>('qr-preview');
@@ -28,6 +31,10 @@ export function initQrGenerator(): void {
 
   let logoFile: File | null = null;
   let currentPng = '';
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  }
 
   function options() {
     // With a center logo, part of the code is covered: force high error
@@ -53,8 +60,9 @@ export function initQrGenerator(): void {
       return;
     }
     try {
-      let png = await makeQrPng(options());
-      if (logoFile) png = await composeWithLogo(png, logoFile, Number(sizeSel.value));
+      const rendered = await renderQr();
+      let png = rendered.png;
+      if (logoFile) png = await composeWithLogo(png, logoFile, rendered.px);
       currentPng = png;
       preview.src = png;
       previewWrap.hidden = false;
@@ -72,9 +80,39 @@ export function initQrGenerator(): void {
   }
 
   const refreshSoon = debounce(() => void refresh(), 350);
-  for (const node of [textInput, sizeSel, ecSel, darkInput, lightInput, transparentChk]) {
+  for (const node of [textInput, sizeSel, ecSel, darkInput, lightInput, transparentChk, marginSel]) {
     node.addEventListener('input', refreshSoon);
     node.addEventListener('change', refreshSoon);
+  }
+
+  /**
+   * Render the QR at the chosen size with a configurable quiet zone. The SVG
+   * is rasterized module-exact (module count read from its viewBox), so the
+   * margin is a precise number of modules instead of a guess.
+   */
+  async function renderQr(): Promise<{ png: string; px: number }> {
+    const o = options();
+    const size = o.size;
+    const marginModules = Math.max(0, Math.min(10, Number(marginSel.value) || 0));
+    const svg = await makeQrSvg({ ...o, light: '#ffffff00' });
+    const m = svg.match(/viewBox="0 0 (\d+(?:\.\d+)?)[ ,]/);
+    const modules = m ? parseFloat(m[1]) - 8 : 0; // the library always adds a 4-module margin
+    if (!(modules > 0)) return { png: await makeQrPng(o), px: size };
+    const modulePx = size / modules;
+    const px = Math.max(1, Math.round((modules + marginModules * 2) * modulePx));
+    const canvas = document.createElement('canvas');
+    canvas.width = px;
+    canvas.height = px;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas is not available in this browser.');
+    if (!transparentChk.checked) {
+      ctx.fillStyle = lightInput.value;
+      ctx.fillRect(0, 0, px, px);
+    }
+    const img = await loadImage('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
+    const off = marginModules * modulePx;
+    ctx.drawImage(img, off, off, modules * modulePx, modules * modulePx);
+    return { png: canvas.toDataURL('image/png'), px };
   }
 
   // Content templates: fill the textarea with the right format for the job.
@@ -93,9 +131,144 @@ export function initQrGenerator(): void {
     });
   });
 
-  // Remember the size and error-correction picks between visits.
+  // Remember the size, error-correction, and margin picks between visits.
   bindSetting('qr-generator', 'size', sizeSel, '1024');
   bindSetting('qr-generator', 'ec', ecSel, 'M');
+  bindSetting('qr-generator', 'margin', marginSel, '4');
+
+  // ---------- content builder ----------
+
+  interface KindField {
+    id: string;
+    label: string;
+    ph: string;
+    kind?: 'select';
+    options?: string[];
+  }
+
+  const KINDS: Record<string, { fields: KindField[] }> = {
+    url: { fields: [{ id: 'url', label: 'Website address', ph: 'https://example.com' }] },
+    wifi: {
+      fields: [
+        { id: 'ssid', label: 'Network name', ph: 'Home WiFi' },
+        { id: 'pw', label: 'Password', ph: 'Leave blank for open networks' },
+        { id: 'sec', label: 'Security', ph: '', kind: 'select', options: ['WPA', 'WEP', 'None'] },
+      ],
+    },
+    email: {
+      fields: [
+        { id: 'to', label: 'To', ph: 'you@example.com' },
+        { id: 'subject', label: 'Subject (optional)', ph: '' },
+        { id: 'body', label: 'Message (optional)', ph: '' },
+      ],
+    },
+    sms: {
+      fields: [
+        { id: 'to', label: 'Phone number', ph: '+15551234567' },
+        { id: 'body', label: 'Message (optional)', ph: '' },
+      ],
+    },
+    phone: { fields: [{ id: 'to', label: 'Phone number', ph: '+15551234567' }] },
+    vcard: {
+      fields: [
+        { id: 'name', label: 'Full name', ph: 'Sam Rivera' },
+        { id: 'phone', label: 'Phone (optional)', ph: '' },
+        { id: 'email', label: 'Email (optional)', ph: '' },
+        { id: 'org', label: 'Company (optional)', ph: '' },
+      ],
+    },
+    location: {
+      fields: [
+        { id: 'lat', label: 'Latitude', ph: '37.7749' },
+        { id: 'lng', label: 'Longitude', ph: '-122.4194' },
+      ],
+    },
+    whatsapp: {
+      fields: [
+        { id: 'to', label: 'Phone number (country code + number, digits only)', ph: '15551234567' },
+        { id: 'body', label: 'Prefilled message (optional)', ph: '' },
+      ],
+    },
+  };
+
+  function fieldVal(id: string): string {
+    const n = kindFields.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-kfield="${id}"]`);
+    return n ? n.value.trim() : '';
+  }
+
+  function useKindContent(): void {
+    const kind = kindSel.value;
+    const def = KINDS[kind];
+    if (!def) return;
+    if (!def.fields.some((f) => fieldVal(f.id) !== '')) {
+      showError('error-box', 'Fill in the fields first, then use the content.');
+      return;
+    }
+    let payload = '';
+    if (kind === 'url') {
+      payload = fieldVal('url');
+    } else if (kind === 'wifi') {
+      const sec = fieldVal('sec');
+      const escWifi = (s: string): string => s.replace(/([\\;,:"'])/g, '\\$1');
+      payload = `WIFI:T:${sec === 'None' ? 'nopass' : sec};S:${escWifi(fieldVal('ssid'))};${
+        sec === 'None' ? '' : `P:${escWifi(fieldVal('pw'))};`
+      };`;
+    } else if (kind === 'email') {
+      const q = [
+        fieldVal('subject') ? `subject=${encodeURIComponent(fieldVal('subject'))}` : '',
+        fieldVal('body') ? `body=${encodeURIComponent(fieldVal('body'))}` : '',
+      ]
+        .filter(Boolean)
+        .join('&');
+      payload = `mailto:${fieldVal('to')}${q ? `?${q}` : ''}`;
+    } else if (kind === 'sms') {
+      payload = `SMSTO:${fieldVal('to')}:${fieldVal('body')}`;
+    } else if (kind === 'phone') {
+      payload = `tel:${fieldVal('to')}`;
+    } else if (kind === 'vcard') {
+      const lines = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${fieldVal('name')}`];
+      if (fieldVal('phone')) lines.push(`TEL:${fieldVal('phone')}`);
+      if (fieldVal('email')) lines.push(`EMAIL:${fieldVal('email')}`);
+      if (fieldVal('org')) lines.push(`ORG:${fieldVal('org')}`);
+      lines.push('END:VCARD');
+      payload = lines.join('\n');
+    } else if (kind === 'location') {
+      payload = `geo:${fieldVal('lat')},${fieldVal('lng')}`;
+    } else if (kind === 'whatsapp') {
+      const digits = fieldVal('to').replace(/\D/g, '');
+      payload = `https://wa.me/${digits}${fieldVal('body') ? `?text=${encodeURIComponent(fieldVal('body'))}` : ''}`;
+    }
+    hideError('error-box');
+    textInput.value = payload;
+    refreshSoon();
+    textInput.focus();
+  }
+
+  function renderKindFields(): void {
+    const def = KINDS[kindSel.value];
+    if (!def) {
+      kindFields.innerHTML = '';
+      return;
+    }
+    kindFields.innerHTML =
+      `<div class="field-row">` +
+      def.fields
+        .map((f) => {
+          const input =
+            f.kind === 'select'
+              ? `<select data-kfield="${f.id}" aria-label="${escapeHtml(f.label)}">${(f.options ?? [])
+                  .map((o) => `<option>${escapeHtml(o)}</option>`)
+                  .join('')}</select>`
+              : `<input type="text" data-kfield="${f.id}" placeholder="${escapeHtml(f.ph)}" aria-label="${escapeHtml(f.label)}" />`;
+          return `<div class="field"><label>${escapeHtml(f.label)}</label>${input}</div>`;
+        })
+        .join('') +
+      `</div><div class="btn-row"><button type="button" id="qr-kind-use" class="btn btn-secondary btn-small">Use this content</button></div>`;
+    el('qr-kind-use').addEventListener('click', useKindContent);
+  }
+
+  kindSel.addEventListener('change', renderKindFields);
+  renderKindFields();
 
   logoInput.addEventListener('change', () => {
     logoFile = logoInput.files?.[0] ?? null;

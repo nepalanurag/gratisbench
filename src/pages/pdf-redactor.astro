@@ -4,7 +4,7 @@ import Icon from '../components/Icon.astro';
 
 const title = 'Redact PDF Free — Permanent Redaction, No Signup, No Upload';
 const description =
-  'Black out sensitive text in a PDF for free, in your browser. Draw boxes over what to hide; marked areas are permanently destroyed. No signup, no watermark.';
+  'Black out sensitive text in a PDF for free, in your browser. Draw boxes over what to hide, or auto-mark emails, phone numbers, ID and card numbers; marked areas are permanently destroyed. No signup, no watermark.';
 const h1 = 'Redact PDF';
 const lede = 'Draw boxes over the parts to hide. Marked areas are permanently painted over; unmarked pages stay untouched. Free, no account.';
 ---
@@ -22,8 +22,8 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
   ]}
   steps={[
     'Drop your PDF onto the box above, or click it to browse. A preview of every page appears.',
-    'Click and drag on a preview to draw a black box over anything to hide. Make each box slightly larger than the text.',
-    'Double-click a box to remove it if you misplace one, or use "Clear marks" to start a page over.',
+    'Mark what to hide: click and drag on a preview to draw a black box over anything, or use the automatic search to mark every email address, phone number, ID number, card number, or any text you type.',
+    'Double-click a box to remove it if you misplace one, or use "Clear marks" to start a page over. Review every marked page: automatic search can miss things.',
     'When every sensitive spot is covered, click "Redact and download".',
     'Check the downloaded PDF before sharing it: open it, try selecting text under the black areas, and confirm nothing is recoverable.',
   ]}
@@ -35,7 +35,7 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
     ['How marked pages are handled', 'Turned into images; marked areas are painted over permanently'],
     ['How unmarked pages are handled', 'Copied as-is; text stays selectable'],
     ['Is the hidden text recoverable?', 'No. Marked regions have no text layer underneath.'],
-    ['How to mark', 'Click and drag on the page preview; double-click a box to remove it'],
+    ['How to mark', 'Draw boxes by hand on the page preview (double-click a box to remove it), or auto-mark emails, phone numbers, ID numbers, card numbers, or any text you type'],
     ['Output filename', 'Your original name with "-redacted" added'],
     ['Password-protected PDFs', 'Not supported. Remove the password first, then redact.'],
   ]}
@@ -58,7 +58,7 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
     },
     {
       q: 'Does this tool search for text automatically?',
-      a: 'No. You mark areas by hand on the page previews. Automatic text search sounds convenient but it misses things: scanned pages have no text to search, and pattern matching cannot know which occurrences are sensitive. For a document you are about to share, eyeballing every page is the reliable approach.',
+      a: 'Yes. Above the page previews there are buttons for email addresses, phone numbers, ID numbers, and card numbers, plus a box where you can type any text to find. Every match gets a black box automatically. Two honest limits: it only finds text the PDF actually contains (scanned pages are images with no readable text, so box those by hand), and pattern matching cannot know which occurrences are sensitive — always review every page before downloading.',
     },
     {
       q: 'Can I undo a redaction after downloading?',
@@ -102,6 +102,17 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
       marked areas permanently painted over; unmarked pages are untouched.
       Draw each box a little larger than the text it covers.
     </p>
+
+    <div class="field" id="find-panel">
+      <label>Or find sensitive text automatically</label>
+      <div class="btn-row" id="find-bar" style="justify-content:flex-start;flex-wrap:wrap;"></div>
+      <div class="field-row" style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
+        <input type="text" id="find-custom-input" placeholder="Or type text to find, e.g. a name" style="flex:1;min-width:200px;" maxlength="80" />
+        <button type="button" id="find-custom-btn" class="btn btn-secondary">Mark all matches</button>
+      </div>
+      <p id="find-status" class="hint" role="status" aria-live="polite"></p>
+      <p class="hint">Automatic search only finds text the PDF actually contains. Scanned pages are images with no readable text, so draw boxes on those by hand — and always review every marked page before downloading.</p>
+    </div>
 
     <p id="pages-empty" class="empty-state">No pages yet. Add a PDF above to start marking areas to hide.</p>
     <div id="pages-wrap"></div>

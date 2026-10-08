@@ -21,9 +21,9 @@ const lede = 'Turn a set of images into one PDF. Pick the page size, arrange the
     'As with every TruePDF tool, the conversion runs entirely on your device. That matters more than usual here, because the images people convert are often personal: IDs, receipts, handwritten notes. They are never uploaded, never stored, and never seen by anyone but you.',
   ]}
   steps={[
-    'Drop your images onto the box above, or click it to browse. They appear as thumbnails in order.',
-    'Reorder the images with the up and down arrows. The first image becomes page one.',
-    'Choose a page size: fit each page to its image, or use A4 or US Letter with margins.',
+    'Drop your images onto the box above, click it to browse, or paste screenshots straight from your clipboard (Ctrl+V). They appear as thumbnails in order.',
+    'Drag the rows into page order — the first image becomes page one. On touch screens, use the up and down arrows.',
+    'Choose a page size: fit each page to its image, or use A4 or US Letter with your choice of orientation and margins.',
     'Click "Create PDF" and download the result.',
   ]}
   specs={[
@@ -31,8 +31,9 @@ const lede = 'Turn a set of images into one PDF. Pick the page size, arrange the
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['Input formats', 'PNG, JPEG, WebP, GIF, BMP'],
-    ['Page sizes', 'Fit to image, A4, US Letter'],
+    ['Input formats', 'PNG, JPEG, WebP, GIF, BMP — or paste screenshots from your clipboard'],
+    ['Page sizes', 'Fit to image, A4, US Letter — with portrait/landscape orientation and slim, wide, or no margins'],
+    ['Reordering', 'Drag rows, or use the up/down arrows'],
     ['Image limit', 'None enforced. Very large sets are limited only by your device\u2019s memory.'],
     ['Quality', 'PNG and JPEG are embedded as-is; other formats are converted losslessly to PNG first'],
     ['Works offline', 'Yes, once the page has loaded'],
@@ -48,7 +49,7 @@ const lede = 'Turn a set of images into one PDF. Pick the page size, arrange the
     },
     {
       q: 'What is the difference between the page sizes?',
-      a: '"Fit to image" makes each PDF page exactly the size of its image, with no scaling and no margins, which is best for photos and scans you want at full size. A4 and US Letter scale each image to fit a standard page with half-inch margins, which is best for documents you plan to print.',
+      a: '"Fit to image" makes each PDF page exactly the size of its image, with no scaling and no margins, which is best for photos and scans you want at full size. A4 and US Letter scale each image to fit a standard page, which is best for documents you plan to print. On those page sizes you can also pick the orientation (match each image, portrait, or landscape) and how much margin surrounds the image (none, slim, or wide).',
     },
     {
       q: 'Will my images lose quality?',
@@ -63,8 +64,12 @@ const lede = 'Turn a set of images into one PDF. Pick the page size, arrange the
       a: 'Not directly yet. iPhone photos in HEIC format need to be converted to JPEG or PNG first (your phone can do this when sharing or exporting). Standard JPEG and PNG exports work fine here.',
     },
     {
+      q: 'Can I paste screenshots directly instead of saving files?',
+      a: 'Yes. Copy a screenshot to your clipboard (Print Screen on Windows, Cmd+Shift+Ctrl+4 on Mac) and press Ctrl+V (or Cmd+V) on this page. The image is added to your list immediately, which makes this the fastest way to turn a few screenshots into a PDF.',
+    },
+    {
       q: 'The order of my pages is wrong. Can I fix it?',
-      a: 'Yes. Use the up and down arrows on each thumbnail to rearrange the images before converting. The list order is the page order in the final PDF.',
+      a: 'Yes. Drag any thumbnail row up or down to rearrange the images before converting — the list order is the page order in the final PDF. On touch screens, use the up and down arrows on each row instead.',
     },
     {
       q: 'Can I convert PNG screenshots and WebP images too?',
@@ -96,12 +101,31 @@ const lede = 'Turn a set of images into one PDF. Pick the page size, arrange the
     <div id="error-box" class="error-box" hidden></div>
     <ul id="file-list" class="file-list"></ul>
     <p id="empty-state" class="empty-state">No images yet. Add your images above, then arrange them in page order.</p>
-    <div class="field">
-      <label for="page-size">Page size</label>
-      <select id="page-size">
-        <option value="fit">Fit to image (each page matches its image)</option>
-        <option value="a4">A4 (images scaled to fit, with margins)</option>
-        <option value="letter">US Letter (images scaled to fit, with margins)</option>
+    <p class="hint">Tip: drag a row to move it, or paste screenshots straight from your clipboard (Ctrl+V).</p>
+    <div class="row-2">
+      <div class="field">
+        <label for="page-size">Page size</label>
+        <select id="page-size">
+          <option value="fit">Fit to image (each page matches its image)</option>
+          <option value="a4">A4 (images scaled to fit)</option>
+          <option value="letter">US Letter (images scaled to fit)</option>
+        </select>
+      </div>
+      <div class="field" id="orientation-field" hidden>
+        <label for="orientation">Orientation</label>
+        <select id="orientation">
+          <option value="auto" selected>Match each image</option>
+          <option value="portrait">Portrait (tall)</option>
+          <option value="landscape">Landscape (wide)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" id="margin-field" hidden>
+      <label for="margin">Margins</label>
+      <select id="margin">
+        <option value="slim" selected>Slim</option>
+        <option value="none">None (image fills the page)</option>
+        <option value="wide">Wide</option>
       </select>
     </div>
     <div class="btn-row">

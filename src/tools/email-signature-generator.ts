@@ -16,6 +16,14 @@ import {
 } from '../lib/signature-core.ts';
 import { el, showError, hideError, ICONS, downscaleImageFile } from './common.ts';
 import { loadBusinessProfile, saveBusinessProfile, profileIsEmpty } from '../lib/business-profile.ts';
+import { loadBusinessExtras } from '../lib/business-extras.ts';
+import {
+  EXTRA_LAYOUTS,
+  SIGNATURE_EXTRA_LAYOUT_KEY,
+  isExtraLayoutId,
+  renderSignatureExtended,
+  SOCIAL_PLATFORMS,
+} from '../lib/signature-extras.ts';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -23,6 +31,7 @@ function escapeHtml(s: string): string {
 
 export function initSignatureGenerator(): void {
   let sig: SignatureData = loadSignature();
+  applyExtraLayout();
   syncBusinessProfile();
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let copiedTimer: ReturnType<typeof setTimeout> | null = null;
@@ -36,6 +45,26 @@ export function initSignatureGenerator(): void {
       return deserializeSignature(localStorage.getItem(SIGNATURE_STORAGE_KEY));
     } catch {
       return blankSignature(); // storage blocked or unavailable
+    }
+  }
+
+  // Extra layouts live outside the core model (its deserializer resets unknown
+  // layout ids), so the pick is remembered under its own key and reapplied.
+  function applyExtraLayout(): void {
+    try {
+      const v = localStorage.getItem(SIGNATURE_EXTRA_LAYOUT_KEY);
+      if (isExtraLayoutId(v)) sig.layout = v as SignatureLayout;
+    } catch {
+      // ignore
+    }
+  }
+
+  function persistExtraLayout(): void {
+    try {
+      if (isExtraLayoutId(sig.layout)) localStorage.setItem(SIGNATURE_EXTRA_LAYOUT_KEY, sig.layout);
+      else localStorage.removeItem(SIGNATURE_EXTRA_LAYOUT_KEY);
+    } catch {
+      // ignore
     }
   }
 
@@ -58,6 +87,12 @@ export function initSignatureGenerator(): void {
         sig.phone = profile.phone;
         sig.website = profile.website;
         sig.photoDataUrl = profile.logoDataUrl;
+        // A fresh signature also picks up the profile's social links.
+        const bex = loadBusinessExtras();
+        const socials = bex.socials.filter((s) => s.url.trim());
+        if (socials.length > 0 && sig.socials.every((s) => !s.url.trim())) {
+          sig.socials = socials.map((s) => ({ ...blankSocialLink(), label: s.label, url: s.url }));
+        }
       }
       return;
     }
@@ -84,6 +119,7 @@ export function initSignatureGenerator(): void {
     } catch {
       // Storage full or blocked: the tool still works for this session.
     }
+    persistExtraLayout();
   }
 
   function scheduleSave(): void {
@@ -106,7 +142,7 @@ export function initSignatureGenerator(): void {
   window.addEventListener('beforeunload', flushSave);
 
   function currentHtml(): string {
-    return renderSignature(sig);
+    return renderSignatureExtended(sig);
   }
 
   // ---------- preview + code view ----------
@@ -130,7 +166,7 @@ export function initSignatureGenerator(): void {
       ? `<div class="logo-pick"><img class="thumb" src="${escapeHtml(s.photoDataUrl)}" alt="Photo" style="border-radius:50%;" /><span class="file-name-label">Photo added</span><button type="button" class="link-btn" id="es-photo-clear">Remove</button></div>`
       : `<div class="logo-pick"><label class="btn btn-secondary btn-small" for="es-photo-input" style="cursor:pointer;">Upload photo</label><input type="file" id="es-photo-input" accept="image/*" hidden /><span class="file-name-label">Optional. Shows in Stacked and Two-column.</span></div>`;
 
-    const layoutCards = LAYOUTS.map(
+    const layoutCards = [...LAYOUTS, ...EXTRA_LAYOUTS].map(
       (l) => `<label class="radio-card">
         <input type="radio" name="es-layout" value="${l.id}" ${s.layout === l.id ? 'checked' : ''} />
         <span><strong>${escapeHtml(l.name)}</strong><small>${escapeHtml(l.tagline)}</small></span>
@@ -143,6 +179,7 @@ export function initSignatureGenerator(): void {
       </button>`
     ).join('');
 
+    const platOpts = SOCIAL_PLATFORMS.map((p) => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('');
     const socialRows = s.socials
       .map(
         (soc, i) => `<div class="rb-entry">
@@ -150,10 +187,12 @@ export function initSignatureGenerator(): void {
           <span class="rb-entry-title">${escapeHtml(soc.label || soc.url || `Link ${i + 1}`)}</span>
           <button type="button" class="icon-btn" data-sact="remove" data-id="${soc.id}" aria-label="Remove">${ICONS.x}</button>
         </div>
+        <label class="rb-field" style="margin-bottom:0.65rem;"><span>Platform</span><select data-splatform data-id="${soc.id}">${platOpts}</select></label>
         <div class="rb-grid">
           <label class="rb-field"><span>Label</span><input type="text" data-sfield="label" data-id="${soc.id}" value="${escapeHtml(soc.label)}" placeholder="LinkedIn" /></label>
           <label class="rb-field"><span>URL</span><input type="text" data-sfield="url" data-id="${soc.id}" value="${escapeHtml(soc.url)}" placeholder="https://linkedin.com/in/you" /></label>
         </div>
+        <p class="hint">Pick a platform to fill in the label and address for you, then complete the address.</p>
       </div>`
       )
       .join('');
@@ -222,11 +261,27 @@ export function initSignatureGenerator(): void {
   editor.addEventListener('change', (e) => {
     const t = e.target as HTMLElement;
     const radio = t.closest('input[name="es-layout"]') as HTMLInputElement | null;
-    if (radio && isLayoutId(radio.value)) {
+    if (radio && (isLayoutId(radio.value) || isExtraLayoutId(radio.value))) {
       sig.layout = radio.value as SignatureLayout;
       scheduleSave();
       renderPreview();
       renderEditor();
+      return;
+    }
+    // Platform picker: fills the label and address prefix without clobbering
+    // anything the user already typed.
+    const plat = t.closest('select[data-splatform]') as HTMLSelectElement | null;
+    if (plat) {
+      const id = plat.getAttribute('data-id') ?? '';
+      const soc = sig.socials.find((x) => x.id === id);
+      const p = SOCIAL_PLATFORMS.find((x) => x.id === plat.value);
+      if (soc && p && p.id !== 'custom') {
+        if (!soc.url.trim()) soc.url = p.prefix;
+        if (!soc.label.trim()) soc.label = p.label;
+        scheduleSave();
+        renderEditor();
+        renderPreview();
+      }
       return;
     }
     const fileInput = t.closest('#es-photo-input') as HTMLInputElement | null;

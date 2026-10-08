@@ -269,6 +269,28 @@ const pageUrl = canonical ?? site + path;
         if (e.key === 'Escape') closeA11y();
       });
       syncA11yUI();
+
+      // Scroll reveal: elements with .reveal animate in when scrolled into view.
+      // Respects reduced-motion via CSS (the .reveal rules no-op there).
+      (() => {
+        const els = document.querySelectorAll('.reveal');
+        if (!els.length || !('IntersectionObserver' in window)) {
+          els.forEach((el) => el.classList.add('visible'));
+          return;
+        }
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (e.isIntersecting) {
+                e.target.classList.add('visible');
+                io.unobserve(e.target);
+              }
+            });
+          },
+          { rootMargin: '0px 0px -8% 0px', threshold: 0.05 }
+        );
+        els.forEach((el) => io.observe(el));
+      })();
     </script>
   </body>
 </html>

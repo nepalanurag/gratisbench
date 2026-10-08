@@ -23,7 +23,7 @@ const lede =
   ]}
   steps={[
     'Drop your PDF onto the box above, or click it to browse. The file never leaves your device.',
-    'Click "Convert to Word". The PDF is read page by page in your browser; headings and images are picked up as it goes.',
+    'Choose your options: keep "Include images" ticked to carry photos across, and tick "Read text from scanned pages" if the PDF is a scan. Then click "Convert to Word" — the PDF is read page by page in your browser.',
     'When the conversion finishes, the results list how many paragraphs, headings, and images were extracted.',
     'Download the .docx file. It opens in Microsoft Word, Google Docs, or LibreOffice.',
     'Give the document a quick read. Headings use real Word styles, so the navigation pane and table of contents work; fix any heading the size heuristic missed.',
@@ -35,8 +35,8 @@ const lede =
     ['What is preserved', 'Text content, paragraph breaks, heading structure, embedded images'],
     ['What is NOT preserved', 'Complex layouts, tables, multi-column designs, exact fonts and spacing'],
     ['Headings', 'Detected by font-size heuristics and saved as real Word heading styles'],
-    ['Images', 'Embedded images are included inline; tiny decorative icons are skipped'],
-    ['Scanned PDFs', 'Pages that are only images have no text to extract; the results say which pages those were'],
+    ['Images', 'Embedded images are included inline; tiny decorative icons are skipped. Untick "Include images" for a text-only document.'],
+    ['Scanned PDFs', 'Pages that are only images have no text to extract. Tick "Read text from scanned pages" before converting to have the text read automatically.'],
     ['Page limit', 'The first 200 pages are converted'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Works offline', 'Yes, once the page has loaded'],
@@ -60,7 +60,7 @@ const lede =
     },
     {
       q: 'What happens with a scanned PDF?',
-      a: 'A scanned PDF is pictures of pages, not text, so there is no text layer to extract. The converter still runs and embeds any images it finds, but the results will tell you plainly how many pages had no extractable text. For scans, read the text first with the Image OCR tool on this site, then work with the recognized text directly.'
+      a: 'A scanned PDF is pictures of pages, not text, so there is no text layer to extract. Tick "Read text from scanned pages" before converting and the tool reads those pages with an on-device text reader, inserting the recognized words into the Word document. It is slower (the reading engine downloads the first time you use it), and handwriting or very blurry scans will come out imperfect — the results say how many pages were read this way. Without the tick, the converter still embeds any images it finds but tells you plainly how many pages had no extractable text.',
     },
     {
       q: 'How are headings detected?',
@@ -103,6 +103,16 @@ const lede =
     <input type="file" id="pdf2word-input" accept="application/pdf,.pdf" hidden />
     <div id="pdf2word-error" class="error-box" hidden></div>
     <p id="pdf2word-file" class="count-label" hidden></p>
+    <div class="field">
+      <label style="display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.6rem;cursor:pointer">
+        <input type="checkbox" id="pdf2word-include-images" checked style="margin-top:.25rem" />
+        <span><strong>Include images</strong><br /><span class="hint" style="margin:0">Photos and figures from the PDF are placed in the Word document.</span></span>
+      </label>
+      <label style="display:flex;gap:.6rem;align-items:flex-start;cursor:pointer">
+        <input type="checkbox" id="pdf2word-ocr-scans" style="margin-top:.25rem" />
+        <span><strong>Read text from scanned pages</strong><br /><span class="hint" style="margin:0">Slower. For PDFs that are photos of pages, the text is read automatically. The reading engine downloads the first time you use it, so you need to be online once.</span></span>
+      </label>
+    </div>
     <div class="btn-row">
       <button id="pdf2word-convert" class="btn" disabled>Convert to Word</button>
     </div>

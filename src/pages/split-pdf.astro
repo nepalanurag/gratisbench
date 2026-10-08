@@ -6,7 +6,7 @@ const title = 'Split PDF Free — Extract Pages, No Signup, No Watermark';
 const description =
   'Extract pages from a PDF into new documents for free. Split by page ranges like 1-3, 5. No signup, no watermark. Your files never leave your browser.';
 const h1 = 'Split PDF';
-const lede = 'Pull pages out of a PDF by page number, split every page into its own file, or chunk into fixed sizes. Free, no account, no watermark.';
+const lede = 'Pull pages out of a PDF by page number, split every page into its own file, chunk into fixed sizes, or split by chapters and words. Free, no account, no watermark.';
 ---
 <ToolPage
   title={title}
@@ -23,7 +23,7 @@ const lede = 'Pull pages out of a PDF by page number, split every page into its 
   steps={[
     'Drop your PDF onto the box above, or click it to browse. The page count appears once it is read.',
     'Type the pages you want using numbers and ranges. Use commas inside one file ("1-3, 5") and semicolons to make separate files ("1-3; 4-6").',
-    'Or use a shortcut: "Split every page" makes one file per page; the N-pages control chunks the document into fixed-size pieces.',
+    'Or use a shortcut: "Split every page" makes one file per page; the N-pages control chunks the document into fixed-size pieces; "Smart split" below breaks it by chapters or by a word on the page.',
     'Click "Split PDF". Each output file is built on your device.',
     'Download the files one by one from the results list, or grab them all as a ZIP.',
   ]}
@@ -34,6 +34,8 @@ const lede = 'Pull pages out of a PDF by page number, split every page into its 
     ['Where files are processed', 'In your browser, on your device'],
     ['Range format', 'Numbers and ranges, e.g. "1-3, 5". Semicolons separate output files, e.g. "1-3; 4-6".'],
     ['One-click modes', '"Split every page" and "every N pages" need no range typing'],
+    ['Split by bookmarks', 'Each top-level bookmark becomes its own file, named after the chapter'],
+    ['Split by words', 'Type words; every page containing them starts a new file'],
     ['Output files', 'Up to 50 per run'],
     ['Download', 'Individual files or all at once as a ZIP'],
     ['Quality', 'Pages are copied as-is, no quality loss'],
@@ -72,6 +74,14 @@ const lede = 'Pull pages out of a PDF by page number, split every page into its 
     {
       q: 'Can I split one PDF into many files in a single run?',
       a: 'Yes. Enter several ranges at once and each one downloads as its own file, so a 50-page scan can become five tidy documents in one pass.',
+    },
+    {
+      q: 'Can I split a PDF by chapters?',
+      a: 'Yes, when the PDF has a table of contents (bookmarks). After you drop the file, the Smart split section lists the chapters it found — one click turns each chapter into its own file, named after the chapter. If the PDF has no bookmarks, the tool says so plainly; use page ranges instead.',
+    },
+    {
+      q: 'How do I split one PDF per invoice or statement?',
+      a: 'Use the "By words on the page" box in Smart split. Type the words every new document starts with — for example "Invoice" — and each page containing those words starts a new file. One run turns a 50-page invoice pack into 50 one-page files.',
     },
     {
       q: 'How do I split a PDF into one file per page?',
@@ -135,6 +145,25 @@ const lede = 'Pull pages out of a PDF by page number, split every page into its 
         <button id="chunk-btn" class="btn btn-secondary" type="button" disabled>Split every N pages</button>
       </div>
       <p class="hint">With 5, a 12-page PDF becomes three files: pages 1-5, 6-10, and 11-12.</p>
+    </div>
+    <div id="smart-split" hidden>
+      <p class="mono-label">Smart split</p>
+      <div class="field">
+        <label>By chapter (bookmarks)</label>
+        <p class="hint hint-flush" id="bookmark-status">Checking this PDF for bookmarks…</p>
+        <div id="chapter-list" hidden></div>
+        <div class="btn-row">
+          <button id="bookmarks-btn" class="btn btn-secondary" type="button" disabled>Split by bookmarks</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="text-split-input">By words on the page</label>
+        <div class="btn-row" style="align-items:center">
+          <input type="text" id="text-split-input" placeholder="e.g. Invoice" autocomplete="off" style="max-width:12rem" disabled />
+          <button id="text-split-btn" class="btn btn-secondary" type="button" disabled>Split where found</button>
+        </div>
+        <p class="hint">Every page containing those words starts a new file. Handy for invoice packs and statement bundles where each document starts with the same heading.</p>
+      </div>
     </div>
     <div id="result" class="result" hidden>
       <h3>Done</h3>

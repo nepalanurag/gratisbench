@@ -37,12 +37,73 @@ export function initAudioTrimmer(): void {
   let playhead = 0;
   let source: AudioBufferSourceNode | null = null;
   let playTimer: number | null = null;
+  // Waveform zoom: the visible time window. viewEnd <= viewStart means "whole file".
+  let viewStart = 0;
+  let viewEnd = 0;
   // Cached per loaded file: the mono mix and the peaks for the current canvas
-  // width. draw() runs on every slider move and every 50ms during playback;
-  // without this cache it re-mixed the full-length buffer (~600MB for an
-  // hour-long file) on every single repaint.
+  // width and zoom window. draw() runs on every slider move and every 50ms
+  // during playback; without this cache it re-mixed the full-length buffer
+  // (~600MB for an hour-long file) on every single repaint.
   let mono: Float32Array = new Float32Array(0);
-  let peakCache: { buckets: number; peaks: Float32Array } | null = null;
+  let peakCache: { key: string; peaks: Float32Array } | null = null;
+
+  /** The visible window as [start, end] seconds; whole file when unset. */
+  function view(): [number, number] {
+    if (duration <= 0 || viewEnd <= viewStart) return [0, Math.max(duration, 0.001)];
+    return [viewStart, viewEnd];
+  }
+
+  function setView(vs: number, ve: number): void {
+    const minSpan = 1; // never zoom closer than a 1-second window
+    let span = Math.min(duration, Math.max(minSpan, ve - vs));
+    let s = clamp(vs, 0, Math.max(0, duration - span));
+    viewStart = s;
+    viewEnd = s + span;
+    syncZoomButtons();
+  }
+
+  function syncZoomButtons(): void {
+    const [vs, ve] = view();
+    const span = ve - vs;
+    const zoomed = duration > 0 && span < duration - 0.01;
+    el('pan-left-btn').hidden = !zoomed;
+    el('pan-right-btn').hidden = !zoomed;
+    el<HTMLButtonElement>('zoom-in-btn').disabled = span <= 1.001;
+    el<HTMLButtonElement>('zoom-out-btn').disabled = !zoomed;
+    el<HTMLButtonElement>('zoom-reset-btn').disabled = !zoomed;
+  }
+
+  function zoom(factor: number): void {
+    if (duration <= 0) return;
+    const [vs, ve] = view();
+    const span = ve - vs;
+    // Zoom toward the playhead when it is in view, else the selection middle.
+    const center = playhead >= vs && playhead <= ve ? playhead : (start + end) / 2;
+    const next = clamp(span * factor, 1, duration);
+    setView(center - next / 2, center + next / 2);
+    draw();
+  }
+
+  el('zoom-in-btn').addEventListener('click', () => zoom(0.5));
+  el('zoom-out-btn').addEventListener('click', () => zoom(2));
+  el('zoom-reset-btn').addEventListener('click', () => {
+    viewStart = 0;
+    viewEnd = 0;
+    syncZoomButtons();
+    draw();
+  });
+  el('pan-left-btn').addEventListener('click', () => {
+    const [vs, ve] = view();
+    const span = ve - vs;
+    setView(vs - span / 4, ve - span / 4);
+    draw();
+  });
+  el('pan-right-btn').addEventListener('click', () => {
+    const [vs, ve] = view();
+    const span = ve - vs;
+    setView(vs + span / 4, ve + span / 4);
+    draw();
+  });
 
   function getCtx(): AudioContext {
     if (!audioCtx) {
@@ -86,12 +147,23 @@ export function initAudioTrimmer(): void {
     ctx.clearRect(0, 0, cssW, cssH);
 
     const buckets = Math.max(1, Math.floor(cssW));
-    if (!peakCache || peakCache.buckets !== buckets) {
-      peakCache = { buckets, peaks: computePeaks(mono, buckets) };
+    const [vs, ve] = view();
+    const span = ve - vs;
+    // Peaks are computed over the visible window only, so zooming in is fast.
+    // mono.subarray is a view, not a copy.
+    const frame0 = Math.max(0, Math.floor(vs * sampleRate));
+    const frame1 = Math.min(mono.length, Math.max(frame0 + 1, Math.ceil(ve * sampleRate)));
+    const key = `${frame0}:${frame1}:${buckets}`;
+    if (!peakCache || peakCache.key !== key) {
+      // subarray() widens the type to ArrayBufferLike; the mono buffer is
+      // always ArrayBuffer-backed (new Float32Array / .slice()), so narrow it.
+      const visible = mono.subarray(frame0, frame1) as Float32Array<ArrayBuffer>;
+      peakCache = { key, peaks: computePeaks(visible, buckets) };
     }
     const peaks = peakCache.peaks;
     const mid = cssH / 2;
     const c = themeColors();
+    const x = (t: number): number => ((t - vs) / span) * cssW;
 
     // dim full waveform
     ctx.fillStyle = c.wave;
@@ -101,8 +173,8 @@ export function initAudioTrimmer(): void {
     }
 
     // selection region, full height
-    const x0 = (start / duration) * cssW;
-    const x1 = (end / duration) * cssW;
+    const x0 = x(start);
+    const x1 = x(end);
     ctx.fillStyle = c.region;
     ctx.fillRect(x0, 0, x1 - x0, cssH);
     ctx.fillStyle = c.marker;
@@ -110,7 +182,7 @@ export function initAudioTrimmer(): void {
     ctx.fillRect(x1 - 1, 0, 2.5, cssH);
 
     // playhead
-    const xp = (playhead / duration) * cssW;
+    const xp = x(playhead);
     ctx.fillStyle = c.playhead;
     ctx.fillRect(xp - 0.75, 0, 1.5, cssH);
   }
@@ -167,7 +239,8 @@ export function initAudioTrimmer(): void {
   function playSelection(): void {
     stopPlayback();
     const ctxA = getCtx();
-    const sliced = sliceChannels(channels, start * sampleRate, end * sampleRate);
+    // Use selectionChannels() so the preview includes the chosen effects.
+    const sliced = selectionChannels();
     const buf = ctxA.createBuffer(sliced.length, sliced[0].length, sampleRate);
     sliced.forEach((c, i) => buf.copyToChannel(c, i));
     source = ctxA.createBufferSource();
@@ -184,6 +257,12 @@ export function initAudioTrimmer(): void {
         stopPlayback();
         playhead = end;
       }
+      // When zoomed in, keep the playhead in view while playing.
+      const [vs, ve] = view();
+      if (ve - vs < duration - 0.01 && (playhead < vs || playhead > ve)) {
+        const span = ve - vs;
+        setView(playhead - span / 2, playhead + span / 2);
+      }
       draw();
     }, 50);
     source.onended = () => {
@@ -194,7 +273,26 @@ export function initAudioTrimmer(): void {
 
   function selectionChannels(): Float32Array[] {
     const sliced = sliceChannels(channels, start * sampleRate, end * sampleRate);
-    applyFades(sliced, sampleRate);
+    const fadeMs = Number(el<HTMLSelectElement>('fade-ms').value);
+    if (fadeMs > 0) applyFades(sliced, sampleRate, fadeMs);
+    if (el<HTMLInputElement>('reverse-check').checked) {
+      for (const ch of sliced) ch.reverse();
+    }
+    if (el<HTMLInputElement>('normalize-check').checked) {
+      let peak = 0;
+      for (const ch of sliced) {
+        for (let i = 0; i < ch.length; i++) {
+          const a = Math.abs(ch[i]);
+          if (a > peak) peak = a;
+        }
+      }
+      if (peak > 0 && peak < 1) {
+        const gain = 1 / peak;
+        for (const ch of sliced) {
+          for (let i = 0; i < ch.length; i++) ch[i] *= gain;
+        }
+      }
+    }
     return sliced;
   }
 
@@ -221,6 +319,10 @@ export function initAudioTrimmer(): void {
       start = 0;
       end = Math.round(duration * 10) / 10;
       playhead = 0;
+      // A new file resets the zoom to the whole file.
+      viewStart = 0;
+      viewEnd = 0;
+      syncZoomButtons();
       editor.hidden = false;
       const sSl = el<HTMLInputElement>('start-slider');
       const eSl = el<HTMLInputElement>('end-slider');
@@ -275,13 +377,16 @@ export function initAudioTrimmer(): void {
   let dragMode: 'start' | 'end' | 'play' | null = null;
   const posToTime = (clientX: number): number => {
     const rect = canvas.getBoundingClientRect();
-    return clamp(((clientX - rect.left) / rect.width) * duration, 0, duration);
+    const [vs, ve] = view();
+    return clamp(vs + ((clientX - rect.left) / rect.width) * (ve - vs), 0, duration);
   };
   canvas.addEventListener('pointerdown', (e) => {
     const rect = canvas.getBoundingClientRect();
+    const [vs, ve] = view();
+    const span = ve - vs;
     const x = e.clientX - rect.left;
-    const x0 = (start / duration) * rect.width;
-    const x1 = (end / duration) * rect.width;
+    const x0 = ((start - vs) / span) * rect.width;
+    const x1 = ((end - vs) / span) * rect.width;
     if (Math.abs(x - x0) < 14) dragMode = 'start';
     else if (Math.abs(x - x1) < 14) dragMode = 'end';
     else dragMode = 'play';

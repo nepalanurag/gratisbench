@@ -20,6 +20,7 @@ import {
   hideError,
   setBusy,
   setupDropzone,
+  setupPasteHandler,
   loadImage,
 } from './common.ts';
 
@@ -34,6 +35,12 @@ let objectUrl: string | null = null;
 let worker: OcrWorker | null = null;
 let workerLang: string | null = null;
 let busy = false;
+/** Loaded source image (unrotated); the preview shows the rotated version. */
+let sourceImg: HTMLImageElement | null = null;
+/** Clockwise rotation in degrees: 0, 90, 180, or 270. */
+let rotation = 0;
+/** Selected region in oriented (rotated) image pixels, or null for the whole image. */
+let zone: { x: number; y: number; w: number; h: number } | null = null;
 
 function readOptions(): OcrOptions {
   return validateOcrOptions({
@@ -57,14 +64,53 @@ function clearProgress(): void {
 }
 
 /**
- * Preprocess the picked image for OCR: optionally upscale small images
- * (tesseract likes text at roughly 300 DPI) and stretch contrast on a
- * grayscale copy. Returns a canvas tesseract can read directly.
+ * Draw the source image with the current rotation applied. Used both for the
+ * on-screen preview and as the base for preprocessing, so what you see is
+ * what gets read.
  */
-async function preprocessImage(src: string, opts: OcrOptions): Promise<HTMLCanvasElement> {
-  const img = await loadImage(src);
-  let w = img.naturalWidth;
-  let h = img.naturalHeight;
+function drawOriented(img: HTMLImageElement, deg: number): HTMLCanvasElement {
+  const swap = deg === 90 || deg === 270;
+  const canvas = document.createElement('canvas');
+  canvas.width = swap ? img.naturalHeight : img.naturalWidth;
+  canvas.height = swap ? img.naturalWidth : img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Your browser could not create a drawing surface.');
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((deg * Math.PI) / 180);
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+  return canvas;
+}
+
+/** Refresh the on-screen preview from the source image + rotation. */
+function renderPreview(): void {
+  if (!sourceImg) return;
+  const canvas = drawOriented(sourceImg, rotation);
+  el<HTMLImageElement>('preview-img').src = canvas.toDataURL('image/jpeg', 0.92);
+}
+
+/**
+ * Preprocess for OCR: crop to the selected zone (if any), optionally upscale
+ * small images (tesseract likes text at roughly 300 DPI) and stretch
+ * contrast on a grayscale copy. Returns a canvas tesseract can read directly.
+ */
+async function preprocessImage(
+  img: HTMLImageElement,
+  opts: OcrOptions,
+  sel: { x: number; y: number; w: number; h: number } | null
+): Promise<HTMLCanvasElement> {
+  const oriented = drawOriented(img, rotation);
+  let sx = 0;
+  let sy = 0;
+  let sw = oriented.width;
+  let sh = oriented.height;
+  if (sel) {
+    sx = Math.max(0, Math.min(oriented.width - 1, Math.round(sel.x)));
+    sy = Math.max(0, Math.min(oriented.height - 1, Math.round(sel.y)));
+    sw = Math.max(8, Math.min(oriented.width - sx, Math.round(sel.w)));
+    sh = Math.max(8, Math.min(oriented.height - sy, Math.round(sel.h)));
+  }
+  let w = sw;
+  let h = sh;
   if (opts.upscaleSmall) {
     const longEdge = Math.max(w, h);
     if (longEdge < 2000) {
@@ -78,7 +124,7 @@ async function preprocessImage(src: string, opts: OcrOptions): Promise<HTMLCanva
   canvas.height = h;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Your browser could not create a drawing surface.');
-  ctx.drawImage(img, 0, 0, w, h);
+  ctx.drawImage(oriented, sx, sy, sw, sh, 0, 0, w, h);
   if (opts.enhanceContrast) {
     const imageData = ctx.getImageData(0, 0, w, h);
     const d = imageData.data;
@@ -143,25 +189,110 @@ async function onFiles(files: File[]): Promise<void> {
   el<HTMLTextAreaElement>('ocr-output').value = '';
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = URL.createObjectURL(picked);
-  el<HTMLImageElement>('preview-img').src = objectUrl;
+  try {
+    sourceImg = await loadImage(objectUrl);
+  } catch {
+    showError('error-box', `"${picked.name}" could not be read as an image.`);
+    return;
+  }
+  rotation = 0;
+  clearZone();
+  renderPreview();
   el('preview-block').hidden = false;
   el('file-meta').textContent = `${picked.name} · ${formatBytes(picked.size)}`;
   el<HTMLButtonElement>('recognize-btn').disabled = false;
 }
 
+/** Clear the selected zone, if any. */
+function clearZone(): void {
+  zone = null;
+  el('zone-box').hidden = true;
+  el('zone-clear').hidden = true;
+}
+
+/** Set up drag-to-select on the preview: the user draws a box, we read only that part. */
+function setupZoneSelect(): void {
+  const wrap = document.getElementById('zone-wrap');
+  const box = document.getElementById('zone-box');
+  const img = document.getElementById('preview-img');
+  if (!wrap || !box || !img) return;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+
+  const toImageCoords = (clientX: number, clientY: number) => {
+    const rect = (document.getElementById('preview-img') as HTMLImageElement).getBoundingClientRect();
+    const oriented = sourceImg ? drawOriented(sourceImg, rotation) : null;
+    return {
+      fx: (clientX - rect.left) / rect.width,
+      fy: (clientY - rect.top) / rect.height,
+      ow: oriented?.width ?? 1,
+      oh: oriented?.height ?? 1,
+    };
+  };
+
+  const paintBox = (x0: number, y0: number, x1: number, y1: number) => {
+    const rect = (document.getElementById('preview-img') as HTMLImageElement).getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    // The img fills the wrap; express the box in wrap pixels.
+    const left = Math.min(x0, x1);
+    const top = Math.min(y0, y1);
+    box.style.left = `${left - (rect.left - wrapRect.left)}px`;
+    box.style.top = `${top - (rect.top - wrapRect.top)}px`;
+    box.style.width = `${Math.abs(x1 - x0)}px`;
+    box.style.height = `${Math.abs(y1 - y0)}px`;
+    box.hidden = false;
+  };
+
+  wrap.addEventListener('pointerdown', (e) => {
+    if (busy || !sourceImg) return;
+    dragging = true;
+    wrap.setPointerCapture(e.pointerId);
+    startX = e.clientX;
+    startY = e.clientY;
+    paintBox(startX, startY, startX, startY);
+    e.preventDefault();
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    paintBox(startX, startY, e.clientX, e.clientY);
+  });
+  wrap.addEventListener('pointerup', (e) => {
+    if (!dragging) return;
+    dragging = false;
+    const { fx: fx0, fy: fy0, ow, oh } = toImageCoords(startX, startY);
+    const { fx: fx1, fy: fy1 } = toImageCoords(e.clientX, e.clientY);
+    const x = Math.round(Math.min(fx0, fx1) * ow);
+    const y = Math.round(Math.min(fy0, fy1) * oh);
+    const w = Math.round(Math.abs(fx1 - fx0) * ow);
+    const h = Math.round(Math.abs(fy1 - fy0) * oh);
+    if (w < 12 || h < 12) {
+      // Too small to be deliberate — treat as a click, not a selection.
+      clearZone();
+      return;
+    }
+    zone = { x, y, w, h };
+    el('zone-clear').hidden = false;
+  });
+  wrap.addEventListener('pointercancel', () => {
+    dragging = false;
+    if (!zone) box.hidden = true;
+  });
+}
+
 async function onRecognize(): Promise<void> {
-  if (busy || !file || !objectUrl) return;
+  if (busy || !file || !sourceImg) return;
   busy = true;
   hideError('error-box');
   setBusy('recognize-btn', true, 'Reading…');
   setProgress(2, 'Loading the OCR engine…');
-  const currentFile = file;
-  const currentUrl = objectUrl;
+  const currentImg = sourceImg;
+  const currentZone = zone;
   try {
     const opts = readOptions();
     const w = await getWorker(opts.lang, setProgress);
     setProgress(60, 'Preparing the image…');
-    const canvas = await preprocessImage(currentUrl, opts);
+    const canvas = await preprocessImage(currentImg, opts, currentZone);
     setProgress(62, 'Reading the text…');
     const { data } = await w.recognize(canvas);
     const text = opts.lightCleanup ? cleanupOcrText(data.text) : data.text.trim();
@@ -172,7 +303,7 @@ async function onRecognize(): Promise<void> {
     el('result-info').textContent =
       chars === 0
         ? 'No text found. Try a sharper, higher-contrast image.'
-        : `${words} words, ${chars} characters recognized.`;
+        : `${words} words, ${chars} characters recognized${currentZone ? ' in the selected area' : ''}.`;
     el<HTMLButtonElement>('copy-btn').disabled = chars === 0;
     el<HTMLButtonElement>('download-btn').disabled = chars === 0;
     setProgress(100, 'Done.');
@@ -212,7 +343,16 @@ export function initImageOcr(): void {
     select.appendChild(opt);
   }
   setupDropzone('dropzone', 'file-input', (files) => void onFiles(files));
+  setupPasteHandler((files) => void onFiles(files), (f) => f.type.startsWith('image/'));
   el('recognize-btn').addEventListener('click', () => void onRecognize());
+  el('rotate-btn').addEventListener('click', () => {
+    if (busy || !sourceImg) return;
+    rotation = (rotation + 90) % 360;
+    clearZone();
+    renderPreview();
+  });
+  el('zone-clear').addEventListener('click', clearZone);
+  setupZoneSelect();
   el('copy-btn').addEventListener('click', () => void onCopy());
   el('download-btn').addEventListener('click', () => {
     if (!file) return;

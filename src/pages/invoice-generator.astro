@@ -81,6 +81,7 @@ const lede =
     <div class="btn-row btn-row-spaced no-print">
       <button id="inv-print" class="btn" type="button">Download PDF</button>
       <button id="inv-save" class="btn btn-secondary" type="button">Save to history</button>
+      <button id="inv-template-save" class="btn btn-secondary" type="button">Save as template</button>
       <button id="inv-example" class="btn btn-secondary" type="button">Load example</button>
       <button id="inv-clear" class="btn btn-secondary" type="button">Clear</button>
     </div>
@@ -101,6 +102,9 @@ const lede =
     <h3 class="tool-step no-print">Saved invoices</h3>
     <p class="hint no-print">Saved in this browser only. They never leave your device.</p>
     <div id="inv-history" class="file-list no-print"></div>
+    <h3 class="tool-step no-print">Templates</h3>
+    <p class="hint no-print">Save a recurring invoice as a template, then start each billing cycle with one click. Dates and the invoice number refresh automatically.</p>
+    <div id="inv-templates" class="file-list no-print"></div>
   </section>
   <script>
     import { initInvoiceGenerator } from '../tools/invoice-generator';

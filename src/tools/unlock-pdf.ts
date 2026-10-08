@@ -59,7 +59,7 @@ export function initUnlockPdf(): void {
     try {
       await new Promise((r) => setTimeout(r, 30));
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const out = await unlockPdfBytes(bytes, passInput.value, (msg) => {
+      const { bytes: out, wasLocked } = await unlockPdfBytes(bytes, passInput.value, (msg) => {
         status.textContent = msg;
       });
       status.textContent = '';
@@ -68,7 +68,10 @@ export function initUnlockPdf(): void {
       const pages = check.getPageCount();
       const baseName = file.name.replace(/\.pdf$/i, '');
       el('result-info').textContent =
-        `${formatBytes(out.length)} · ${pages} page${pages === 1 ? '' : 's'} · opens with no password`;
+        `${formatBytes(out.length)} · ${pages} page${pages === 1 ? '' : 's'} · ` +
+        (wasLocked
+          ? 'opens with no password'
+          : 'this file was not actually locked — the copy is identical, just without the limits');
       const dl = el<HTMLButtonElement>('download-btn');
       dl.onclick = () => downloadBytes(`${baseName}-unlocked.pdf`, out, 'application/pdf');
       void showPdfPreview('preview-wrap', out);

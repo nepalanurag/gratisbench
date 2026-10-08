@@ -32,6 +32,7 @@ const lede = 'Turn video between MP4, WebM, and MOV, right on your device. No up
     ['Watermark', 'None'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Output formats', 'MP4, WebM, MOV'],
+    ['Sound', 'Kept as-is, or removed with the "Remove the sound" option'],
     ['Quality', 'High quality, visually close to the original'],
     ['First load', 'About 30 MB one time, cached afterwards'],
     ['Works offline', 'Yes, once the page has fully loaded'],
@@ -56,6 +57,10 @@ const lede = 'Turn video between MP4, WebM, and MOV, right on your device. No up
     {
       q: 'Will converting reduce the video quality?',
       a: 'Slightly. The tool keeps the quality high, so the result looks the same as the source for almost everyone. Converting an already-compressed file always loses a little; starting from the original camera file gives the best result.',
+    },
+    {
+      q: 'Can I remove the audio from a video?',
+      a: 'Yes. Tick "Remove the sound" before converting and the output plays silently. Useful for GIF-style clips or footage where the audio is just noise. Removing the sound also makes the file a little smaller.',
     },
     {
       q: 'Can it convert between any formats, like AVI or MKV input?',
@@ -91,6 +96,28 @@ const lede = 'Turn video between MP4, WebM, and MOV, right on your device. No up
     </div>
     <div class="field" id="fastcopy-row" hidden>
       <label class="checkline"><input type="checkbox" id="fastcopy-check" checked /> <span><strong>Fast copy.</strong> Your file is already in this format, so it can be converted much faster with no quality loss. Uncheck to force a full conversion.</span></label>
+    </div>
+
+    <h3 class="tool-step">Playback speed</h3>
+    <div class="radio-cards" role="radiogroup" aria-label="Playback speed">
+      <label class="radio-card"><input type="radio" name="speed" value="0.5" /><span><strong>0.5×</strong><small>Half speed, slow motion.</small></span></label>
+      <label class="radio-card"><input type="radio" name="speed" value="1" checked /><span><strong>1×</strong><small>Normal speed.</small></span></label>
+      <label class="radio-card"><input type="radio" name="speed" value="1.5" /><span><strong>1.5×</strong><small>Faster.</small></span></label>
+      <label class="radio-card"><input type="radio" name="speed" value="2" /><span><strong>2×</strong><small>Double speed.</small></span></label>
+    </div>
+
+    <h3 class="tool-step">Aspect ratio</h3>
+    <div class="radio-cards" role="radiogroup" aria-label="Aspect ratio">
+      <label class="radio-card"><input type="radio" name="aspect" value="original" checked /><span><strong>Original</strong><small>Keep the video's shape.</small></span></label>
+      <label class="radio-card"><input type="radio" name="aspect" value="16:9" /><span><strong>16:9</strong><small>Widescreen, YouTube.</small></span></label>
+      <label class="radio-card"><input type="radio" name="aspect" value="9:16" /><span><strong>9:16</strong><small>Vertical, Shorts &amp; Reels.</small></span></label>
+      <label class="radio-card"><input type="radio" name="aspect" value="1:1" /><span><strong>1:1</strong><small>Square, feeds.</small></span></label>
+      <label class="radio-card"><input type="radio" name="aspect" value="4:3" /><span><strong>4:3</strong><small>Classic TV shape.</small></span></label>
+    </div>
+
+    <h3 class="tool-step">Sound</h3>
+    <div class="field">
+      <label class="checkline"><input type="checkbox" id="mute-check" /> <span><strong>Remove the sound.</strong> The converted video plays silently. Handy for GIF-style clips, or when the audio is just background noise.</span></label>
     </div>
 
     <div class="btn-row">

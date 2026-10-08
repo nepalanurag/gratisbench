@@ -24,8 +24,8 @@ const lede = 'Turn logos, icons, and high-contrast art into clean SVG paths. Fre
   steps={[
     'Drop a PNG or JPG onto the box above, or click it to browse.',
     'Choose color tracing for multi-color art or monochrome for single-color logos and icons.',
-    'Set the detail slider. Low gives smooth, simple shapes; high keeps fine detail with more paths.',
-    'Click "Trace image". The trace runs on your device, usually in a few seconds.',
+    'Set the detail slider. Low gives smooth, simple shapes; high keeps fine detail with more paths. In color mode you can also set the exact number of colors.',
+    'Click "Trace image". Changing the settings afterwards re-traces automatically so you can compare.',
     'Preview the vector result, then download the SVG free, or grab a PNG render of it.',
   ]}
   specs={[
@@ -35,7 +35,9 @@ const lede = 'Turn logos, icons, and high-contrast art into clean SVG paths. Fre
     ['Where files are processed', 'In your browser, on your device'],
     ['Input', 'PNG or JPG (transparent PNG regions trace as white)'],
     ['Output', 'SVG vector file, free download, plus PNG preview render'],
-    ['Modes', 'Color (2-16 colors) or monochrome (2 colors)'],
+    ['Modes', 'Color (2-16 colors, your choice) or monochrome (2 colors)'],
+    ['Detail + colors', 'Detail slider filters tiny specks; colors slider sets the palette size'],
+    ['Finishing touches', 'Soften rough edges; drop a solid white background'],
     ['Trace resolution', 'Long edge capped at 1024 px for speed; SVG scales infinitely'],
     ['Best sources', 'Logos, icons, line art, high-contrast illustrations'],
     ['Honest limits', 'Photos trace poorly; fine gradients become banded color blobs'],
@@ -55,7 +57,11 @@ const lede = 'Turn logos, icons, and high-contrast art into clean SVG paths. Fre
     },
     {
       q: 'What does the detail slider change?',
-      a: 'In color mode it sets the palette size (2 to 16 colors) and how aggressively tiny noise paths are discarded; in monochrome it controls the noise filtering. Low detail gives smooth, simple, small files. High detail keeps fine texture but produces more paths and larger files. Start in the middle and adjust.',
+      a: 'It controls how aggressively tiny specks and fine texture are filtered out. Low detail gives smooth, simple, small files. High detail keeps fine texture but produces more paths and larger files. In color mode, the separate colors slider sets the palette size (2 to 16), so detail and color count are independent. Start in the middle and adjust; changing settings re-traces automatically so you can compare.',
+    },
+    {
+      q: 'How do I get rid of the white background in the SVG?',
+      a: 'Tick "Drop the white background" before tracing. When the background traced as one solid white shape — the usual case for logos on white — that shape is removed from the SVG, leaving the art standing alone on transparency. If the background is not one solid shape (a photo backdrop, a gradient), the tool says so and keeps it.',
     },
     {
       q: 'Why does my traced photo look bad?',
@@ -110,6 +116,21 @@ const lede = 'Turn logos, icons, and high-contrast art into clean SVG paths. Fre
         <span id="detail-val" class="range-val">6</span>
       </div>
       <p class="hint" id="detail-hint"></p>
+    </div>
+
+    <div class="field" id="colors-field">
+      <label for="colors-range">Colors</label>
+      <div class="range-row">
+        <input type="range" id="colors-range" min="2" max="16" value="8" />
+        <span id="colors-val" class="range-val">8</span>
+      </div>
+      <p class="hint">How many flat colors the trace uses. Fewer colors means simpler shapes and a smaller file.</p>
+    </div>
+
+    <div class="field">
+      <label>Finishing touches</label>
+      <label class="checkline"><input type="checkbox" id="opt-soften" /><span>Soften rough edges<small>Smooths speckles and jagged outlines. Can blur very fine detail.</small></span></label>
+      <label class="checkline"><input type="checkbox" id="opt-dropwhite" /><span>Drop the white background<small>Removes a solid white backdrop so the art stands alone. Only applies when the background traced as one solid white shape.</small></span></label>
     </div>
 
     <div id="preview-block" hidden>

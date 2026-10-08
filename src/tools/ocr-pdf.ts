@@ -42,8 +42,23 @@ let file: File | null = null;
 let sourceBytes: Uint8Array | null = null;
 let pageCount = 0;
 let textPages = 0;
+let scanPages = 0;
 let worker: OcrWorker | null = null;
 let workerLang: string | null = null;
+
+function refreshOcrButton(): void {
+  const forceAll = el<HTMLInputElement>('ocr-force-all').checked;
+  const info = el('file-info');
+  if (!file) return;
+  info.textContent =
+    `${file.name} · ${formatBytes(file.size)} · ${pageCount} page${pageCount === 1 ? '' : 's'}` +
+    (scanPages === 0 && !forceAll
+      ? '. Every page already has text, so this tool would change nothing.'
+      : forceAll
+        ? '. Every page will be re-read, even ones that already have text.'
+        : `. ${scanPages} page${scanPages === 1 ? '' : 's'} need${scanPages === 1 ? 's' : ''} a text layer.`);
+  el<HTMLButtonElement>('ocr-btn').disabled = scanPages === 0 && !forceAll;
+}
 
 function setProgress(done: number, total: number, label: string): void {
   el('progress-wrap').hidden = false;
@@ -84,6 +99,7 @@ export function initOcrPdf(): void {
     select.appendChild(opt);
   }
   select.value = 'eng';
+  el<HTMLInputElement>('ocr-force-all').addEventListener('change', refreshOcrButton);
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
@@ -127,15 +143,10 @@ export function initOcrPdf(): void {
         if (text.length > TEXT_THRESHOLD) textPages++;
         page.cleanup();
       }
-      const scanPages = pageCount - textPages;
-      const info = el('file-info');
-      info.hidden = false;
-      info.textContent =
-        `${f.name} · ${formatBytes(f.size)} · ${pageCount} page${pageCount === 1 ? '' : 's'}` +
-        (scanPages === 0
-          ? '. Every page already has text, so this tool would change nothing.'
-          : `. ${scanPages} page${scanPages === 1 ? '' : 's'} need${scanPages === 1 ? 's' : ''} a text layer.`);
-      el<HTMLButtonElement>('ocr-btn').disabled = scanPages === 0;
+      const scanPagesLocal = pageCount - textPages;
+      scanPages = scanPagesLocal;
+      el('file-info').hidden = false;
+      refreshOcrButton();
       const note = el('engine-note');
       note.hidden = false;
       note.textContent =
@@ -152,6 +163,7 @@ export function initOcrPdf(): void {
     setBusy('ocr-btn', true, 'Reading…');
     try {
       const lang = select.value;
+      const forceAll = el<HTMLInputElement>('ocr-force-all').checked;
       el('progress-label').textContent = 'Loading the text reader (first use only)…';
       el('progress-wrap').hidden = false;
       const w = await getWorker(lang);
@@ -167,7 +179,7 @@ export function initOcrPdf(): void {
           .map((it) => ('str' in it ? (it as { str: string }).str : ''))
           .join('')
           .trim();
-        if (text.length > TEXT_THRESHOLD) {
+        if (text.length > TEXT_THRESHOLD && !forceAll) {
           plans.push({ kind: 'keep', sourceIndex: i - 1 });
           page.cleanup();
           continue;

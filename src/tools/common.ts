@@ -60,7 +60,14 @@ export async function copyText(text: string): Promise<boolean> {
 
 export function showError(boxId: string, message: string): void {
   const box = el(boxId);
-  box.textContent = message;
+  // Designed error layout: icon + message body. Falls back to plain text
+  // if the box doesn't use the structured markup.
+  const body = box.querySelector('.eb-body');
+  if (body) {
+    body.textContent = message;
+  } else {
+    box.textContent = message;
+  }
   box.hidden = false;
 }
 
@@ -71,12 +78,14 @@ export function hideError(boxId: string): void {
 export function setBusy(btnId: string, busy: boolean, label = ''): void {
   const btn = el<HTMLButtonElement>(btnId);
   btn.disabled = busy;
-  if (label) btn.dataset.label = btn.dataset.label || btn.textContent || '';
   if (busy) {
-    btn.dataset.label = btn.textContent || '';
-    btn.textContent = label || 'Working…';
-  } else if (btn.dataset.label) {
-    btn.textContent = btn.dataset.label;
+    if (!btn.dataset.label) btn.dataset.label = btn.innerHTML;
+    const text = label || 'Working';
+    btn.innerHTML = `<span class="spinner" aria-hidden="true"></span> ${text}…`;
+    btn.setAttribute('aria-busy', 'true');
+  } else {
+    if (btn.dataset.label) btn.innerHTML = btn.dataset.label;
+    btn.removeAttribute('aria-busy');
   }
 }
 
@@ -115,6 +124,39 @@ export function setupDropzone(
     const files = [...(e.dataTransfer?.files ?? [])];
     if (files.length) onFiles(files);
   });
+}
+
+/**
+ * Paste-from-clipboard support for image tools. Listens for Ctrl+V / Cmd+V
+ * anywhere on the page and passes image files from the clipboard to onFiles.
+ * Returns a cleanup function. No-op on browsers without clipboard read.
+ */
+export function setupPasteHandler(
+  onFiles: (files: File[]) => void,
+  accept?: (file: File) => boolean
+): () => void {
+  const handler = (e: ClipboardEvent) => {
+    // Don't hijack paste in text inputs — user is probably pasting text.
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      return;
+    }
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file && (!accept || accept(file))) files.push(file);
+      }
+    }
+    if (files.length) {
+      e.preventDefault();
+      onFiles(files);
+    }
+  };
+  document.addEventListener('paste', handler);
+  return () => document.removeEventListener('paste', handler);
 }
 
 /**
@@ -241,4 +283,19 @@ export function bindSetting(
       /* ignore quota errors */
     }
   });
+}
+
+/** Animated success checkmark SVG. Insert into a result box on completion. */
+export function successCheckSVG(): string {
+  return `<span class="success-check" aria-hidden="true"><svg viewBox="0 0 52 52"><circle class="check-circle" cx="26" cy="26" r="24"/><path class="check-path" d="M15 27l7 7 15-16"/></svg></span>`;
+}
+
+/** Briefly pulse a button to confirm a completed action (e.g. download). */
+export function pulseDone(btnId: string): void {
+  const btn = el(btnId);
+  btn.classList.remove('download-done');
+  // Force reflow so re-adding the class restarts the animation.
+  void btn.offsetWidth;
+  btn.classList.add('download-done');
+  setTimeout(() => btn.classList.remove('download-done'), 600);
 }

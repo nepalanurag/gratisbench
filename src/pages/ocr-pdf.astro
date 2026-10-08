@@ -59,8 +59,12 @@ const lede = 'Turn scanned PDFs into searchable documents. Pages with no text ar
       a: 'Not reliably. It is built for printed text. Handwritten pages usually come back as gibberish, so run it on printed documents.',
     },
     {
+      q: 'My PDF already has text, but it is garbled. What can I do?',
+      a: 'Tick "Re-read pages that already have text" before running. The tool will read every page fresh and replace the garbled text layer with a new one, instead of copying the bad pages through untouched.',
+    },
+    {
       q: 'My PDF already has text. What does this tool do with it?',
-      a: 'Nothing. Pages with real text are copied into the result unchanged, which also keeps the file small and the good text perfect. If a page has text but it is garbled, convert the page to an image first, or re-scan it.',
+      a: 'Nothing, by default. Pages with real text are copied into the result unchanged, which also keeps the file small and the good text perfect. If the existing text is garbled, tick the re-read option above to rebuild it.',
     },
     {
       q: 'How long does it take?',
@@ -104,6 +108,13 @@ const lede = 'Turn scanned PDFs into searchable documents. Pages with no text ar
       <div class="field-row" style="display:grid;gap:0.3rem;">
         <label for="lang-select" style="font-weight:600;font-size:0.9rem;">Text language</label>
         <select id="lang-select" class="select-input"></select>
+      </div>
+      <div class="field-row" style="display:grid;gap:0.3rem;align-content:start;">
+        <span style="font-weight:600;font-size:0.9rem;">Options</span>
+        <label style="display:flex;gap:0.5rem;align-items:flex-start;font-size:0.9rem;cursor:pointer;">
+          <input type="checkbox" id="ocr-force-all" style="margin-top:0.2rem;" />
+          <span>Re-read pages that already have text<br /><small class="hint" style="margin:0;">For documents where the existing text is garbled. Slower, since every page is read again.</small></span>
+        </label>
       </div>
     </div>
 

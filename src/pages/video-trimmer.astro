@@ -7,7 +7,7 @@ const title = 'Video Trimmer - Cut Video Online Free | TruePDF';
 const description =
   'Trim videos online for free. Pick the part to keep on a visual timeline. MP4 output, no signup, no watermark. Your video never leaves your browser.';
 const h1 = 'Trim videos';
-const lede = 'Cut the start, the end, or a middle section out of a video, right in your browser.';
+const lede = 'Cut the start, the end, or middle sections out of a video, right in your browser.';
 ---
 <ToolPage
   title={title}
@@ -18,13 +18,13 @@ const lede = 'Cut the start, the end, or a middle section out of a video, right 
   toolName="TruePDF Video Trimmer"
   intro={[
     'Most online trimmers make you upload your video and wait. This one runs on your device. Nothing is uploaded. You pick the part to keep on a timeline, and the cut lands where you put it.',
-    'Drag the two handles to set your start and end. The video preview follows as you drag, so you can see exactly what you are keeping. If you would rather type, the boxes are forgiving: seconds, 1:30, and 1m30s all work. The tool picks the quickest way to make your cut, and most trims finish in seconds.',
+    'Drag the two handles to set your start and end. The video preview follows as you drag, so you can see exactly what you are keeping. If you would rather type, the boxes are forgiving: seconds, 1:30, and 1m30s all work. To remove a middle section instead, switch to "Cut parts out" and mark each part to remove; the rest is joined back into one video. The tool picks the quickest way to make your cut, and most trims finish in seconds.',
     'The result is a plain MP4 that plays everywhere. No watermark. No account. Your original file is never changed; the trimmed copy downloads as a new file.',
   ]}
   steps={[
     'Drop your video onto the box above, or click it to browse. A preview appears with the video length.',
-    'Drag the two handles on the timeline to choose the part you want to keep. The preview follows as you drag, so you can see each cut point.',
-    'You can also type the start and end times in the two boxes instead of dragging.',
+    'Choose "Keep one part" and drag the two handles on the timeline, or choose "Cut parts out" and mark the sections to remove. The preview follows as you work.',
+    'You can also type the start and end times in the boxes instead of dragging.',
     'Click "Trim video". The trim runs on your device, so nothing is uploaded.',
     'Download the trimmed MP4.',
   ]}
@@ -33,7 +33,7 @@ const lede = 'Cut the start, the end, or a middle section out of a video, right 
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['Cut points', 'Exactly where you set them'],
+    ['Modes', 'Keep one part, or cut several parts out and join the rest'],
     ['Output', 'MP4 video'],
     ['Engine download', 'About 30MB on first use, cached afterwards'],
     ['Works offline', 'Yes, once the page and the engine have loaded'],
@@ -60,8 +60,8 @@ const lede = 'Cut the start, the end, or a middle section out of a video, right 
       a: 'Usually not. When the cut lands on a clean spot, the video data is copied as is, so the picture is identical to the source. When a cut needs extra work to land exactly, the kept section is rebuilt at high quality, which looks the same to almost everyone. If you trim the same file many times over, keep the original around.',
     },
     {
-      q: 'Can I trim the middle out of a video?',
-      a: 'This tool keeps one continuous section: everything between your start and end. To remove a middle section, trim the two parts you want to keep separately and join them with desktop video software or another online video merger. This site does not have a video merger.',
+      q: 'Can I cut the middle out of a video?',
+      a: 'Yes. Choose "Cut parts out", mark each section to remove, and the tool joins the remaining parts into one video. Use "Keep one part" when you only want a single continuous section.',
     },
   ]}
 >
@@ -71,6 +71,7 @@ const lede = 'Cut the start, the end, or a middle section out of a video, right 
       { href: '/video-compressor', label: 'Compress' },
       { href: '/video-trimmer', label: 'Trim' },
       { href: '/video-converter', label: 'Convert' },
+      { href: '/subtitle-editor', label: 'Subtitles' },
     ]}
   />
   <section class="tool-card" slot="tool" aria-label="Video trimmer tool">
@@ -96,8 +97,15 @@ const lede = 'Cut the start, the end, or a middle section out of a video, right 
       </div>
       <p id="timeline-caption" class="hint"></p>
     </div>
+
+    <h3 class="tool-step">What to do</h3>
+    <div class="radio-cards" role="radiogroup" aria-label="Trim mode">
+      <label class="radio-card"><input type="radio" name="trim-mode" value="keep" checked /><span><strong>Keep one part</strong><small>Choose the section to keep.</small></span></label>
+      <label class="radio-card"><input type="radio" name="trim-mode" value="cut" /><span><strong>Cut parts out</strong><small>Remove sections; the rest is joined.</small></span></label>
+    </div>
     <p id="engine-status" class="engine-status" hidden></p>
 
+    <div id="keep-ui">
     <div class="time-row">
       <div class="time-field">
         <label for="start-input">Keep from</label>
@@ -109,6 +117,16 @@ const lede = 'Cut the start, the end, or a middle section out of a video, right 
       </div>
     </div>
     <p id="range-hint" class="count-label"></p>
+    </div>
+
+    <div id="cut-ui" hidden>
+      <p class="hint">Mark the parts to remove, in seconds like <code>90</code> or <code>1:30.5</code>. Everything else is joined back into one video.</p>
+      <div id="cut-list" class="cue-list"></div>
+      <div class="btn-row">
+        <button id="add-cut-btn" type="button" class="btn btn-secondary">Add a section to cut</button>
+      </div>
+      <p id="cut-hint" class="count-label"></p>
+    </div>
 
     <div class="btn-row">
       <button id="trim-btn" class="btn" disabled>Trim video</button>

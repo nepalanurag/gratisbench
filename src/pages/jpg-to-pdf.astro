@@ -21,9 +21,9 @@ const lede = 'Turn JPG photos into one PDF document. Arrange the page order, pic
     'Like every TruePDF tool, the conversion runs entirely on your device. That matters more than usual here, because JPGs people convert are often personal: IDs, receipts, signed contracts, medical letters. They are never uploaded, never stored, and never seen by anyone but you.',
   ]}
   steps={[
-    'Drop your JPG photos onto the box above, or click it to browse. They appear as thumbnails in order.',
-    'Reorder the photos with the up and down arrows. The first photo becomes page one.',
-    'Choose a page size: fit each page to its photo, or use A4 or US Letter with margins.',
+    'Drop your JPG photos onto the box above, click it to browse, or paste screenshots straight from your clipboard (Ctrl+V). They appear as thumbnails in order.',
+    'Drag the rows into page order — the first photo becomes page one. On touch screens, use the up and down arrows.',
+    'Choose a page size: fit each page to its photo, or use A4 or US Letter with your choice of orientation and margins.',
     'Click "Create PDF" and download the result.',
   ]}
   specs={[
@@ -32,7 +32,8 @@ const lede = 'Turn JPG photos into one PDF document. Arrange the page order, pic
     ['Watermark', 'None'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Input formats', 'JPEG (.jpg, .jpeg). PNG, WebP, GIF, BMP also work.'],
-    ['Page sizes', 'Fit to image, A4, US Letter'],
+    ['Page sizes', 'Fit to image, A4, US Letter — with portrait/landscape orientation and slim, wide, or no margins'],
+    ['Reordering', 'Drag rows, or use the up/down arrows'],
     ['Photo limit', 'None enforced. Very large sets are limited only by your device\u2019s memory.'],
     ['Quality', 'JPEG photos are embedded as-is; no recompression, no resizing'],
     ['Works offline', 'Yes, once the page has loaded'],
@@ -52,11 +53,11 @@ const lede = 'Turn JPG photos into one PDF document. Arrange the page order, pic
     },
     {
       q: 'Can I convert multiple JPGs into one PDF?',
-      a: 'Yes. Add as many photos as you like; each one becomes its own page, in the order you arrange. Reorder them with the up and down arrows before converting.',
+      a: 'Yes. Add as many photos as you like; each one becomes its own page, in the order you arrange. Drag the rows to reorder them (or use the up and down arrows on touch screens) before converting.',
     },
     {
       q: 'What page size should I choose?',
-      a: '"Fit to image" makes each PDF page exactly the size of its photo, with no scaling and no margins — best for photos and scans you want at full size. A4 and US Letter scale each photo to fit a standard page with half-inch margins, which is best for documents you plan to print.',
+      a: '"Fit to image" makes each PDF page exactly the size of its photo, with no scaling and no margins — best for photos and scans you want at full size. A4 and US Letter scale each photo to fit a standard page, which is best for documents you plan to print. On those page sizes you can also pick the orientation (match each photo, portrait, or landscape) and the margins (none, slim, or wide).',
     },
     {
       q: 'What is the difference between this and the Images to PDF tool?',
@@ -96,12 +97,31 @@ const lede = 'Turn JPG photos into one PDF document. Arrange the page order, pic
     <div id="error-box" class="error-box" hidden></div>
     <ul id="file-list" class="file-list"></ul>
     <p id="empty-state" class="empty-state">No photos yet. Add your JPGs above, then arrange them in page order.</p>
-    <div class="field">
-      <label for="page-size">Page size</label>
-      <select id="page-size">
-        <option value="fit">Fit to image (each page matches its photo)</option>
-        <option value="a4">A4 (photos scaled to fit, with margins)</option>
-        <option value="letter">US Letter (photos scaled to fit, with margins)</option>
+    <p class="hint">Tip: drag a row to move it, or paste screenshots straight from your clipboard (Ctrl+V).</p>
+    <div class="row-2">
+      <div class="field">
+        <label for="page-size">Page size</label>
+        <select id="page-size">
+          <option value="fit">Fit to image (each page matches its photo)</option>
+          <option value="a4">A4 (photos scaled to fit)</option>
+          <option value="letter">US Letter (photos scaled to fit)</option>
+        </select>
+      </div>
+      <div class="field" id="orientation-field" hidden>
+        <label for="orientation">Orientation</label>
+        <select id="orientation">
+          <option value="auto" selected>Match each photo</option>
+          <option value="portrait">Portrait (tall)</option>
+          <option value="landscape">Landscape (wide)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" id="margin-field" hidden>
+      <label for="margin">Margins</label>
+      <select id="margin">
+        <option value="slim" selected>Slim</option>
+        <option value="none">None (photo fills the page)</option>
+        <option value="wide">Wide</option>
       </select>
     </div>
     <div class="btn-row">

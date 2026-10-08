@@ -13,6 +13,7 @@ from pypdf import PdfReader, PdfWriter
 import io
 
 reader = PdfReader(io.BytesIO(bytes(pdf_data_in)))
+pdf_was_locked = bool(reader.is_encrypted)
 if reader.is_encrypted:
     ok = reader.decrypt(pdf_password)
     if not ok:
@@ -30,6 +31,10 @@ pdf_data_out = buf.getvalue()
 
 const ENCRYPT_PYTHON = `
 from pypdf import PdfReader, PdfWriter
+try:
+    from pypdf import UserAccessPermissions
+except ImportError:
+    from pypdf.constants import UserAccessPermissions
 import io
 
 reader = PdfReader(io.BytesIO(bytes(pdf_data_in)))
@@ -38,20 +43,46 @@ if reader.is_encrypted:
 writer = PdfWriter()
 for page in reader.pages:
     writer.add_page(page)
-writer.encrypt(pdf_password)
+# Owner password + permission flags are optional. When omitted, the file gets
+# a plain open-with-password lock (the previous behavior, unchanged). Note:
+# permissions_flag must be omitted rather than passed as None, because
+# pypdf's default is ALL_DOCUMENT_PERMISSIONS.
+owner = pdf_owner_password if pdf_owner_password else None
+if pdf_permissions is None:
+    writer.encrypt(pdf_password, owner_password=owner)
+else:
+    writer.encrypt(
+        pdf_password,
+        owner_password=owner,
+        permissions_flag=UserAccessPermissions(int(pdf_permissions)),
+    )
 buf = io.BytesIO()
 writer.write(buf)
 pdf_data_out = buf.getvalue()
 `;
 
+interface PyodideValue {
+  toJs(): unknown;
+  destroy(): void;
+}
+
 interface Pyodide {
   globals: {
     set(name: string, value: unknown): void;
-    get(name: string): { toJs(): Uint8Array; destroy(): void };
+    get(name: string): PyodideValue;
   };
   runPython(code: string): void;
   loadPackage(name: string): Promise<void>;
   pyimport(name: string): { install(spec: string): Promise<void> };
+}
+
+/** Read bytes out of a Pyodide global and free it. */
+function takeBytes(v: PyodideValue): Uint8Array {
+  try {
+    return v.toJs() as Uint8Array;
+  } finally {
+    v.destroy();
+  }
 }
 
 let enginePromise: Promise<Pyodide> | null = null;
@@ -100,14 +131,15 @@ export function loadUnlockEngine(
 
 /**
  * Remove password protection from a PDF when the password is known.
- * Returns the unlocked PDF bytes. Throws WRONG_PASSWORD when the
- * password (and a blank password) both fail.
+ * Returns the unlocked PDF bytes plus whether the file was actually
+ * locked (it may only have carried copy/print limits). Throws
+ * WRONG_PASSWORD when the password (and a blank password) both fail.
  */
 export async function unlockPdfBytes(
   data: Uint8Array,
   password: string,
   onProgress?: (msg: string) => void
-): Promise<Uint8Array> {
+): Promise<{ bytes: Uint8Array; wasLocked: boolean }> {
   const pyodide = await loadUnlockEngine(onProgress);
   pyodide.globals.set('pdf_data_in', data);
   pyodide.globals.set('pdf_password', password);
@@ -120,30 +152,52 @@ export async function unlockPdfBytes(
     throw err;
   }
   const out = pyodide.globals.get('pdf_data_out');
+  const flag = pyodide.globals.get('pdf_was_locked');
+  const bytes = takeBytes(out); // frees `out`
   try {
-    return out.toJs();
+    return { bytes, wasLocked: flag.toJs() === true || flag.toJs() === 1 };
   } finally {
-    out.destroy();
+    flag.destroy();
   }
+}
+
+/**
+ * Permission preset for PDF protection. Both fields are optional; when
+ * omitted the file gets a plain open-with-password lock.
+ *
+ * pypdf permission flags (UserAccessPermissions): 4 = print only,
+ * 20 = print + copy text, 0 = view only. Omit the flags for full access.
+ */
+export interface EncryptPermissions {
+  /** The password that unlocks printing/copying/changing. Defaults to the user password. */
+  ownerPassword?: string;
+  /** Permission bit flags. Omit for full access once the password is given. */
+  permissionFlags?: number;
 }
 
 /**
  * Add password protection to a PDF (AES encryption, pypdf).
  * Returns the protected PDF bytes. Throws ALREADY_ENCRYPTED when the
  * input is already password-protected.
+ *
+ * Pass `password` as '' with an ownerPassword to leave the file openable
+ * without a password while restricting what can be done with it.
  */
 export async function encryptPdfBytes(
   data: Uint8Array,
   password: string,
   onProgress?: (msg: string) => void,
-  engineLabel = 'protect'
+  engineLabel = 'protect',
+  permissions?: EncryptPermissions
 ): Promise<Uint8Array> {
-  if (!password) {
+  if (!password && !permissions?.ownerPassword) {
     throw new Error('Choose a password first.');
   }
   const pyodide = await loadUnlockEngine(onProgress, engineLabel);
   pyodide.globals.set('pdf_data_in', data);
   pyodide.globals.set('pdf_password', password);
+  pyodide.globals.set('pdf_owner_password', permissions?.ownerPassword ?? null);
+  pyodide.globals.set('pdf_permissions', permissions?.permissionFlags ?? null);
   try {
     pyodide.runPython(ENCRYPT_PYTHON);
   } catch (err) {
@@ -153,11 +207,7 @@ export async function encryptPdfBytes(
     throw err;
   }
   const out = pyodide.globals.get('pdf_data_out');
-  try {
-    return out.toJs();
-  } finally {
-    out.destroy();
-  }
+  return takeBytes(out);
 }
 
 /**

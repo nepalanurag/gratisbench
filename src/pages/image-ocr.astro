@@ -22,7 +22,7 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     'Be honest with yourself about the input: The result is only as good as the photo. Clean, high-contrast, straight-on text at a decent size reads near-perfectly. Blurry photos, decorative fonts, handwriting, and text over busy backgrounds will produce errors you need to proofread. The tool tells you this up front because a confident wrong transcript is worse than no transcript.',
   ]}
   steps={[
-    'Drop an image onto the box above, or click it to browse. PNG, JPG, and WebP all work.',
+    'Drop an image onto the box above, or click it to browse. PNG, JPG, and WebP all work. Tip: drag a box on the preview to read just that part of the image, and use "Turn image" if the photo is sideways.',
     'Pick the language of the text. English is the default; eleven more languages are available.',
     'Leave the preprocessing options on unless you have a reason not to: upscaling and contrast help most images.',
     'Click "Read text". The first run downloads the OCR engine and language data (about 15 MB, once per browser).',
@@ -36,6 +36,8 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     ['Languages', '12: English, French, German, Spanish, Italian, Portuguese, Dutch, Russian, Japanese, Chinese (Simplified), Hindi, Arabic'],
     ['Output', 'Editable text: copy to clipboard or download .txt'],
     ['Preprocessing', 'Optional upscale for small images, contrast boost'],
+    ['Read part of the image', 'Drag a box on the preview to read only that region'],
+    ['Rotate', 'Turn a sideways photo upright before reading'],
     ['Engine download', 'About 15 MB once per browser, then cached'],
     ['Works offline', 'Yes, once the engine and language data have downloaded'],
     ['Honest limits', 'Clean, high-contrast text works best; handwriting and blurry photos will have errors'],
@@ -64,6 +66,10 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     {
       q: 'What do the preprocessing options do?',
       a: 'Upscaling enlarges small images, because tiny text is the biggest weakness. The contrast option boosts faded scans and uneven lighting. Both are on by default and help far more often than they hurt.',
+    },
+    {
+      q: 'Can I read just part of the image?',
+      a: 'Yes. After you add an image, drag a box over the part you want read — a receipt total, one column of a document, a caption under a photo. The reader then only looks at that region, which is faster and avoids picking up text you do not want. Clear the selection any time to go back to the whole image.',
     },
     {
       q: 'Why is some text missing or wrong?',
@@ -111,7 +117,14 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     <div id="preview-block" hidden>
       <p id="file-meta" class="count-label"></p>
       <div class="preview-frame">
-        <img id="preview-img" alt="Image to read text from" />
+        <div id="zone-wrap" style="position:relative;line-height:0;max-width:100%;">
+          <img id="preview-img" alt="Image to read text from" style="pointer-events:none;" />
+          <div id="zone-box" hidden style="position:absolute;border:2px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,.55);background:rgba(255,255,255,.08);"></div>
+        </div>
+      </div>
+      <p class="hint">Tip: drag a box on the image to read just that part. <button id="zone-clear" class="link-btn" type="button" hidden>Clear selection</button></p>
+      <div class="btn-row btn-row-tight">
+        <button id="rotate-btn" class="btn btn-secondary" type="button">Turn image 90°</button>
       </div>
     </div>
 

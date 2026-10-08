@@ -60,6 +60,10 @@ const lede = 'Cut the silence off a recording, pull a clip out of a song, or sho
       a: 'WAV export keeps every sample of your selection exactly, so there is no quality change. MP3 export compresses the selection, which loses a little quality the way any MP3 does, but at 192 or 320 kbps the difference is inaudible to most listeners.',
     },
     {
+      q: 'Can I zoom into the waveform?',
+      a: 'Yes. The plus and minus buttons above the waveform zoom in and out, centered on the playhead or your selection. When zoomed in, the arrow buttons slide the view left and right, and the view follows the playhead while the selection plays. "Show whole file" zooms back out.',
+    },
+    {
       q: 'The page says it cannot read my file. Why?',
       a: 'Some formats only work in certain browsers. MP3, WAV, OGG, and M4A work everywhere. Some FLAC and less common formats depend on the browser; Chrome and Edge handle the most. Convert the file to MP3 or WAV first and try again.',
     },
@@ -88,6 +92,13 @@ const lede = 'Cut the silence off a recording, pull a clip out of a song, or sho
 
     <div id="editor" hidden>
       <p id="file-info" class="count-label"></p>
+      <div class="btn-row" role="group" aria-label="Waveform zoom">
+        <button id="zoom-out-btn" type="button" class="icon-btn" title="Zoom out" aria-label="Zoom out">−</button>
+        <button id="zoom-in-btn" type="button" class="icon-btn" title="Zoom in" aria-label="Zoom in">+</button>
+        <button id="zoom-reset-btn" type="button" class="btn btn-secondary">Show whole file</button>
+        <button id="pan-left-btn" type="button" class="icon-btn" title="Move view left" aria-label="Move view left" hidden>◀</button>
+        <button id="pan-right-btn" type="button" class="icon-btn" title="Move view right" aria-label="Move view right" hidden>▶</button>
+      </div>
       <div id="waveform-wrap" class="wave-wrap">
         <canvas id="waveform" class="waveform" aria-label="Audio waveform. Click to move the playhead, drag the handles to trim."></canvas>
       </div>
@@ -122,6 +133,24 @@ const lede = 'Cut the silence off a recording, pull a clip out of a song, or sho
 
       <div class="btn-row">
         <button id="play-btn" class="btn btn-secondary">Play selection</button>
+      </div>
+
+      <h3 class="tool-step">Effects</h3>
+      <div class="field field-narrow">
+        <label for="fade-ms">Fade in / fade out</label>
+        <select id="fade-ms">
+          <option value="10" selected>10 ms (just remove clicks)</option>
+          <option value="500">0.5 second</option>
+          <option value="1000">1 second</option>
+          <option value="2000">2 seconds</option>
+          <option value="0">None</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="checkline"><input type="checkbox" id="normalize-check" /> <span><strong>Normalize volume.</strong> Raise or lower the whole clip so its loudest moment hits full volume.</span></label>
+      </div>
+      <div class="field">
+        <label class="checkline"><input type="checkbox" id="reverse-check" /> <span><strong>Reverse.</strong> Play the clip backwards.</span></label>
       </div>
 
       <div class="field field-narrow">

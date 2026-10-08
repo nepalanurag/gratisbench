@@ -1,0 +1,131 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+import ToolkitTabs from '../components/ToolkitTabs.astro';
+
+const title = 'Subtitle Editor - Add Subtitles to Video Online Free | TruePDF';
+const description =
+  'Add subtitles to video online for free. Type your captions, time them on the video, preview live, export SRT. No signup, no watermark. Your video never leaves your browser.';
+const h1 = 'Add subtitles to videos';
+const lede = 'Type your captions, set their timing, style how they look, preview them on the video, and download the subtitle file. Free, no account.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'Media tools', href: '/media-tools' }, { label: 'Subtitle editor', href: '/subtitle-editor' }]}
+  toolName="TruePDF Subtitle Editor"
+  intro={[
+    'Subtitles make videos watchable with the sound off, which is how most people scroll. The usual subtitle tools want an upload, an account, and a subscription for auto-captioning. This editor takes a simpler path: you type the lines, you set when each one shows, and you watch them play over your video as you go.',
+    'Click on the video to jump the playhead there, then press "Add subtitle at current time" to start a new caption where you are. Drag the caption\'s edges on the timeline to set exactly when it appears and disappears. Everything previews live, so what you see is what the SRT describes.',
+  ]}
+  steps={[
+    'Drop your video onto the box above, or click it to browse.',
+    'Play the video and click "Add subtitle at current time" to create a caption where the playhead is.',
+    'Type the caption text. Drag its edges on the timeline to set when it appears and disappears.',
+    'Repeat for each line. The captions preview over the video as you work.',
+    'Click "Download subtitles" to get the subtitle file, named to match your video.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Output', 'SRT or WebVTT subtitle file, named to match your video'],
+    ['Works offline', 'Yes, once the page has loaded'],
+  ]}
+  faqs={[
+    {
+      q: 'Is this subtitle editor really free?',
+      a: 'Yes. There is no free tier with a paid tier above it and no limits on how many captions you can add. The SRT file downloads with no watermark and no account.',
+    },
+    {
+      q: 'Is my video uploaded to a server?',
+      a: 'No. The video plays locally in your browser for timing reference. Nothing is sent anywhere. Only the SRT text file is generated, on your device.',
+    },
+    {
+      q: 'How do I use the SRT file?',
+      a: 'Name it exactly like your video file (for example, video.mp4 and video.srt in the same folder) and most players — VLC, YouTube, Plex — will pick it up automatically. On YouTube, upload it under Subtitles when you publish.',
+    },
+    {
+      q: 'Can it auto-generate subtitles from speech?',
+      a: 'Not yet. Auto-captioning needs a speech model; this editor is for typing and timing your own captions, which gives you full control over wording. If you have a transcript, pasting it line by line is fast.',
+    },
+    {
+      q: 'What subtitle format does it export?',
+      a: 'SRT (SubRip), the most widely supported subtitle format — YouTube, VLC, Plex, and nearly every video player and editor read it. Or choose WebVTT, the format for web video players, which also keeps your top/bottom position choice. SRT files do not carry style, so size and position are up to each player.',
+    },
+  ]}
+>
+  <ToolkitTabs
+    current="/subtitle-editor"
+    tabs={[
+      { href: '/video-compressor', label: 'Compress' },
+      { href: '/video-trimmer', label: 'Trim' },
+      { href: '/video-converter', label: 'Convert' },
+      { href: '/subtitle-editor', label: 'Subtitles' },
+    ]}
+  />
+  <section class="tool-card" slot="tool" aria-label="Subtitle editor tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a video to subtitle">
+      <div class="dz-icon"><Icon name="video" size={30} /></div>
+      <div class="dz-title">Drop video here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="video/*,.mkv,.mov,.webm,.mp4,.m4v,.avi" hidden />
+    <div id="error-box" class="error-box" hidden></div>
+
+    <div id="editor" hidden>
+      <p id="file-info" class="count-label"></p>
+      <div id="video-wrap" class="video-wrap">
+        <video id="preview" class="preview-video" controls playsinline></video>
+        <div id="subtitle-overlay" class="subtitle-overlay" aria-hidden="true"></div>
+      </div>
+
+      <div id="cue-timeline" class="cue-timeline" aria-label="Subtitle timeline">
+        <div id="cue-track" class="cue-track"></div>
+        <div id="cue-playhead" class="cue-playhead"></div>
+      </div>
+      <p class="hint">Drag a caption's edges to change its timing. Click the timeline to jump the video there.</p>
+
+      <div class="btn-row">
+        <button id="add-cue-btn" class="btn btn-secondary">Add subtitle at current time</button>
+      </div>
+
+      <h3 class="tool-step">Appearance</h3>
+      <div class="radio-cards" role="radiogroup" aria-label="Caption size">
+        <label class="radio-card"><input type="radio" name="cue-size" value="normal" checked /><span><strong>Normal</strong><small>Comfortable reading size.</small></span></label>
+        <label class="radio-card"><input type="radio" name="cue-size" value="large" /><span><strong>Large</strong><small>Easier to read on phones.</small></span></label>
+        <label class="radio-card"><input type="radio" name="cue-size" value="xlarge" /><span><strong>Extra large</strong><small>Maximum readability.</small></span></label>
+      </div>
+      <div class="radio-cards" role="radiogroup" aria-label="Caption position">
+        <label class="radio-card"><input type="radio" name="cue-pos" value="bottom" checked /><span><strong>Bottom</strong><small>The usual spot.</small></span></label>
+        <label class="radio-card"><input type="radio" name="cue-pos" value="top" /><span><strong>Top</strong><small>When the bottom of the frame is busy.</small></span></label>
+      </div>
+      <p class="hint">Size and position show in the preview above. WebVTT export keeps the position; SRT players use their own style.</p>
+
+      <h3 class="tool-step">File format</h3>
+      <div class="radio-cards" role="radiogroup" aria-label="Subtitle file format">
+        <label class="radio-card"><input type="radio" name="sub-format" value="srt" checked /><span><strong>SRT</strong><small>Works everywhere: YouTube, VLC, Plex.</small></span></label>
+        <label class="radio-card"><input type="radio" name="sub-format" value="vtt" /><span><strong>WebVTT</strong><small>For web players. Keeps the top/bottom position.</small></span></label>
+      </div>
+
+      <div class="btn-row">
+        <button id="download-btn" class="btn">Download subtitles</button>
+      </div>
+
+      <div id="cue-list" class="cue-list"></div>
+      <p id="overlap-note" class="hint" hidden></p>
+
+      <div id="result" class="result" hidden>
+        <h3>Subtitles ready</h3>
+        <p id="result-info"></p>
+      </div>
+    </div>
+  </section>
+  <script>
+    import { initSubtitleEditor } from '../tools/subtitle-editor';
+    initSubtitleEditor();
+  </script>
+</ToolPage>

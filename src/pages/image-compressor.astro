@@ -23,8 +23,8 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
   ]}
   steps={[
     'Drop your images onto the box above, or click it to browse. PNG, JPEG, WebP, GIF, BMP, and TIFF are accepted.',
-    'Set the quality slider. 80 is a good balance for photos; go lower for smaller files, higher when detail matters.',
-    'Pick an output format: keep the original, or convert to JPEG or WebP. Remember that PNG stays nearly the same size unless you convert it.',
+    'Pick a mode: the quality slider (80 is a good balance for photos; lower for smaller files, higher when detail matters) or target size ("make every image fit under 200 KB" — the tool finds the right quality automatically).',
+    'Pick an output format: keep the original, or convert to JPEG or WebP. Remember that PNG stays nearly the same size unless you convert it. Optionally shrink images first: half size or fit-for-web makes files dramatically smaller.',
     'Click "Compress images". Each file shows its original size, compressed size, and the percentage saved.',
     'Download files individually, or take them all at once with "Download all as ZIP".',
   ]}
@@ -36,6 +36,7 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
     ['Input formats', 'PNG, JPEG, WebP, GIF, BMP, TIFF'],
     ['Output formats', 'Keep original, JPEG, or WebP'],
     ['Quality control', 'Slider from 5 to 100; default 80'],
+    ['Resize', 'Keep original, half size, fit-for-web (1920 px), or a custom width'],
     ['Batch + ZIP', 'Yes. Compress many files, download individually or as one ZIP.'],
     ['Transparency', 'Kept for PNG and WebP output. JPEG has no transparency; an optional white fill is offered.'],
     ['Works offline', 'Yes, once the page has loaded'],
@@ -56,6 +57,10 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
     {
       q: 'What does the quality slider actually change?',
       a: 'It sets the quality from 5 (tiny files, visibly rough) to 100 (near-original, barely smaller). The setting applies to JPEG and WebP output; PNG ignores it because PNG has no quality setting. A good rule of thumb: 80 for photos going on the web, 60 to 70 when file size matters more than fine detail, and 90 or above for images you plan to edit further.',
+    },
+    {
+      q: 'Does shrinking the image help compression?',
+      a: 'More than almost anything else. A photo at half width and half height has a quarter of the pixels, so the compressed file is usually close to a quarter of the size too, at the same quality setting. Use "Fit for the web" for images going on a website: 1920 px on the long edge is plenty for screens. Resizing never enlarges an image.',
     },
     {
       q: 'Are my images uploaded anywhere?',
@@ -90,13 +95,26 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
     <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,.tif" multiple hidden />
     <div id="error-box" class="error-box" hidden></div>
 
-    <div class="field">
+    <div class="field" id="quality-field">
+      <label>Compression mode</label>
+      <div class="radio-cards" role="radiogroup" aria-label="Compression mode">
+        <label class="radio-card"><input type="radio" name="cmode" value="quality" checked /><span><strong>Quality slider</strong><small>You pick the quality.</small></span></label>
+        <label class="radio-card"><input type="radio" name="cmode" value="target" /><span><strong>Target size</strong><small>Hit a file size automatically.</small></span></label>
+      </div>
+    </div>
+
+    <div class="field" id="quality-slider-field">
       <label for="quality-range">Quality</label>
       <div class="range-row">
         <input type="range" id="quality-range" min="5" max="100" value="80" />
         <span id="quality-val" class="range-val">80</span>
       </div>
       <p class="hint">Lower means smaller files. 80 is a good balance for photos. Ignored for PNG output.</p>
+    </div>
+
+    <div class="field" id="target-size-field" hidden>
+      <label class="rb-field"><span>Target file size (KB)</span><input type="text" inputmode="numeric" id="target-kb" value="200" placeholder="200" /></label>
+      <p class="hint">The tool tries different quality levels until each image fits under this size. If an image can't get that small, it uses the lowest quality and tells you.</p>
     </div>
 
     <div class="field">
@@ -109,13 +127,46 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
       <p class="hint">PNG is lossless, so saving a PNG as PNG again rarely shrinks it. Convert to JPEG or WebP for real savings.</p>
     </div>
 
+    <div class="field">
+      <label id="resize-label">Image size</label>
+      <div class="radio-cards" role="radiogroup" aria-labelledby="resize-label">
+        <label class="radio-card"><input type="radio" name="resize-mode" value="original" checked /><span><strong>Keep original size</strong><small>No resizing</small></span></label>
+        <label class="radio-card"><input type="radio" name="resize-mode" value="half" /><span><strong>Half size</strong><small>Quarter of the pixels, much smaller files</small></span></label>
+        <label class="radio-card"><input type="radio" name="resize-mode" value="web" /><span><strong>Fit for the web</strong><small>Long edge at most 1920 px</small></span></label>
+        <label class="radio-card"><input type="radio" name="resize-mode" value="custom" /><span><strong>Custom width</strong><small>You pick the width in pixels</small></span></label>
+      </div>
+      <div id="custom-width-row" class="field-row field-narrow" hidden>
+        <input type="text" inputmode="numeric" id="custom-width" placeholder="Width in pixels, e.g. 1200" aria-label="Custom width in pixels" />
+      </div>
+      <p class="hint" id="resize-hint">Shrinking happens before compression, so a smaller image compresses to a smaller file. Resizing never enlarges.</p>
+    </div>
+
     <div id="jpeg-fill-block" class="field" hidden>
       <label class="checkline"><input type="checkbox" id="fill-white" checked /> Fill transparent areas with white</label>
       <p id="alpha-warning" class="honest-note" hidden><strong>Transparency:</strong> at least one of your images has transparent areas. JPEG cannot store transparency, so without the white fill those areas turn black.</p>
     </div>
 
     <ul id="file-list" class="file-list"></ul>
-    <p id="empty-state" class="empty-state">No images yet. Add your images above, pick a quality, then compress.</p>
+    <p id="empty-state" class="empty-state">No images yet. Add your images above, pick a mode, then compress. Tip: you can also paste a screenshot with Ctrl+V.</p>
+
+    <div id="live-preview" class="live-preview" hidden>
+      <h3>Live preview</h3>
+      <p class="hint">Drag the slider to compare. Move the quality control and watch the result update.</p>
+      <div id="compare-wrap" class="compare-wrap">
+        <img id="compare-before" class="compare-img" alt="Original image" />
+        <div id="compare-after" class="compare-after">
+          <img id="compare-after-img" class="compare-img" alt="Compressed preview" />
+        </div>
+        <div id="compare-divider" class="compare-divider"></div>
+        <div id="compare-handle" class="compare-handle" role="slider" aria-label="Comparison divider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0">
+          <span class="compare-handle-grip"></span>
+        </div>
+        <span class="compare-label compare-label-before">Original</span>
+        <span class="compare-label compare-label-after">Compressed</span>
+      </div>
+      <p id="compare-sizes" class="compare-sizes"></p>
+    </div>
+
     <div class="btn-row">
       <button id="compress-btn" class="btn" disabled>Compress images</button>
       <button id="download-all-btn" class="btn btn-secondary" hidden>Download all as ZIP</button>

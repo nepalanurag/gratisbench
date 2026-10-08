@@ -82,7 +82,10 @@ let nextDocId = 1;
 let nextUid = 1;
 let textEdits: TextEdit[] = [];
 let crops = new Map<string, CropRect>();
-let watermark: { text: string; opacity: number; size: number; angle: boolean } | null = null;
+type Watermark =
+  | { kind: 'text'; text: string; opacity: number; size: number; angle: boolean }
+  | { kind: 'image'; bytes: Uint8Array; opacity: number; scale: number; position: string };
+let watermark: Watermark | null = null;
 let pageNumbers: { pos: string; format: string; start: number; size: number } | null = null;
 let headerFooter: { header: string; footer: string; size: number } | null = null;
 let protectPassword: string | null = null;
@@ -202,25 +205,34 @@ async function renderThumbsIncremental(): Promise<void> {
 async function renderThumb(item: PageItem): Promise<string> {
   const doc = docOf(item);
   const page = await doc.jsDoc.getPage(item.pageIndex + 1);
-  const base = page.getViewport({ scale: 1 });
-  const scale = THUMB_W / base.width;
-  const canvas = await renderPageToCanvas(page, scale * 72);
+  // Render at device-pixel-ratio resolution (capped at 3x) but display at
+  // THUMB_W CSS px, so thumbnails stay sharp on retina displays. Rotation is
+  // baked into the render itself, never faked with CSS.
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const base = page.getViewport({ scale: 1, rotation: item.rotation });
+  const scale = (THUMB_W * dpr) / base.width;
+  const viewport = page.getViewport({ scale, rotation: item.rotation });
+  const canvas = await renderPageToCanvas(page, scale * 72, item.rotation);
   page.cleanup();
-  const crop = crops.get(item.uid);
-  if (!crop) return canvas.toDataURL('image/jpeg', 0.72);
-  const sx = crop.x * scale;
-  const sw = crop.w * scale;
-  const sh = crop.h * scale;
-  const sy = canvas.height - (crop.y + crop.h) * scale;
+  if (!crops.get(item.uid)) return canvas.toDataURL('image/jpeg', 0.8);
+  const crop = crops.get(item.uid)!;
+  // Map the crop rect (stored in un-rotated PDF points) into the rendered
+  // canvas through the viewport, so it stays correct on rotated pages.
+  const [x1, y1] = viewport.convertToViewportPoint(crop.x, crop.y);
+  const [x2, y2] = viewport.convertToViewportPoint(crop.x + crop.w, crop.y + crop.h);
+  const sx = Math.min(x1, x2);
+  const sy = Math.min(y1, y2);
+  const sw = Math.abs(x2 - x1);
+  const sh = Math.abs(y2 - y1);
   const out = document.createElement('canvas');
   out.width = Math.max(1, Math.round(sw));
   out.height = Math.max(1, Math.round(sh));
   const ctx = out.getContext('2d');
-  if (!ctx) return canvas.toDataURL('image/jpeg', 0.72);
+  if (!ctx) return canvas.toDataURL('image/jpeg', 0.8);
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, out.width, out.height);
   ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
-  return out.toDataURL('image/jpeg', 0.72);
+  return out.toDataURL('image/jpeg', 0.8);
 }
 
 /* ---------------- thumbnail grid ---------------- */
@@ -243,7 +255,6 @@ function renderGrid(): void {
     img.alt = `Page ${idx + 1}`;
     img.draggable = false;
     img.src = item.thumb ?? placeholderThumb();
-    if (item.rotation) img.style.transform = `rotate(${item.rotation}deg)`;
     card.appendChild(img);
 
     const num = document.createElement('span');
@@ -398,11 +409,15 @@ function rotateItems(uids: string[]): void {
   pushUndo('Rotate');
   for (const u of uids) {
     const p = pages.find((x) => x.uid === u);
-    if (p) p.rotation = ((p.rotation + 90) % 360) as PageItem['rotation'];
+    if (p) {
+      p.rotation = ((p.rotation + 90) % 360) as PageItem['rotation'];
+      p.thumb = null; // re-render so the thumbnail itself rotates, right away
+    }
   }
   renderGrid();
   updateToolbar();
   setStatus('Page rotated.');
+  void renderThumbsIncremental();
 }
 
 function deleteItems(uids: string[]): void {
@@ -494,7 +509,7 @@ async function buildPdf(items: PageItem[], opts: BuildOpts): Promise<Uint8Array>
   });
 
   if (!opts.skipStamps) {
-    applyWatermark(out, fonts.sans);
+    await applyWatermark(out, fonts.sans);
     applyPageNumbers(out, items.length, fonts.sans);
     applyHeaderFooter(out, items.length, fonts.sans);
   }
@@ -507,22 +522,53 @@ async function buildPdf(items: PageItem[], opts: BuildOpts): Promise<Uint8Array>
   return out.save();
 }
 
-function applyWatermark(out: PDFDocument, font: import('pdf-lib').PDFFont): void {
-  if (!watermark || !watermark.text.trim()) return;
+async function applyWatermark(out: PDFDocument, font: import('pdf-lib').PDFFont): Promise<void> {
+  if (!watermark) return;
   const n = out.getPageCount();
+  if (watermark.kind === 'text') {
+    if (!watermark.text.trim()) return;
+    for (let i = 0; i < n; i++) {
+      const page = out.getPage(i);
+      const { width, height } = page.getSize();
+      const tw = font.widthOfTextAtSize(watermark.text, watermark.size);
+      page.drawText(watermark.text, {
+        x: width / 2 - tw / 2,
+        y: height / 2,
+        size: watermark.size,
+        font,
+        color: rgb(0.5, 0.5, 0.5),
+        opacity: watermark.opacity,
+        rotate: watermark.angle ? degrees(-45) : degrees(0),
+      });
+    }
+    return;
+  }
+  // Image watermark: embed once, stamp every page.
+  let img: import('pdf-lib').PDFImage;
+  try {
+    img = await out.embedPng(watermark.bytes);
+  } catch {
+    try {
+      img = await out.embedJpg(watermark.bytes);
+    } catch {
+      return;
+    }
+  }
+  const iw = img.width;
+  const ih = img.height;
   for (let i = 0; i < n; i++) {
     const page = out.getPage(i);
     const { width, height } = page.getSize();
-    const tw = font.widthOfTextAtSize(watermark.text, watermark.size);
-    page.drawText(watermark.text, {
-      x: width / 2 - tw / 2,
-      y: height / 2,
-      size: watermark.size,
-      font,
-      color: rgb(0.5, 0.5, 0.5),
-      opacity: watermark.opacity,
-      rotate: watermark.angle ? degrees(-45) : degrees(0),
-    });
+    const s = (width * watermark.scale) / iw;
+    const w = iw * s;
+    const h = ih * s;
+    let x = width / 2 - w / 2;
+    let y = height / 2 - h / 2;
+    if (watermark.position === 'top-left') { x = 36; y = height - h - 36; }
+    else if (watermark.position === 'top-right') { x = width - w - 36; y = height - h - 36; }
+    else if (watermark.position === 'bottom-left') { x = 36; y = 36; }
+    else if (watermark.position === 'bottom-right') { x = width - w - 36; y = 36; }
+    page.drawImage(img, { x, y, width: w, height: h, opacity: watermark.opacity });
   }
 }
 
@@ -814,10 +860,8 @@ async function startCrop(): Promise<void> {
     if (m.l + m.r + m.t + m.b < 4) crops.delete(item.uid);
     else crops.set(item.uid, { pageUid: item.uid, x, y, w, h });
     item.thumb = null;
-    void renderThumb(item).then((url) => {
-      item.thumb = url;
-      renderGrid();
-    });
+    renderGrid();
+    void renderThumbsIncremental();
     setStatus('Crop saved. It applies when you download.');
   };
 
@@ -865,12 +909,37 @@ function textInput(value: string, placeholder = ''): HTMLInputElement {
 
 function openWatermarkDialog(): void {
   const body = document.createElement('div');
-  const text = textInput(watermark?.text ?? 'Confidential', 'e.g. Confidential');
+
+  // Words vs picture toggle
+  const kindWrap = document.createElement('div');
+  kindWrap.className = 'field';
+  const kindLabel = document.createElement('span');
+  kindLabel.textContent = 'Type: ';
+  const kindText = document.createElement('label');
+  const kindTextRadio = document.createElement('input');
+  kindTextRadio.type = 'radio';
+  kindTextRadio.name = 'wm-kind';
+  kindTextRadio.value = 'text';
+  kindTextRadio.checked = !watermark || watermark.kind === 'text';
+  kindText.append(kindTextRadio, ' Words');
+  const kindImg = document.createElement('label');
+  const kindImgRadio = document.createElement('input');
+  kindImgRadio.type = 'radio';
+  kindImgRadio.name = 'wm-kind';
+  kindImgRadio.value = 'image';
+  kindImgRadio.checked = !!watermark && watermark.kind === 'image';
+  kindImg.append(kindImgRadio, ' Picture');
+  kindWrap.append(kindLabel, kindText, ' ', kindImg);
+  body.append(kindWrap);
+
+  // --- text controls ---
+  const textPane = document.createElement('div');
+  const text = textInput(watermark?.kind === 'text' ? watermark.text : 'Confidential', 'e.g. Confidential');
   const op = document.createElement('input');
   op.type = 'range';
   op.min = '10';
   op.max = '80';
-  op.value = String(Math.round((watermark?.opacity ?? 0.25) * 100));
+  op.value = String(Math.round(((watermark?.kind === 'text' ? watermark.opacity : 0.25)) * 100));
   const opVal = document.createElement('span');
   opVal.textContent = `${op.value}%`;
   op.addEventListener('input', () => (opVal.textContent = `${op.value}%`));
@@ -878,22 +947,94 @@ function openWatermarkDialog(): void {
   size.type = 'range';
   size.min = '24';
   size.max = '120';
-  size.value = String(watermark?.size ?? 64);
+  size.value = String(watermark?.kind === 'text' ? watermark.size : 64);
   const angle = document.createElement('input');
   angle.type = 'checkbox';
-  angle.checked = watermark?.angle ?? true;
+  angle.checked = watermark?.kind !== 'text' || watermark.angle;
   const angleLab = document.createElement('label');
   angleLab.append('Diagonal ', angle);
-  body.append(field('Text', text));
+  textPane.append(field('Words', text));
   const opWrap = document.createElement('div');
   opWrap.className = 'field';
   opWrap.append('Lightness ', op, ' ', opVal);
-  body.append(opWrap);
+  textPane.append(opWrap);
   const sizeWrap = document.createElement('div');
   sizeWrap.className = 'field';
   sizeWrap.append('Size ', size);
-  body.append(sizeWrap);
-  body.append(angleLab);
+  textPane.append(sizeWrap);
+  textPane.append(angleLab);
+  body.append(textPane);
+
+  // --- image controls ---
+  const imgPane = document.createElement('div');
+  imgPane.hidden = kindTextRadio.checked;
+  const fileBtn = document.createElement('input');
+  fileBtn.type = 'file';
+  fileBtn.accept = 'image/png,image/jpeg';
+  const fileNote = document.createElement('p');
+  fileNote.className = 'hint';
+  fileNote.textContent = 'A logo or stamp works best with a transparent background.';
+  let imgBytes: Uint8Array | null =
+    watermark?.kind === 'image' ? watermark.bytes : null;
+  const imgName = document.createElement('p');
+  imgName.className = 'hint';
+  imgName.textContent = imgBytes ? 'Picture loaded.' : '';
+  fileBtn.addEventListener('change', async () => {
+    const f = fileBtn.files?.[0];
+    if (!f) return;
+    imgBytes = new Uint8Array(await f.arrayBuffer());
+    imgName.textContent = `Loaded: ${f.name}`;
+  });
+  const posSel = document.createElement('select');
+  for (const [v, label] of [
+    ['center', 'Middle of the page'],
+    ['top-left', 'Top left'],
+    ['top-right', 'Top right'],
+    ['bottom-left', 'Bottom left'],
+    ['bottom-right', 'Bottom right'],
+  ] as const) {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = label;
+    if (watermark?.kind === 'image' && watermark.position === v) o.selected = true;
+    posSel.appendChild(o);
+  }
+  const iop = document.createElement('input');
+  iop.type = 'range';
+  iop.min = '10';
+  iop.max = '80';
+  iop.value = String(Math.round((watermark?.kind === 'image' ? watermark.opacity : 0.25) * 100));
+  const iopVal = document.createElement('span');
+  iopVal.textContent = `${iop.value}%`;
+  iop.addEventListener('input', () => (iopVal.textContent = `${iop.value}%`));
+  const iscale = document.createElement('input');
+  iscale.type = 'range';
+  iscale.min = '5';
+  iscale.max = '60';
+  iscale.value = String(Math.round((watermark?.kind === 'image' ? watermark.scale : 0.2) * 100));
+  const iscaleVal = document.createElement('span');
+  iscaleVal.textContent = `${iscale.value}% of page width`;
+  iscale.addEventListener('input', () => (iscaleVal.textContent = `${iscale.value}% of page width`));
+  imgPane.append(field('Picture', fileBtn), fileNote, imgName);
+  const iopWrap = document.createElement('div');
+  iopWrap.className = 'field';
+  iopWrap.append('Lightness ', iop, ' ', iopVal);
+  imgPane.append(iopWrap);
+  const iscaleWrap = document.createElement('div');
+  iscaleWrap.className = 'field';
+  iscaleWrap.append('Size ', iscale, ' ', iscaleVal);
+  imgPane.append(iscaleWrap, field('Position', posSel));
+  body.append(imgPane);
+
+  const syncPanes = (): void => {
+    const isText = kindTextRadio.checked;
+    textPane.hidden = !isText;
+    imgPane.hidden = isText;
+  };
+  kindTextRadio.addEventListener('change', syncPanes);
+  kindImgRadio.addEventListener('change', syncPanes);
+  syncPanes();
+
   const clear = document.createElement('button');
   clear.type = 'button';
   clear.className = 'btn btn-secondary';
@@ -906,10 +1047,26 @@ function openWatermarkDialog(): void {
   });
   body.append(clear);
   openDialog('Watermark', body, () => {
-    watermark = text.value.trim()
-      ? { text: text.value.trim(), opacity: Number(op.value) / 100, size: Number(size.value), angle: angle.checked }
-      : null;
-    setStatus(watermark ? 'Watermark set. It stamps every page on download.' : 'Watermark removed.');
+    if (kindImgRadio.checked) {
+      if (!imgBytes) {
+        watermark = null;
+        setStatus('No picture chosen — watermark removed.');
+        return;
+      }
+      watermark = {
+        kind: 'image',
+        bytes: imgBytes,
+        opacity: Number(iop.value) / 100,
+        scale: Number(iscale.value) / 100,
+        position: posSel.value,
+      };
+      setStatus('Picture watermark set. It stamps every page on download.');
+    } else {
+      watermark = text.value.trim()
+        ? { kind: 'text', text: text.value.trim(), opacity: Number(op.value) / 100, size: Number(size.value), angle: angle.checked }
+        : null;
+      setStatus(watermark ? 'Watermark set. It stamps every page on download.' : 'Watermark removed.');
+    }
   });
 }
 

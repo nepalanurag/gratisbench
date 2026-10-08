@@ -26,7 +26,7 @@ import {
   type SubscriptionStore,
 } from '../lib/subs-core.ts';
 import { hbarChart } from '../lib/money-charts.ts';
-import { el, showError, hideError, downloadText } from './common.ts';
+import { el, showError, hideError, downloadText, bindSetting } from './common.ts';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -44,6 +44,57 @@ export function initSubscriptionTracker(): void {
   let editingId: string | null = null;
   let sortMode: 'renewal' | 'cost' = 'renewal';
   const today = todayLocalISO();
+
+  // Per-subscription extras the core model does not carry: notes, a free-trial
+  // flag, and a "might cancel" flag used by the savings panel.
+  interface SubExtras {
+    notes: string;
+    trial: boolean;
+    maybe: boolean;
+  }
+  const EXTRAS_KEY = 'truepdf.subscription-tracker.extras.v1';
+  let subExtras: Record<string, SubExtras> = loadSubExtras();
+
+  function loadSubExtras(): Record<string, SubExtras> {
+    try {
+      const raw = localStorage.getItem(EXTRAS_KEY);
+      if (!raw) return {};
+      const p = JSON.parse(raw) as Record<string, unknown>;
+      const out: Record<string, SubExtras> = {};
+      for (const [id, v] of Object.entries(p)) {
+        if (!v || typeof v !== 'object') continue;
+        const o = v as Record<string, unknown>;
+        out[id] = {
+          notes: typeof o.notes === 'string' ? o.notes.slice(0, 200) : '',
+          trial: o.trial === true,
+          maybe: o.maybe === true,
+        };
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }
+
+  function saveSubExtras(): void {
+    try {
+      localStorage.setItem(EXTRAS_KEY, JSON.stringify(subExtras));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function exOf(id: string): SubExtras {
+    return subExtras[id] ?? { notes: '', trial: false, maybe: false };
+  }
+
+  const remindSel = el<HTMLSelectElement>('subs-remind');
+  bindSetting('subscription-tracker', 'remind', remindSel, '7');
+  function remindDays(): number {
+    const n = parseInt(remindSel.value, 10);
+    return n === 14 || n === 30 ? n : 7;
+  }
+  remindSel.addEventListener('change', render);
 
   function save(): void {
     try {
@@ -66,12 +117,13 @@ export function initSubscriptionTracker(): void {
       stat('Subscriptions', String(t.count));
 
     // Upcoming renewals: computed from the saved dates, shown on the page.
-    const upcoming = upcomingRenewals(store.subscriptions, today, 7);
+    const days = remindDays();
+    const upcoming = upcomingRenewals(store.subscriptions, today, days);
     const upBox = el('subs-upcoming');
     if (store.subscriptions.length === 0) {
       upBox.innerHTML = '<p class="empty-state">Nothing here yet. Add a subscription above.</p>';
     } else if (upcoming.length === 0) {
-      upBox.innerHTML = '<p class="empty-state">Nothing renews in the next 7 days.</p>';
+      upBox.innerHTML = `<p class="empty-state">Nothing renews in the next ${days} days.</p>`;
     } else {
       upBox.innerHTML = upcoming
         .map((r) => {
@@ -87,6 +139,7 @@ export function initSubscriptionTracker(): void {
     if (store.subscriptions.length === 0) {
       list.innerHTML = '<p class="empty-state">No subscriptions tracked. Add your first one above.</p>';
       renderCharts();
+      renderSavings();
       return;
     }
     list.innerHTML = '';
@@ -98,23 +151,29 @@ export function initSubscriptionTracker(): void {
     }
     for (const r of infos) {
       const s = r.sub;
+      const x = exOf(s.id);
       const row = document.createElement('div');
       row.className = 'entry-row';
       const cat = s.category.trim() ? ` · ${escapeHtml(s.category.trim())}` : '';
+      const notes = x.notes.trim() ? `<span class="entry-meta">${escapeHtml(x.notes.trim())}</span>` : '';
       const monthly = monthlyEquivalentCents(s.costCents, s.cycle);
       const share = t.monthlyCents > 0 ? (monthly / t.monthlyCents) * 100 : 0;
       row.innerHTML =
         `<span class="grow"><strong>${escapeHtml(s.name)}</strong>` +
         `<span class="entry-meta">${formatMoney(s.costCents, 'USD')} ${CYCLE_LABEL[s.cycle].toLowerCase()} (~${formatMoney(monthly, 'USD')}/mo)${cat}</span>` +
+        notes +
         `<span class="share-bar" role="img" aria-label="${escapeHtml(s.name)} is ${share.toFixed(0)} percent of monthly total"><span style="width:${share.toFixed(1)}%"></span></span></span>` +
+        (x.trial ? `<span class="chip" title="Free trial — watch the renewal date">Trial</span>` : '') +
         `<span class="chip${r.days <= 1 ? ' soon' : ''}" title="Next billing date">${renewalLabel(r.days)} · ${formatISODate(r.renewal)}</span>` +
         `<span class="file-actions">` +
+        `<button type="button" class="icon-btn" data-act="flag" data-id="${s.id}" aria-pressed="${x.maybe}" aria-label="${x.maybe ? 'Unflag' : 'Flag as might cancel'} ${escapeHtml(s.name)}" title="${x.maybe ? 'Unflag' : 'Flag as might cancel'}">${x.maybe ? '★' : '☆'}</button>` +
         `<button type="button" class="icon-btn" data-act="edit" data-id="${s.id}" aria-label="Edit ${escapeHtml(s.name)}">Edit</button>` +
         `<button type="button" class="icon-btn" data-act="pause" data-id="${s.id}" aria-label="Pause ${escapeHtml(s.name)}">Pause</button>` +
         `<button type="button" class="icon-btn" data-act="del" data-id="${s.id}" aria-label="Delete ${escapeHtml(s.name)}">×</button>` +
         `</span>`;
       list.appendChild(row);
     }
+    renderSavings();
     const paused = store.subscriptions.filter((s) => s.paused);
     for (const s of paused) {
       const row = document.createElement('div');
@@ -150,6 +209,21 @@ export function initSubscriptionTracker(): void {
       `<div class="charts"><div class="chart-box"><h3 class="chart-title">Monthly cost by category</h3>${hbarChart(rows)}</div></div>`;
   }
 
+  /** "What would I save if I cancelled the flagged ones?" panel. */
+  function renderSavings(): void {
+    const box = el('subs-savings');
+    const flagged = store.subscriptions.filter((s) => !s.paused && exOf(s.id).maybe);
+    if (flagged.length === 0) {
+      box.innerHTML =
+        '<p class="hint">Tip: tap the ☆ on a subscription to flag it as "might cancel", and this spot will show what you would save per year without it.</p>';
+      return;
+    }
+    const yearlyCents = flagged.reduce((sum, s) => sum + monthlyEquivalentCents(s.costCents, s.cycle) * 12, 0);
+    const names = flagged.map((s) => escapeHtml(s.name)).join(', ');
+    box.innerHTML =
+      `<p class="hint"><strong>Flagged as "might cancel":</strong> ${names} — cancelling would save <strong>${formatMoney(yearlyCents, 'USD')} a year</strong>.</p>`;
+  }
+
   function readForm(): Subscription {
     const sel = el<HTMLSelectElement>('subs-cycle');
     const cycle = isCycle(sel.value) ? sel.value : 'monthly';
@@ -171,6 +245,9 @@ export function initSubscriptionTracker(): void {
     el<HTMLSelectElement>('subs-cycle').value = s.cycle;
     el<HTMLInputElement>('subs-date').value = s.startDate;
     el<HTMLInputElement>('subs-category').value = s.category;
+    const x = exOf(s.id);
+    el<HTMLInputElement>('subs-notes').value = x.notes;
+    el<HTMLInputElement>('subs-trial').checked = x.trial;
   }
 
   function clearForm(): void {
@@ -179,6 +256,8 @@ export function initSubscriptionTracker(): void {
     el<HTMLSelectElement>('subs-cycle').value = 'monthly';
     el<HTMLInputElement>('subs-date').value = today;
     el<HTMLInputElement>('subs-category').value = '';
+    el<HTMLInputElement>('subs-notes').value = '';
+    el<HTMLInputElement>('subs-trial').checked = false;
     editingId = null;
     el<HTMLButtonElement>('subs-add').textContent = 'Add subscription';
     el('subs-cancel-edit').hidden = true;
@@ -199,9 +278,21 @@ export function initSubscriptionTracker(): void {
     }
     if (editingId) {
       store.subscriptions = updateSubscription(store.subscriptions, sub);
+      const prev = exOf(editingId);
+      subExtras[editingId] = {
+        notes: el<HTMLInputElement>('subs-notes').value.slice(0, 200),
+        trial: el<HTMLInputElement>('subs-trial').checked,
+        maybe: prev.maybe,
+      };
     } else {
       store.subscriptions = addSubscription(store.subscriptions, sub);
+      subExtras[sub.id] = {
+        notes: el<HTMLInputElement>('subs-notes').value.slice(0, 200),
+        trial: el<HTMLInputElement>('subs-trial').checked,
+        maybe: false,
+      };
     }
+    saveSubExtras();
     clearForm();
     commit();
     el('subs-list').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -221,6 +312,8 @@ export function initSubscriptionTracker(): void {
       const s = store.subscriptions.find((x) => x.id === id);
       if (s && window.confirm(`Delete "${s.name}"? This cannot be undone.`)) {
         store.subscriptions = removeSubscription(store.subscriptions, id);
+        delete subExtras[id];
+        saveSubExtras();
         if (editingId === id) clearForm();
         commit();
       }
@@ -239,6 +332,11 @@ export function initSubscriptionTracker(): void {
       store.subscriptions = updateSubscription(store.subscriptions, { ...s, paused: act === 'pause' });
       if (editingId === id) clearForm();
       commit();
+    } else if (act === 'flag') {
+      const x = exOf(id);
+      subExtras[id] = { ...x, maybe: !x.maybe };
+      saveSubExtras();
+      render();
     }
   });
 

@@ -10,18 +10,13 @@ import {
 } from './common.ts';
 import {
   FAKEDATA_STORAGE_KEY,
-  COLUMN_TYPES,
-  MIN_ROWS,
-  MAX_ROWS,
   blankSettings,
   serializeSettings,
   deserializeSettings,
   defaultColumns,
-  generateRows,
   formatOutput,
   outputFileName,
   outputMime,
-  clampRowCount,
   addColumn,
   removeColumn,
   moveColumn,
@@ -33,12 +28,28 @@ import {
   type OutputFormat,
   type Cell,
 } from '../lib/fakedata-core.ts';
+import {
+  allColumnTypes,
+  isExtraColumnType,
+  isExtraFormat,
+  generateAllRows,
+  clampRowCountExtended,
+  formatOutputExtended,
+  extraOutputFileName,
+  extraOutputMime,
+  loadFakeDataExtras,
+  saveFakeDataExtras,
+  type ExtraFormat,
+} from '../lib/fakedata-extras.ts';
 import { ICONS } from './common.ts';
 
 let settings: FakeDataSettings;
 let seed: number = Math.floor(Math.random() * 900000) + 100000;
 let previewRows: Cell[][] = [];
 let lastOutput = '';
+
+/** Every column type the picker can offer: core types first, extras after. */
+const ALL_TYPES = allColumnTypes();
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -50,11 +61,16 @@ function save(): void {
   } catch {
     /* storage unavailable: the tool still works for the session */
   }
+  saveFakeDataExtras(settings.columns, currentFormat(), settings.rowCount);
 }
 
-function currentFormat(): OutputFormat {
+type AnyFormat = OutputFormat | ExtraFormat;
+
+function currentFormat(): AnyFormat {
   const checked = document.querySelector<HTMLInputElement>('input[name="fakedata-format"]:checked');
-  return checked && (checked.value === 'json' || checked.value === 'sql') ? checked.value : 'csv';
+  const v = checked ? checked.value : 'csv';
+  if (v === 'json' || v === 'sql') return v;
+  return isExtraFormat(v) ? v : 'csv';
 }
 
 function typeOptions(col: ColumnDef): string {
@@ -83,7 +99,7 @@ function renderColumns(): void {
       (c) => `<div class="fd-col" data-id="${c.id}">
         <input type="text" class="fd-label" data-id="${c.id}" value="${escapeHtml(c.label)}" aria-label="Column label" maxlength="64" />
         <select class="fd-type" data-id="${c.id}" aria-label="Column type">
-          ${COLUMN_TYPES.map((t) => `<option value="${t.type}"${t.type === c.type ? ' selected' : ''}>${escapeHtml(t.label)}</option>`).join('')}
+          ${ALL_TYPES.map((t) => `<option value="${t.type}"${t.type === c.type ? ' selected' : ''}>${escapeHtml(t.label)}</option>`).join('')}
         </select>
         <span class="fd-opts">${typeOptions(c)}</span>
         <span class="fd-actions">
@@ -154,10 +170,12 @@ function regenerate(): void {
     return;
   }
   try {
-    const rows = generateRows(seed, settings.columns, settings.rowCount);
+    const rows = generateAllRows(seed, settings.columns, settings.rowCount);
     previewRows = rows.slice(0, 10);
     const format = currentFormat();
-    lastOutput = formatOutput(format, settings.columns, rows, settings.tableName);
+    lastOutput = isExtraFormat(format)
+      ? formatOutputExtended(format, settings.columns, rows)
+      : formatOutput(format, settings.columns, rows, settings.tableName);
 
     const head = settings.columns.map((c) => `<th>${escapeHtml(c.label || c.type)}</th>`).join('');
     const body = previewRows
@@ -182,9 +200,25 @@ export function initFakeDataGenerator(): void {
   } catch {
     settings = blankSettings();
   }
+  // Extra column types live outside the core serializer (it drops unknown
+  // types), so reapply the remembered full column list, keeping any tuned
+  // options on the core-typed columns.
+  const remembered = loadFakeDataExtras();
+  if (remembered) {
+    const byId = new Map(settings.columns.map((c) => [c.id, c]));
+    settings = {
+      ...settings,
+      columns: remembered.columns.map((c) =>
+        isExtraColumnType(c.type)
+          ? { id: c.id, type: c.type as ColumnType, label: c.label }
+          : (byId.get(c.id) ?? { id: c.id, type: c.type as ColumnType, label: c.label })
+      ),
+      rowCount: clampRowCountExtended(remembered.rowCount),
+    };
+  }
 
   // Add-column picker
-  el('fakedata-add-type').innerHTML = COLUMN_TYPES.map(
+  el('fakedata-add-type').innerHTML = ALL_TYPES.map(
     (t) => `<option value="${t.type}">${escapeHtml(t.label)}${t.hint ? `: ${escapeHtml(t.hint)}` : ''}</option>`
   ).join('');
   el('fakedata-add-col').addEventListener('click', () => {
@@ -197,25 +231,37 @@ export function initFakeDataGenerator(): void {
 
   // Row count
   const rowSel = el<HTMLSelectElement>('fakedata-rows');
-  for (const n of [10, 50, 100, 500, 1000, 5000, 10000]) {
+  for (const n of [10, 50, 100, 500, 1000, 5000, 10000, 25000, 50000]) {
     const opt = document.createElement('option');
     opt.value = String(n);
     opt.textContent = n.toLocaleString('en-US');
     if (n === settings.rowCount) opt.selected = true;
     rowSel.appendChild(opt);
   }
+  // A remembered count above the old 10k cap has no matching option: add it.
+  if (![...rowSel.options].some((o) => Number(o.value) === settings.rowCount)) {
+    const opt = document.createElement('option');
+    opt.value = String(settings.rowCount);
+    opt.textContent = settings.rowCount.toLocaleString('en-US');
+    opt.selected = true;
+    rowSel.appendChild(opt);
+  }
   rowSel.addEventListener('change', () => {
-    settings = { ...settings, rowCount: clampRowCount(Number(rowSel.value)) };
+    settings = { ...settings, rowCount: clampRowCountExtended(Number(rowSel.value)) };
     save();
     regenerate();
   });
 
   // Format radios
+  const initialFormat = remembered && (remembered.format === 'json' || remembered.format === 'sql' || isExtraFormat(remembered.format))
+    ? remembered.format
+    : settings.format;
   document.querySelectorAll<HTMLInputElement>('input[name="fakedata-format"]').forEach((radio) => {
-    if (radio.value === settings.format) radio.checked = true;
+    if (radio.value === initialFormat) radio.checked = true;
     radio.addEventListener('change', () => {
-      settings = { ...settings, format: currentFormat() };
-      el('fakedata-table-wrap').hidden = settings.format !== 'sql';
+      const f = currentFormat();
+      settings = { ...settings, format: f === 'json' || f === 'sql' ? f : 'csv' };
+      el('fakedata-table-wrap').hidden = f !== 'sql';
       save();
       regenerate();
     });
@@ -252,7 +298,8 @@ export function initFakeDataGenerator(): void {
   el('fakedata-download').addEventListener('click', () => {
     if (!lastOutput) return;
     const format = currentFormat();
-    downloadText(outputFileName(format), lastOutput, outputMime(format));
+    if (isExtraFormat(format)) downloadText(extraOutputFileName(format), lastOutput, extraOutputMime(format));
+    else downloadText(outputFileName(format), lastOutput, outputMime(format));
   });
 
   el('fakedata-copy').addEventListener('click', async () => {

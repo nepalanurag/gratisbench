@@ -1,6 +1,7 @@
 // Merge PDF tool: DOM glue. Core logic lives in ../lib/pdf-core.ts
 import { mergePdfs, getPageCount } from '../lib/pdf-core.ts';
 import { renderPdfThumb, showPdfPreview } from './pdf-render.ts';
+import { enableDragReorder, GRIP_ICON } from '../lib/drag-reorder-x.ts';
 import {
   el,
   formatBytes,
@@ -27,16 +28,27 @@ export function initMergePdf(): void {
   const mergeBtn = el<HTMLButtonElement>('merge-btn');
   const result = el('result');
 
+  function move(from: number, to: number): void {
+    if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return;
+    const [item] = items.splice(from, 1);
+    // Splicing shifts indices, so insert before the drop target's new position.
+    items.splice(from < to ? to - 1 : to, 0, item);
+    render();
+  }
+
   function render(): void {
     empty.hidden = items.length > 0;
     list.innerHTML = '';
     items.forEach((item, i) => {
       const row = document.createElement('li');
       row.className = 'file-row';
+      row.draggable = true;
+      row.dataset.idx = String(i);
       const thumbHtml = item.thumb
         ? `<img class="thumb" src="${item.thumb}" alt="First page of ${escapeHtml(item.file.name)}" loading="lazy" />`
         : '';
       row.innerHTML = `
+        <span class="drag-handle" data-drag title="Drag to reorder" aria-hidden="true" style="cursor:grab;display:inline-flex;align-items:center;color:inherit;opacity:.55;touch-action:none">${GRIP_ICON}</span>
         <span class="file-order">${i + 1}</span>
         ${thumbHtml}
         <span class="file-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
@@ -53,7 +65,17 @@ export function initMergePdf(): void {
       items.length === 0
         ? ''
         : `${items.length} file${items.length === 1 ? '' : 's'} · ${items.reduce((a, b) => a + b.pages, 0)} pages total`;
+    el('clear-all-btn').hidden = items.length === 0;
   }
+
+  enableDragReorder(list, move);
+
+  el('clear-all-btn').addEventListener('click', () => {
+    items.length = 0;
+    hideError('error-box');
+    result.hidden = true;
+    render();
+  });
 
   list.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('button[data-act]');

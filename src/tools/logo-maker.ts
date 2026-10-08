@@ -14,13 +14,20 @@ import {
   logoIconById,
   logoFontById,
   logoPresetById,
-  logoSvg,
   logoPngSize,
   logoFileName,
   type LogoSpec,
 } from '../lib/logo-core.ts';
 import { el, downloadDataUrl, downloadText, showError, hideError } from './common.ts';
 import { loadBusinessProfile, saveBusinessProfile } from '../lib/business-profile.ts';
+import {
+  EXTRA_LOGO_ICONS,
+  EXTRA_LOGO_PRESETS,
+  EXTRA_LOGO_FONTS,
+  logoSvgExtended,
+  loadLogoExtras,
+  saveLogoExtras,
+} from '../lib/logo-extras.ts';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -48,6 +55,16 @@ export function initLogoMaker(): void {
       spec = { ...exampleLogoSpec() };
     }
   }
+  // Extra icons/palettes/fonts live outside the core model (its deserializer
+  // resets unknown ids), so reapply the remembered picks here.
+  applyLogoExtras();
+
+  function applyLogoExtras(): void {
+    const x = loadLogoExtras();
+    if (x.iconId) spec.iconId = x.iconId;
+    if (x.presetId) spec.presetId = x.presetId;
+    if (x.fontId) spec.fontId = x.fontId as LogoSpec['fontId'];
+  }
 
   function save(): void {
     try {
@@ -55,30 +72,34 @@ export function initLogoMaker(): void {
     } catch {
       /* storage unavailable: the tool still works for the session */
     }
+    saveLogoExtras(spec.iconId, spec.presetId, spec.fontId);
   }
 
   function iconButton(iconId: string, active: boolean): string {
-    const icon = logoIconById(iconId);
+    const extra = EXTRA_LOGO_ICONS.find((i) => i.id === iconId);
+    const icon = extra ?? logoIconById(iconId);
     return `<button type="button" class="icon-pick" data-icon="${icon.id}" aria-pressed="${active}" title="${escapeHtml(icon.name)}" aria-label="Icon: ${escapeHtml(icon.name)}">` +
       `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon.paths}</svg></button>`;
   }
 
   function renderPickers(): void {
-    el('logo-icons').innerHTML = LOGO_ICONS.map((i) => iconButton(i.id, i.id === spec.iconId)).join('');
+    el('logo-icons').innerHTML = [...LOGO_ICONS, ...EXTRA_LOGO_ICONS]
+      .map((i) => iconButton(i.id, i.id === spec.iconId))
+      .join('');
     el('logo-shapes').innerHTML = LOGO_SHAPES.map(
       (s) => `<button type="button" class="pill${s.id === spec.shape ? ' pill-active' : ''}" data-shape="${s.id}" aria-pressed="${s.id === spec.shape}">${s.name}</button>`
     ).join('');
-    el('logo-fonts').innerHTML = LOGO_FONTS.map(
+    el('logo-fonts').innerHTML = [...LOGO_FONTS, ...EXTRA_LOGO_FONTS].map(
       (f) => `<button type="button" class="pill${f.id === spec.fontId ? ' pill-active' : ''}" data-font="${f.id}" aria-pressed="${f.id === spec.fontId}">${f.name}</button>`
     ).join('');
-    el('logo-presets').innerHTML = LOGO_PRESETS.map((p) => {
+    el('logo-presets').innerHTML = [...LOGO_PRESETS, ...EXTRA_LOGO_PRESETS].map((p) => {
       const active = p.id === spec.presetId;
       return `<button type="button" class="swatch" data-preset="${p.id}" aria-pressed="${active}" title="${escapeHtml(p.name)}" aria-label="Colors: ${escapeHtml(p.name)}" style="background: linear-gradient(135deg, ${p.bg} 50%, ${p.accent} 50%);"></button>`;
     }).join('');
   }
 
   function renderPreview(): void {
-    const svg = logoSvg(spec);
+    const svg = logoSvgExtended(spec);
     const box = el('logo-preview');
     box.innerHTML = svg;
     const node = box.querySelector('svg');
@@ -100,7 +121,7 @@ export function initLogoMaker(): void {
 
   function svgToPng(px: number): Promise<string> {
     const { width, height } = logoPngSize(px);
-    const svg = logoSvg(spec);
+    const svg = logoSvgExtended(spec);
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     return new Promise((resolve, reject) => {
@@ -182,7 +203,7 @@ export function initLogoMaker(): void {
   el('logo-png-1024').addEventListener('click', () => void exportPng(LOGO_PNG_SIZES[1]));
   el('logo-svg').addEventListener('click', () => {
     hideError('logo-error');
-    downloadText(logoFileName(spec.name, 'svg'), logoSvg(spec), 'image/svg+xml');
+    downloadText(logoFileName(spec.name, 'svg'), logoSvgExtended(spec), 'image/svg+xml');
   });
   el('logo-example').addEventListener('click', () => {
     hideError('logo-error');

@@ -2,12 +2,23 @@
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
 
-const title = 'Protect PDF Free — Add Password, No Signup, Files Stay on Device';
-const description =
-  'Add password protection to a PDF for free. Encrypt your document in the browser; no signup, no watermark, your files never leave your device.';
+const title = 'Protect PDF Free — Add Password, No Signup, Files Stay on Device';const description =
+  'Add password protection to a PDF for free: lock opening, or limit copying, printing, and changes. Encrypt your document in the browser; no signup, no watermark, your files never leave your device.';
 const h1 = 'Protect PDF';
 const lede = 'Lock a PDF with a password so only people who know it can open it. Free, no account, done entirely in your browser.';
 ---
+<style>
+  .mode-cards { display: grid; gap: 10px; }
+  .mode-card {
+    display: grid; gap: 2px; padding: 12px 14px; cursor: pointer;
+    border: 2px solid var(--line); border-radius: var(--radius); background: var(--paper);
+  }
+  .mode-card input { position: absolute; opacity: 0; pointer-events: none; }
+  .mode-card:has(input:checked) { border-color: var(--accent); }
+  .mode-card:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mode-title { font-weight: 700; font-size: 0.95rem; }
+  .mode-desc { font-size: 0.85rem; color: var(--muted); }
+</style>
 <ToolPage
   title={title}
   description={description}
@@ -17,14 +28,15 @@ const lede = 'Lock a PDF with a password so only people who know it can open it.
   toolName="TruePDF Protect PDF"
   intro={[
     'Some PDFs should not be readable by whoever happens to receive them: a contract before both sides sign, payroll details, medical paperwork, a report with client data. Email is a postcard, and a file sitting in a shared drive is one misplaced click from the wrong eyes. A password on the file itself is the simplest fix, and it travels with the document wherever it goes.',
-    'This tool adds real password encryption to your PDF on your device. Give it the file and a password, and it writes out a new PDF that asks for the password before it opens. The content is untouched: same pages, same text, same quality. The page then proves the lock works by re-opening the output with your password before you download it.',
+    'This tool adds real password encryption to your PDF on your device. Give it the file and a password, and it writes out a new PDF that asks for the password before it opens — or, if you prefer, one that anyone can open but nobody can copy, print, or change without the password. The content is untouched: same pages, same text, same quality. The page then proves the lock works by re-opening the output with your password before you download it.',
     'One honest note: a forgotten password cannot be recovered from the protected file, not by you and not by this tool. Pick something you will remember, or store it in a password manager.',
   ]}
   steps={[
     'Drop your PDF onto the box above, or click it to browse.',
     'Type the password you want, twice, so a typo does not lock you out.',
+    'Choose what the password guards: opening the file, or just copying, printing, and changing.',
     'Click "Protect PDF". The first run downloads a small engine (one-time); the encryption itself happens on your device.',
-    'Download it. The new file asks for your password every time it opens.',
+    'Download it. The tool re-opens the result with your password to prove the lock works before you download.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
@@ -32,6 +44,7 @@ const lede = 'Lock a PDF with a password so only people who know it can open it.
     ['Watermark', 'None'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Encryption', 'AES password encryption; the file opens only with the password'],
+    ['Protection modes', 'Password to open · open freely but no copying or changing · open freely but view-only'],
     ['Output', 'A new PDF with identical pages, protected by your password'],
     ['Max file size', 'Limited by your device memory; typical documents are fine'],
   ]}
@@ -43,6 +56,10 @@ const lede = 'Lock a PDF with a password so only people who know it can open it.
     {
       q: 'Is my file uploaded anywhere?',
       a: 'No. The first run downloads a small engine file (about 15 MB, cached afterwards), but your PDF is read into your browser memory, encrypted there, and the protected copy is generated there too. Nothing leaves your device.',
+    },
+    {
+      q: 'What do the "copying or changing" and "view only" options do?',
+      a: 'They leave the file openable without a password, but set limits that mainstream PDF readers honor: "copying or changing" lets anyone open and print while requiring your password to copy text or edit; "view only" additionally requires your password to print. One honest caveat: these limits are a polite request in the PDF format, not a lock — a determined person can work around them. Only "opening the file" truly keeps people out.',
     },
     {
       q: 'What happens if I forget the password?',
@@ -100,6 +117,27 @@ const lede = 'Lock a PDF with a password so only people who know it can open it.
     <div class="field">
       <label for="confirm-input">Confirm password</label>
       <input type="password" id="confirm-input" autocomplete="new-password" placeholder="Type it again" />
+    </div>
+    <div class="field">
+      <label id="mode-label">What should the password guard?</label>
+      <div class="mode-cards" role="radiogroup" aria-labelledby="mode-label">
+        <label class="mode-card">
+          <input type="radio" name="protect-mode" value="open" checked />
+          <span class="mode-title">Opening the file</span>
+          <span class="mode-desc">Nobody can open it without the password. The strongest choice.</span>
+        </label>
+        <label class="mode-card">
+          <input type="radio" name="protect-mode" value="nocopy" />
+          <span class="mode-title">Copying or changing</span>
+          <span class="mode-desc">Anyone can open and print. Your password is needed to copy text or make changes.</span>
+        </label>
+        <label class="mode-card">
+          <input type="radio" name="protect-mode" value="viewonly" />
+          <span class="mode-title">Printing and copying</span>
+          <span class="mode-desc">Anyone can open and read. Your password is needed to print, copy, or change anything.</span>
+        </label>
+      </div>
+      <p class="hint">Copy and print limits are honored by mainstream PDF readers, but they are a polite request rather than a lock: a determined person can work around them. Only "Opening the file" truly keeps people out.</p>
     </div>
     <div id="error-box" class="error-box" hidden></div>
     <div class="btn-row">

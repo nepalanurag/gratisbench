@@ -80,6 +80,7 @@ export const TOOL_GROUPS: { name: string; tools: ToolEntry[] }[] = [
       { href: '/video-compressor', name: 'Video compressor', desc: 'Shrink video to 25MB, 10MB, or a custom size.', group: 'Media', tag: 'MP4' },
       { href: '/video-trimmer', name: 'Video trimmer', desc: 'Cut a section out of a video, fast or precise.', group: 'Media', tag: 'MP4' },
       { href: '/video-converter', name: 'Video converter', desc: 'Convert between MP4, WebM, and MOV.', group: 'Media', tag: 'MP4 · WebM' },
+      { href: '/subtitle-editor', name: 'Subtitle editor', desc: 'Add subtitles to video. Time captions, preview live, export SRT.', group: 'Media', tag: 'SRT' },
       { href: '/screen-recorder', name: 'Screen recorder', desc: 'Record your screen. No time cap, no watermark.', group: 'Media', tag: 'WebM' },
     ],
   },

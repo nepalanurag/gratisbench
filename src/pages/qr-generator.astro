@@ -80,6 +80,21 @@ const lede = 'Make a QR code for a link or any text. Add your logo, tune the col
           <button type="button" class="btn btn-secondary btn-small" data-qr-template="tel:+15551234567">Phone</button>
         </div>
         <div class="field">
+          <label for="qr-kind">What should the code do?</label>
+          <select id="qr-kind">
+            <option value="custom">Custom text or link (type below)</option>
+            <option value="url">Website link</option>
+            <option value="wifi">WiFi network</option>
+            <option value="email">Email</option>
+            <option value="sms">Text message (SMS)</option>
+            <option value="phone">Phone number</option>
+            <option value="vcard">Contact card</option>
+            <option value="location">Map location</option>
+            <option value="whatsapp">WhatsApp chat</option>
+          </select>
+        </div>
+        <div id="qr-kind-fields"></div>
+        <div class="field">
           <label for="qr-text">Link or text</label>
           <textarea id="qr-text" placeholder="https://example.com, or any text"></textarea>
         </div>
@@ -118,6 +133,17 @@ const lede = 'Make a QR code for a link or any text. Add your logo, tune the col
             </div>
             <p class="hint">Dark codes on light backgrounds scan best.</p>
           </div>
+        </div>
+        <div class="field">
+          <label for="qr-margin">Quiet zone (margin)</label>
+          <select id="qr-margin">
+            <option value="0">None</option>
+            <option value="2">Small (2 modules)</option>
+            <option value="4" selected>Standard (4 modules)</option>
+            <option value="6">Large (6 modules)</option>
+            <option value="8">Extra large (8 modules)</option>
+          </select>
+          <p class="hint">The blank border around the code. 4 modules is the safe minimum for reliable scanning.</p>
         </div>
         <div class="field">
           <label>Center logo (optional, PNG only)</label>

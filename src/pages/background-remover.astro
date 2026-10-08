@@ -23,7 +23,8 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
   ]}
   steps={[
     'Drop an image onto the box above, or click it to browse. PNG, JPG, and WebP all work.',
-    'Pick your background: transparent (a real PNG with alpha), white, or black.',
+    'Pick your background: transparent (a real PNG with alpha), white, black, any color you pick, or the original photo blurred behind the subject.',
+    'Tune the edges if you like: soften the cut-out edge, and trim the faint glow AI cut-outs sometimes leave.',
     'Click "Remove background". The first run downloads the AI model (about 40 MB, once per browser); afterwards it starts instantly.',
     'Compare the before and after with the toggle, then download the full-resolution PNG.',
   ]}
@@ -32,7 +33,7 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None.'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['Output', 'Full-resolution PNG, transparent or on white/black'],
+    ['Output', 'Full-resolution PNG: transparent, white, black, a custom color, or blurred-photo background'],
     ['AI model', 'Downloads once (~40 MB), then cached in your browser'],
     ['Works offline', 'Yes, once the model has downloaded'],
     ['Best subjects', 'People, pets, products with a clear subject'],
@@ -56,8 +57,12 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
       a: 'Clear subjects against a reasonably distinct background: portraits, pets, product shots, logos photographed on a desk. The model struggles where every background remover struggles: wispy hair, fur, transparent objects like glass, and backgrounds that blend into the subject. Zoom in on the edges before using the result professionally.',
     },
     {
-      q: 'Can I get a white or black background instead of transparency?',
-      a: 'Yes. Choose white or black before or after removing the background; the cut-out is composited onto the solid color at full resolution and downloaded as a PNG. Transparency is the default and is what you want for overlays, thumbnails, and design work.',
+      q: 'Can I put the cut-out on a colored or blurred background?',
+      a: 'Yes. Besides transparent, white, and black, you can pick any background color with the color picker, or choose the blurred-photo background, which keeps your original photo softly blurred behind the subject — the classic portrait look. Switching backgrounds re-renders instantly from the saved cut-out; the AI only runs once.',
+    },
+    {
+      q: 'What does the edge touch-up do?',
+      a: 'Two small fixes for the most common AI cut-out flaws. "Soften the edge" feathers the outline so the subject blends into its new background instead of looking pasted on. "Trim the light fringe" cuts the faint glow the AI sometimes leaves around hair and edges. Both re-render instantly from the saved cut-out, so you can compare with them on and off.',
     },
     {
       q: 'Which browsers are supported?',
@@ -99,7 +104,23 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
         <label class="radio-card"><input type="radio" name="bg-choice" value="transparent" checked /><span><strong>Transparent</strong><small>True PNG with alpha, for overlays and design</small></span></label>
         <label class="radio-card"><input type="radio" name="bg-choice" value="white" /><span><strong>White</strong><small>Clean cut-out on a white background</small></span></label>
         <label class="radio-card"><input type="radio" name="bg-choice" value="black" /><span><strong>Black</strong><small>Cut-out on black, for dark designs</small></span></label>
+        <label class="radio-card"><input type="radio" name="bg-choice" value="custom" /><span><strong>Pick a color</strong><small>Your cut-out on any color you choose</small></span></label>
+        <label class="radio-card"><input type="radio" name="bg-choice" value="blur" /><span><strong>Blurred photo</strong><small>The original photo, blurred, behind the subject</small></span></label>
       </div>
+      <div id="custom-color-row" class="field-row field-narrow" hidden>
+        <input type="color" id="bg-color" value="#3b6fd4" aria-label="Background color" />
+        <span class="hint" id="bg-color-val">#3b6fd4</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="edge-soften">Edge touch-up</label>
+      <div class="range-row">
+        <input type="range" id="edge-soften" min="0" max="3" value="1" />
+        <span id="edge-soften-val" class="range-val">1</span>
+      </div>
+      <p class="hint">Softens the cut-out edge so it blends into the new background. 0 keeps the AI edge exactly as it came out.</p>
+      <label class="checkline"><input type="checkbox" id="edge-tighten" checked /><span>Trim the light fringe<small>AI cut-outs sometimes leave a faint glow around hair and edges. This trims it.</small></span></label>
     </div>
 
     <div id="preview-block" hidden>

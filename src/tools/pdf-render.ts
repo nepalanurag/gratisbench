@@ -28,12 +28,13 @@ export function loadPdfjs(): Promise<PdfJs> {
   return pdfjsPromise;
 }
 
-/** Render one pdf.js page to a canvas at the given DPI. */
+/** Render one pdf.js page to a canvas at the given DPI. Rotation is clockwise degrees. */
 export async function renderPageToCanvas(
   page: import('pdfjs-dist').PDFPageProxy,
-  dpi: number
+  dpi: number,
+  rotation = 0
 ): Promise<HTMLCanvasElement> {
-  const viewport = page.getViewport({ scale: dpi / 72 });
+  const viewport = page.getViewport({ scale: dpi / 72, rotation });
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);

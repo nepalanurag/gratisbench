@@ -36,8 +36,7 @@ import {
 import { hbarChart, trendSvg, trendLegend, categoryLegend, shortMonthLabel } from '../lib/money-charts.ts';
 import { el, showError, hideError, downloadText, copyText, bindSetting } from './common.ts';
 
-/** Best-guess currency from the browser language; the user can change it. */
-function guessCurrency(): string {
+/** Best-guess currency from the browser language; the user can change it. */function guessCurrency(): string {
   const lang = (navigator.language || 'en-US').toLowerCase();
   const table: [string, string][] = [
     ['en-gb', 'GBP'], ['en-in', 'INR'], ['hi', 'INR'], ['en-ca', 'CAD'],
@@ -66,6 +65,31 @@ export function initBudgetPlanner(): void {
   }
   let key = currentMonthKey();
   let editingIncomeId: string | null = null;
+  // Monthly savings goals, keyed by month ("2026-10" -> cents).
+  let goals: Record<string, number> = loadGoals();
+
+  function loadGoals(): Record<string, number> {
+    try {
+      const raw = localStorage.getItem('truepdf.budget-planner.goals.v1');
+      if (!raw) return {};
+      const p = JSON.parse(raw) as Record<string, unknown>;
+      const out: Record<string, number> = {};
+      for (const [k, v] of Object.entries(p)) {
+        if (typeof v === 'number' && Number.isFinite(v) && v > 0) out[k] = Math.round(v);
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }
+
+  function saveGoals(): void {
+    try {
+      localStorage.setItem('truepdf.budget-planner.goals.v1', JSON.stringify(goals));
+    } catch {
+      /* ignore */
+    }
+  }
 
   // Currency: default from the browser language, remembered per visitor.
   const currencySel = el<HTMLSelectElement>('budget-currency');
@@ -121,6 +145,48 @@ export function initBudgetPlanner(): void {
     return `<div class="stat"${extra}><div class="k">${label}</div><div class="v"${neg}>${fmt(cents)}</div></div>`;
   }
 
+  /** Savings-goal card appended to the summary: a goal input, a progress bar,
+   * and a one-line insight about the biggest planned category. */
+  function goalHtml(m: BudgetMonth): string {
+    const goalCents = goals[key] ?? 0;
+    const saved = totalIncomeCents(m) - totalActualCents(m);
+    const pct = goalCents > 0 ? Math.max(0, Math.min(100, (saved / goalCents) * 100)) : 0;
+    const biggest =
+      m.categories.length > 0
+        ? [...m.categories].sort((a, b) => b.plannedCents - a.plannedCents)[0]
+        : null;
+    const note =
+      goalCents <= 0
+        ? 'Set a monthly savings goal to track it here.'
+        : saved >= goalCents
+          ? `Goal met — ${fmt(saved)} kept.`
+          : `${fmt(goalCents - saved)} to go to reach ${fmt(goalCents)}.`;
+    return `<div class="stat"><div class="k">Savings goal</div>` +
+      `<input type="text" inputmode="decimal" id="budget-goal-input" class="money-input" value="${goalCents > 0 ? (goalCents / 100).toFixed(2) : ''}" placeholder="500.00" aria-label="Savings goal for ${escapeHtml(monthLabel(key))}" style="margin:0.3rem 0;" />` +
+      `<div style="height:8px;border-radius:4px;background:var(--track,#e4e0d5);overflow:hidden;" role="img" aria-label="${escapeHtml(note)}"><span style="display:block;height:100%;width:${pct.toFixed(1)}%;background:var(--accent,#a63d21);border-radius:4px;"></span></div>` +
+      `<div class="stat-sub">${escapeHtml(note)}${biggest ? ` Biggest plan: ${escapeHtml(biggest.name.trim() || 'Untitled')} (${fmt(biggest.plannedCents)}).` : ''}</div></div>`;
+  }
+
+  function bindGoalInput(): void {
+    const gi = document.getElementById('budget-goal-input') as HTMLInputElement | null;
+    if (!gi) return;
+    gi.addEventListener('input', () => {
+      goals[key] = Math.max(0, parseCents(gi.value));
+    });
+    gi.addEventListener('change', () => {
+      goals[key] = Math.max(0, parseCents(gi.value));
+      if (goals[key] <= 0) delete goals[key];
+      saveGoals();
+      render();
+    });
+    gi.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        gi.blur();
+      }
+    });
+  }
+
   function render(): void {
     const m = month();
     el('budget-month-label').textContent = monthLabel(key);
@@ -137,7 +203,9 @@ export function initBudgetPlanner(): void {
       stat('Planned', totalPlannedCents(m)) +
       stat('Spent so far', totalActualCents(m)) +
       `<div class="stat${heroClass}"><div class="k">Remaining to assign</div><div class="v">${fmt(remaining)}</div><div class="stat-sub">${heroNote}</div></div>` +
-      stat('Left to spend', actualLeftCents(m));
+      stat('Left to spend', actualLeftCents(m)) +
+      goalHtml(m);
+    bindGoalInput();
 
     const incomeList = el('budget-income-list');
     incomeList.innerHTML = '';
