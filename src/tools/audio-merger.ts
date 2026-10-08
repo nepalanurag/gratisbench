@@ -21,7 +21,7 @@ import {
 
 interface Clip {
   name: string;
-  channels: Float32Array[];
+  channels: Float32Array<ArrayBuffer>[];
   sampleRate: number;
   duration: number;
 }
@@ -30,10 +30,14 @@ export function initAudioMerger(): void {
   const clips: Clip[] = [];
   const list = el('file-list');
   const empty = el('empty-state');
+  let audioCtx: AudioContext | null = null;
 
   function getCtx(): AudioContext {
-    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    return new AC();
+    if (!audioCtx) {
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      audioCtx = new AC();
+    }
+    return audioCtx;
   }
 
   function render(): void {
@@ -76,7 +80,7 @@ export function initAudioMerger(): void {
       try {
         const bytes = await file.arrayBuffer();
         const decoded = await getCtx().decodeAudioData(bytes);
-        const channels: Float32Array[] = [];
+        const channels: Float32Array<ArrayBuffer>[] = [];
         for (let i = 0; i < decoded.numberOfChannels; i++) {
           channels.push(decoded.getChannelData(i).slice());
         }
