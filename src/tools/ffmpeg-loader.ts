@@ -26,7 +26,16 @@ export function loadFFmpeg(onLog?: (message: string) => void): Promise<FFmpeg> {
       // asset URLs in the static build. @ffmpeg/core 0.12.x is the
       // single-threaded build, so no SharedArrayBuffer / COOP+COEP headers
       // are needed (GitHub Pages cannot set those).
-      const { default: classWorkerURL } = await import('@ffmpeg/ffmpeg/worker?url');
+      //
+      // IMPORTANT: the class worker MUST be bundled, not copied verbatim.
+      // Plain `?url` makes Vite copy worker.js as-is; its relative imports
+      // (./const.js, ./errors.js) are not emitted, and the worker is started
+      // from a blob: URL where relative imports cannot resolve — the worker
+      // dies silently and ffmpeg.load() hangs forever. `?worker&url` makes
+      // Vite bundle the worker and its siblings into one self-contained
+      // file, and returns its URL. The @ffmpeg/core assets below are
+      // self-contained, so plain `?url` is fine for them.
+      const { default: classWorkerURL } = await import('@ffmpeg/ffmpeg/worker?worker&url');
       const { default: coreURL } = await import('@ffmpeg/core?url');
       const { default: wasmURL } = await import('@ffmpeg/core/wasm?url');
       const ffmpeg = new FFmpeg();
