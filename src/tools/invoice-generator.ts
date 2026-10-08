@@ -129,6 +129,21 @@ export function initInvoiceGenerator(): void {
     saveTimer = setTimeout(persist, 400);
   }
 
+  /** Write immediately, dropping any pending debounced save. */
+  function flushSave(): void {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    persist();
+  }
+
+  // The 400 ms debounce can lose the tail of what was typed if the tab closes
+  // inside the window. Flush on both events: pagehide covers tab close and
+  // bfcache navigation, beforeunload covers the rest. persist() is idempotent.
+  window.addEventListener('pagehide', flushSave);
+  window.addEventListener('beforeunload', flushSave);
+
   // ---------- preview ----------
 
   function renderPreview(): void {
@@ -263,12 +278,12 @@ export function initInvoiceGenerator(): void {
       if (fieldName === 'logoDataUrl') {
         invoice.business.logoDataUrl = value;
       } else {
-        (invoice.business as Record<string, string>)[fieldName] = value;
+        (invoice.business as unknown as Record<string, string>)[fieldName] = value;
       }
       return;
     }
     if (sec === 'client') {
-      (invoice.client as Record<string, string>)[fieldName] = value;
+      (invoice.client as unknown as Record<string, string>)[fieldName] = value;
       return;
     }
     if (sec === 'meta') {
