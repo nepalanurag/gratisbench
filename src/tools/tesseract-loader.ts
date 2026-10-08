@@ -6,13 +6,27 @@
 
 let tesseractPromise: Promise<typeof import('tesseract.js')> | null = null;
 
+/** How long the OCR engine may take to download before we give up loudly. */
+const LOAD_TIMEOUT_MS = 120_000;
+
 /**
  * Load tesseract.js on demand and return a shared module.
  * A failed load clears the cached promise so the user can retry.
+ * The load races a timeout: a stalled download must surface an error,
+ * never leave the tool stuck on "Loading…" forever.
  */
 export function loadTesseract(): Promise<typeof import('tesseract.js')> {
   if (!tesseractPromise) {
-    tesseractPromise = import('tesseract.js');
+    tesseractPromise = (async () => {
+      const load = import('tesseract.js');
+      const timeout = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error('The OCR engine download stalled. Check your connection and try again.')),
+          LOAD_TIMEOUT_MS,
+        );
+      });
+      return Promise.race([load, timeout]);
+    })();
     tesseractPromise.catch(() => {
       tesseractPromise = null;
     });
