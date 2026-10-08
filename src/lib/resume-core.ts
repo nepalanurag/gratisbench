@@ -1,11 +1,47 @@
 // Pure resume-builder logic shared by the browser tool and the Node verification script.
 // No DOM access here — everything is data in, data/HTML strings out.
 
-export const RESUME_SCHEMA_VERSION = 1;
+// Schema v2 adds: awards, publications, volunteer, courses sections plus
+// per-section visibility and a user-controlled section order.
+export const RESUME_SCHEMA_VERSION = 2;
 export const RESUME_STORAGE_KEY = 'freekit.resume-builder.v1';
+// Key name is frozen on purpose: it is only ever read, never overwritten by
+// the normal save path, so a user's pre-migration draft stays recoverable.
 export const TEMPLATE_STORAGE_KEY = 'freekit.resume-builder.template';
+/** Separate key that keeps a copy of any stored blob the loader had to discard. */
+export const RESUME_BACKUP_KEY = 'freekit.resume-builder.v1.backup';
 
 export type TemplateId = 'classic' | 'modern' | 'compact';
+
+/** Every renderable block of the resume. Contact is the header; the rest are sections. */
+export type SectionKey =
+  | 'contact'
+  | 'summary'
+  | 'experience'
+  | 'education'
+  | 'skills'
+  | 'projects'
+  | 'certifications'
+  | 'languages'
+  | 'awards'
+  | 'publications'
+  | 'volunteer'
+  | 'courses';
+
+export const DEFAULT_SECTION_ORDER: SectionKey[] = [
+  'contact',
+  'summary',
+  'experience',
+  'education',
+  'skills',
+  'projects',
+  'certifications',
+  'languages',
+  'awards',
+  'publications',
+  'volunteer',
+  'courses',
+];
 
 export interface ContactInfo {
   fullName: string;
@@ -14,7 +50,6 @@ export interface ContactInfo {
   phone: string;
   location: string;
   website: string;
-  portfolio: string;
   linkedin: string;
 }
 
@@ -66,6 +101,29 @@ export interface LanguageEntry {
   level: string;
 }
 
+export interface AwardEntry {
+  id: string;
+  title: string;
+  issuer: string;
+  year: string;
+  description: string;
+}
+
+export interface PublicationEntry {
+  id: string;
+  title: string;
+  publisher: string;
+  year: string;
+  link: string;
+}
+
+export interface CourseEntry {
+  id: string;
+  name: string;
+  provider: string;
+  year: string;
+}
+
 export interface ResumeData {
   version: number;
   contact: ContactInfo;
@@ -76,6 +134,15 @@ export interface ResumeData {
   projects: ProjectEntry[];
   certifications: CertificationEntry[];
   languages: LanguageEntry[];
+  awards: AwardEntry[];
+  publications: PublicationEntry[];
+  /** Volunteer experience reuses the WorkEntry shape (role, org, dates, bullets). */
+  volunteer: WorkEntry[];
+  courses: CourseEntry[];
+  /** Per-section on/off toggles. */
+  sectionVisibility: Record<SectionKey, boolean>;
+  /** User-controlled render order for all sections (contact first = header). */
+  sectionOrder: SectionKey[];
 }
 
 let idCounter = 0;
@@ -86,7 +153,7 @@ export function newId(): string {
 }
 
 export function blankContact(): ContactInfo {
-  return { fullName: '', title: '', email: '', phone: '', location: '', website: '', portfolio: '', linkedin: '' };
+  return { fullName: '', title: '', email: '', phone: '', location: '', website: '', linkedin: '' };
 }
 
 export function blankWorkEntry(): WorkEntry {
@@ -113,6 +180,22 @@ export function blankLanguageEntry(): LanguageEntry {
   return { id: newId(), language: '', level: '' };
 }
 
+export function blankAwardEntry(): AwardEntry {
+  return { id: newId(), title: '', issuer: '', year: '', description: '' };
+}
+
+export function blankPublicationEntry(): PublicationEntry {
+  return { id: newId(), title: '', publisher: '', year: '', link: '' };
+}
+
+export function blankCourseEntry(): CourseEntry {
+  return { id: newId(), name: '', provider: '', year: '' };
+}
+
+export function defaultSectionVisibility(): Record<SectionKey, boolean> {
+  return Object.fromEntries(DEFAULT_SECTION_ORDER.map((k) => [k, true])) as Record<SectionKey, boolean>;
+}
+
 /** A fresh, empty resume. */
 export function blankResume(): ResumeData {
   return {
@@ -125,6 +208,12 @@ export function blankResume(): ResumeData {
     projects: [],
     certifications: [],
     languages: [],
+    awards: [],
+    publications: [],
+    volunteer: [],
+    courses: [],
+    sectionVisibility: defaultSectionVisibility(),
+    sectionOrder: [...DEFAULT_SECTION_ORDER],
   };
 }
 
@@ -139,7 +228,6 @@ export function exampleResume(): ResumeData {
       phone: '(415) 555-0132',
       location: 'San Francisco, CA',
       website: 'samrivera.design',
-      portfolio: 'samrivera.design/work',
       linkedin: 'linkedin.com/in/samrivera',
     },
     summary:
@@ -220,6 +308,41 @@ export function exampleResume(): ResumeData {
       { id: newId(), language: 'English', level: 'Native' },
       { id: newId(), language: 'Spanish', level: 'Professional' },
     ],
+    awards: [
+      {
+        id: newId(),
+        title: 'Studio Interaction Design Award',
+        issuer: 'Pixelworks Studio',
+        year: '2017',
+        description: 'Recognized for the onboarding flow that doubled trial-to-paid conversion.',
+      },
+    ],
+    publications: [
+      {
+        id: newId(),
+        title: 'Designing Onboarding People Actually Finish',
+        publisher: 'UX Collective',
+        year: '2023',
+        link: 'uxcollective.example/onboarding',
+      },
+    ],
+    volunteer: [
+      {
+        id: newId(),
+        title: 'Design Mentor',
+        company: 'CodePath',
+        location: 'Remote',
+        start: '2020',
+        end: '',
+        current: true,
+        bullets: ['Mentor early-career designers from underrepresented backgrounds, one cohort a year.'],
+      },
+    ],
+    courses: [
+      { id: newId(), name: 'Design Systems Masterclass', provider: 'SuperHi', year: '2021' },
+    ],
+    sectionVisibility: defaultSectionVisibility(),
+    sectionOrder: [...DEFAULT_SECTION_ORDER],
   };
 }
 
@@ -304,6 +427,10 @@ export function isTemplateId(v: unknown): v is TemplateId {
   return v === 'classic' || v === 'modern' || v === 'compact';
 }
 
+export function isSectionKey(v: unknown): v is SectionKey {
+  return typeof v === 'string' && (DEFAULT_SECTION_ORDER as string[]).includes(v);
+}
+
 // ---------- serialization with schema versioning ----------
 
 export function serialize(resume: ResumeData): string {
@@ -327,21 +454,70 @@ function validId(v: unknown): string {
   return typeof v === 'string' && v.length > 0 ? v : newId();
 }
 
+/** Sanitize stored visibility; unknown keys are dropped, missing ones default to on. */
+function asVisibility(v: unknown): Record<SectionKey, boolean> {
+  const src = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  const out = {} as Record<SectionKey, boolean>;
+  for (const k of DEFAULT_SECTION_ORDER) {
+    out[k] = src[k] === undefined ? true : src[k] === true;
+  }
+  return out;
+}
+
 /**
- * Parse saved JSON back into a ResumeData. Anything corrupt, foreign, or from a
- * different schema version falls back to a blank resume instead of throwing.
+ * Sanitize stored section order: keep valid keys in the stored order, drop
+ * anything unknown, and append any missing sections in default order so the
+ * render never loses a section.
  */
-export function deserialize(raw: string | null | undefined): ResumeData {
+export function asSectionOrder(v: unknown): SectionKey[] {
+  const out: SectionKey[] = [];
+  if (Array.isArray(v)) {
+    for (const k of v) {
+      if (isSectionKey(k) && !out.includes(k)) out.push(k);
+    }
+  }
+  for (const k of DEFAULT_SECTION_ORDER) {
+    if (!out.includes(k)) out.push(k);
+  }
+  return out;
+}
+
+export interface DeserializeInfo {
+  resume: ResumeData;
+  /** True when an older (or version-less) blob was migrated forward field by field. */
+  migrated: boolean;
+  /**
+   * True when a non-empty stored blob could not be used at all (corrupt JSON
+   * or a newer schema version than this build understands). The caller should
+   * copy the raw blob to RESUME_BACKUP_KEY before the next save overwrites it.
+   */
+  wiped: boolean;
+}
+
+/**
+ * Parse saved JSON back into a ResumeData. Older schema versions are migrated
+ * forward (fields copied, new sections defaulted) so upgrading never wipes a
+ * draft. Anything corrupt or from a newer unknown schema falls back to a blank
+ * resume — see DeserializeInfo.wiped for the backup contract.
+ */
+export function deserializeInfo(raw: string | null | undefined): DeserializeInfo {
   const blank = blankResume();
-  if (!raw) return blank;
+  if (!raw) return { resume: blank, migrated: false, wiped: false };
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return blank; // corrupt JSON
+    return { resume: blank, migrated: false, wiped: true }; // corrupt JSON
   }
-  if (!parsed || typeof parsed !== 'object' || (parsed as { version?: unknown }).version !== RESUME_SCHEMA_VERSION) {
-    return blank; // wrong shape or schema version
+  if (!parsed || typeof parsed !== 'object') {
+    return { resume: blank, migrated: false, wiped: true }; // wrong shape
+  }
+  const version = (parsed as { version?: unknown }).version;
+  const migrating = version === undefined || version === null || version === 1;
+  if (!migrating && version !== RESUME_SCHEMA_VERSION) {
+    // Newer schema than this build understands: do not guess, do not wipe
+    // silently — the caller backs the blob up first.
+    return { resume: blank, migrated: false, wiped: true };
   }
   const p = parsed as Record<string, unknown>;
   const contact = (p.contact ?? {}) as Record<string, unknown>;
@@ -353,57 +529,106 @@ export function deserialize(raw: string | null | undefined): ResumeData {
       .map((e) => fill(e as Record<string, unknown>));
   };
   return {
-    version: RESUME_SCHEMA_VERSION,
-    contact: {
-      fullName: asString(contact.fullName),
-      title: asString(contact.title),
-      email: asString(contact.email),
-      phone: asString(contact.phone),
-      location: asString(contact.location),
-      website: asString(contact.website),
-      portfolio: asString(contact.portfolio),
-      linkedin: asString(contact.linkedin),
+    resume: {
+      version: RESUME_SCHEMA_VERSION,
+      contact: {
+        fullName: asString(contact.fullName),
+        title: asString(contact.title),
+        email: asString(contact.email),
+        phone: asString(contact.phone),
+        location: asString(contact.location),
+        website: asString(contact.website),
+        linkedin: asString(contact.linkedin),
+      },
+      summary: asString(p.summary),
+      experience: arr('experience', (e) => ({
+        id: validId(e.id),
+        title: asString(e.title),
+        company: asString(e.company),
+        location: asString(e.location),
+        start: asString(e.start),
+        end: asString(e.end),
+        current: asBool(e.current),
+        bullets: asBullets(e.bullets),
+      })),
+      education: arr('education', (e) => ({
+        id: validId(e.id),
+        degree: asString(e.degree),
+        school: asString(e.school),
+        location: asString(e.location),
+        start: asString(e.start),
+        end: asString(e.end),
+        detail: asString(e.detail),
+      })),
+      skills: arr('skills', (e) => ({ id: validId(e.id), label: asString(e.label), items: asString(e.items) })),
+      projects: arr('projects', (e) => ({
+        id: validId(e.id),
+        name: asString(e.name),
+        link: asString(e.link),
+        detail: asString(e.detail),
+        bullets: asBullets(e.bullets),
+      })),
+      certifications: arr('certifications', (e) => ({
+        id: validId(e.id),
+        name: asString(e.name),
+        issuer: asString(e.issuer),
+        year: asString(e.year),
+      })),
+      languages: arr('languages', (e) => ({
+        id: validId(e.id),
+        language: asString(e.language),
+        level: asString(e.level),
+      })),
+      awards: arr('awards', (e) => ({
+        id: validId(e.id),
+        title: asString(e.title),
+        issuer: asString(e.issuer),
+        year: asString(e.year),
+        description: asString(e.description),
+      })),
+      publications: arr('publications', (e) => ({
+        id: validId(e.id),
+        title: asString(e.title),
+        publisher: asString(e.publisher),
+        year: asString(e.year),
+        link: asString(e.link),
+      })),
+      volunteer: arr('volunteer', (e) => ({
+        id: validId(e.id),
+        title: asString(e.title),
+        company: asString(e.company),
+        location: asString(e.location),
+        start: asString(e.start),
+        end: asString(e.end),
+        current: asBool(e.current),
+        bullets: asBullets(e.bullets),
+      })),
+      courses: arr('courses', (e) => ({
+        id: validId(e.id),
+        name: asString(e.name),
+        provider: asString(e.provider),
+        year: asString(e.year),
+      })),
+      sectionVisibility: asVisibility(p.sectionVisibility),
+      sectionOrder: asSectionOrder(p.sectionOrder),
     },
-    summary: asString(p.summary),
-    experience: arr('experience', (e) => ({
-      id: validId(e.id),
-      title: asString(e.title),
-      company: asString(e.company),
-      location: asString(e.location),
-      start: asString(e.start),
-      end: asString(e.end),
-      current: asBool(e.current),
-      bullets: asBullets(e.bullets),
-    })),
-    education: arr('education', (e) => ({
-      id: validId(e.id),
-      degree: asString(e.degree),
-      school: asString(e.school),
-      location: asString(e.location),
-      start: asString(e.start),
-      end: asString(e.end),
-      detail: asString(e.detail),
-    })),
-    skills: arr('skills', (e) => ({ id: validId(e.id), label: asString(e.label), items: asString(e.items) })),
-    projects: arr('projects', (e) => ({
-      id: validId(e.id),
-      name: asString(e.name),
-      link: asString(e.link),
-      detail: asString(e.detail),
-      bullets: asBullets(e.bullets),
-    })),
-    certifications: arr('certifications', (e) => ({
-      id: validId(e.id),
-      name: asString(e.name),
-      issuer: asString(e.issuer),
-      year: asString(e.year),
-    })),
-    languages: arr('languages', (e) => ({
-      id: validId(e.id),
-      language: asString(e.language),
-      level: asString(e.level),
-    })),
+    migrated: migrating,
+    wiped: false,
   };
+}
+
+/** Thin wrapper for the common case; see deserializeInfo for the full contract. */
+export function deserialize(raw: string | null | undefined): ResumeData {
+  return deserializeInfo(raw).resume;
+}
+
+/**
+ * True when loading this blob would produce a blank resume, i.e. the stored
+ * data is unusable. The caller should back the raw blob up to RESUME_BACKUP_KEY
+ * before any save() call replaces it.
+ */
+export function deserializeWipesStoredBlob(raw: string | null | undefined): boolean {
+  return !!raw && deserializeInfo(raw).wiped;
 }
 
 // ---------- HTML rendering (pure string building; the page supplies the CSS) ----------
@@ -426,7 +651,7 @@ function bulletsHtml(bullets: string[]): string {
 }
 
 function contactBits(c: ContactInfo): string[] {
-  return [c.email, c.phone, c.location, c.website, c.portfolio, c.linkedin]
+  return [c.email, c.phone, c.location, c.website, c.linkedin]
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
     .map(esc);
@@ -437,8 +662,8 @@ function section(title: string, inner: string): string {
   return `<div class="rs-sec"><div class="rs-sec-t">${esc(title)}</div>${inner}</div>`;
 }
 
-function experienceHtml(r: ResumeData): string {
-  const items = r.experience.filter((e) => e.title.trim() || e.company.trim());
+function workEntriesHtml(entries: WorkEntry[]): string {
+  const items = entries.filter((e) => e.title.trim() || e.company.trim());
   if (items.length === 0) return '';
   return items
     .map((e) => {
@@ -450,6 +675,14 @@ function experienceHtml(r: ResumeData): string {
       </div>`;
     })
     .join('');
+}
+
+function experienceHtml(r: ResumeData): string {
+  return workEntriesHtml(r.experience);
+}
+
+function volunteerHtml(r: ResumeData): string {
+  return workEntriesHtml(r.volunteer);
 }
 
 function educationHtml(r: ResumeData): string {
@@ -484,13 +717,7 @@ function projectsHtml(r: ResumeData): string {
   if (items.length === 0) return '';
   return items
     .map((p) => {
-      const rawLink = p.link.trim();
-      const href = rawLink
-        ? (/^https?:\/\//i.test(rawLink) ? rawLink : `https://${rawLink}`)
-        : '';
-      const link = href
-        ? ` <a class="rs-proj-link" href="${esc(href)}">${esc(rawLink)}</a>`
-        : '';
+      const link = p.link.trim() ? ` <span class="rs-proj-link">${esc(p.link.trim())}</span>` : '';
       return `<div class="rs-item">
         <div class="rs-item-head"><span class="rs-item-title">${esc(p.name.trim())}${link}</span></div>
         ${p.detail.trim() ? `<div class="rs-detail">${esc(p.detail.trim())}</div>` : ''}
@@ -519,45 +746,109 @@ function languagesHtml(r: ResumeData): string {
     .join('')}</div>`;
 }
 
+function awardsHtml(r: ResumeData): string {
+  const items = r.awards.filter((a) => a.title.trim());
+  if (items.length === 0) return '';
+  return `<div class="rs-list">${items
+    .map((a) => {
+      const tail = [a.issuer.trim(), a.year.trim()].filter(Boolean).map(esc).join(', ');
+      return `<div class="rs-list-row"><span>${esc(a.title.trim())}${a.description.trim() ? `<div class="rs-detail">${esc(a.description.trim())}</div>` : ''}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
+    })
+    .join('')}</div>`;
+}
+
+function publicationsHtml(r: ResumeData): string {
+  const items = r.publications.filter((p) => p.title.trim());
+  if (items.length === 0) return '';
+  return `<div class="rs-list">${items
+    .map((p) => {
+      const tail = [p.publisher.trim(), p.year.trim()].filter(Boolean).map(esc).join(', ');
+      const link = p.link.trim() ? ` <span class="rs-proj-link">${esc(p.link.trim())}</span>` : '';
+      return `<div class="rs-list-row"><span>${esc(p.title.trim())}${link}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
+    })
+    .join('')}</div>`;
+}
+
+function coursesHtml(r: ResumeData): string {
+  const items = r.courses.filter((c) => c.name.trim());
+  if (items.length === 0) return '';
+  return `<div class="rs-list">${items
+    .map((c) => {
+      const tail = [c.provider.trim(), c.year.trim()].filter(Boolean).map(esc).join(', ');
+      return `<div class="rs-list-row"><span>${esc(c.name.trim())}</span>${tail ? `<span class="rs-list-tail">${tail}</span>` : ''}</div>`;
+    })
+    .join('')}</div>`;
+}
+
+/** Rendered HTML for each body section (contact is the header, handled separately). */
+const BODY_SECTIONS: Record<Exclude<SectionKey, 'contact'>, { heading: string; html: (r: ResumeData) => string }> = {
+  summary: {
+    heading: 'Professional Summary',
+    html: (r) => (r.summary.trim() ? `<p class="rs-summary">${esc(r.summary.trim())}</p>` : ''),
+  },
+  experience: { heading: 'Work Experience', html: experienceHtml },
+  education: { heading: 'Education', html: educationHtml },
+  skills: { heading: 'Skills', html: skillsHtml },
+  projects: { heading: 'Projects', html: projectsHtml },
+  certifications: { heading: 'Certifications', html: certificationsHtml },
+  languages: { heading: 'Languages', html: languagesHtml },
+  awards: { heading: 'Awards', html: awardsHtml },
+  publications: { heading: 'Publications', html: publicationsHtml },
+  volunteer: { heading: 'Volunteer Experience', html: volunteerHtml },
+  courses: { heading: 'Courses', html: coursesHtml },
+};
+
 /**
  * Render the whole resume as an HTML string for the given template.
- * Empty sections are skipped. All user content is escaped.
+ * Empty sections are skipped; sections toggled off in sectionVisibility are
+ * skipped; the rest follow sectionOrder. All user content is escaped.
  */
 export function renderResume(r: ResumeData, template: TemplateId): string {
-  const c = r.contact;
-  const name = c.fullName.trim() ? esc(c.fullName.trim()) : '<span class="rs-empty-name">Your Name</span>';
-  const role = c.title.trim() ? `<div class="rs-role">${esc(c.title.trim())}</div>` : '';
-  const bits = contactBits(c);
-  const contactLine = bits.length > 0 ? `<div class="rs-contact">${bits.join(' <span class="rs-sep">·</span> ')}</div>` : '';
+  const visibility = r.sectionVisibility ?? defaultSectionVisibility();
+  const order = asSectionOrder(r.sectionOrder);
+  const visible = (k: SectionKey) => visibility[k] !== false;
 
-  const summary = r.summary.trim()
-    ? section('Professional Summary', `<p class="rs-summary">${esc(r.summary.trim())}</p>`)
-    : '';
-  const experience = section('Work Experience', experienceHtml(r));
-  const education = section('Education', educationHtml(r));
-  const skills = section('Skills', skillsHtml(r));
-  const projects = section('Projects', projectsHtml(r));
-  const certifications = section('Certifications', certificationsHtml(r));
-  const languages = section('Languages', languagesHtml(r));
+  const c = r.contact;
+  const bits = contactBits(c);
+  const bodyHtml = (skip: SectionKey[] = []) =>
+    order
+      .filter((k): k is Exclude<SectionKey, 'contact'> => k !== 'contact' && !skip.includes(k) && visible(k))
+      .map((k) => {
+        const def = BODY_SECTIONS[k];
+        return def ? section(def.heading, def.html(r)) : '';
+      })
+      .join('');
 
   if (template === 'modern') {
-    const sideContact = bits.length > 0
-      ? `<div class="rs-side-sec"><div class="rs-side-t">Contact</div>${bits.map((b) => `<div class="rs-side-line">${b}</div>`).join('')}</div>`
-      : '';
+    const name = c.fullName.trim() ? esc(c.fullName.trim()) : '<span class="rs-empty-name">Your Name</span>';
+    const role = c.title.trim() ? `<div class="rs-side-role">${esc(c.title.trim())}</div>` : '';
+    const sideContact =
+      visible('contact') && bits.length > 0
+        ? `<div class="rs-side-sec"><div class="rs-side-t">Contact</div>${bits.map((b) => `<div class="rs-side-line">${b}</div>`).join('')}</div>`
+        : '';
+    const side = (k: Exclude<SectionKey, 'contact'>, label: string, inner: string) =>
+      visible(k) && inner
+        ? `<div class="rs-side-sec"><div class="rs-side-t">${esc(label)}</div><div class="rs-side-body">${inner}</div></div>`
+        : '';
     return `<div class="rs-mod">
       <aside class="rs-side">
-        <div class="rs-side-name">${name}</div>${role.replace('rs-role', 'rs-side-role')}
+        ${visible('contact') ? `<div class="rs-side-name">${name}</div>${role}` : ''}
         ${sideContact}
-        ${skills ? `<div class="rs-side-sec"><div class="rs-side-t">Skills</div><div class="rs-side-body">${skillsHtml(r)}</div></div>` : ''}
-        ${languages ? `<div class="rs-side-sec"><div class="rs-side-t">Languages</div><div class="rs-side-body">${languagesHtml(r)}</div></div>` : ''}
+        ${side('skills', 'Skills', skillsHtml(r))}
+        ${side('languages', 'Languages', languagesHtml(r))}
       </aside>
-      <div class="rs-main">${summary}${experience}${education}${projects}${certifications}</div>
+      <div class="rs-main">${bodyHtml(['skills', 'languages'])}</div>
     </div>`;
   }
 
+  const name = c.fullName.trim() ? esc(c.fullName.trim()) : '<span class="rs-empty-name">Your Name</span>';
+  const role = c.title.trim() ? `<div class="rs-role">${esc(c.title.trim())}</div>` : '';
+  const contactLine = bits.length > 0 ? `<div class="rs-contact">${bits.join(' <span class="rs-sep">·</span> ')}</div>` : '';
   const headClass = template === 'compact' ? 'rs-head rs-head-left' : 'rs-head rs-head-center';
-  return `<div class="${headClass}">
+  const header = visible('contact')
+    ? `<div class="${headClass}">
       <div class="rs-name">${name}</div>${role}${contactLine}
-    </div>
-    ${summary}${experience}${education}${skills}${projects}${certifications}${languages}`;
+    </div>`
+    : '';
+  return `${header}${bodyHtml()}`;
 }

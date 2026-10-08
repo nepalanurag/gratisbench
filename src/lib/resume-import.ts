@@ -11,6 +11,9 @@ import {
   blankProjectEntry,
   blankCertificationEntry,
   blankLanguageEntry,
+  blankAwardEntry,
+  blankPublicationEntry,
+  blankCourseEntry,
 } from './resume-core.ts';
 import type { ResumeData } from './resume-core.ts';
 
@@ -56,6 +59,26 @@ export interface ParsedLanguageEntry {
   level: string;
 }
 
+export interface ParsedAwardEntry {
+  title: string;
+  issuer: string;
+  year: string;
+  description: string;
+}
+
+export interface ParsedPublicationEntry {
+  title: string;
+  publisher: string;
+  year: string;
+  link: string;
+}
+
+export interface ParsedCourseEntry {
+  name: string;
+  provider: string;
+  year: string;
+}
+
 export interface ParsedResume {
   fullName: string;
   title: string;
@@ -71,12 +94,17 @@ export interface ParsedResume {
   projects: ParsedProjectEntry[];
   certifications: ParsedCertificationEntry[];
   languages: ParsedLanguageEntry[];
+  awards: ParsedAwardEntry[];
+  publications: ParsedPublicationEntry[];
+  volunteer: ParsedWorkEntry[];
+  courses: ParsedCourseEntry[];
 }
 
 function blankParsed(): ParsedResume {
   return {
     fullName: '', title: '', email: '', phone: '', location: '', website: '', linkedin: '',
     summary: '', experience: [], education: [], skills: [], projects: [], certifications: [], languages: [],
+    awards: [], publications: [], volunteer: [], courses: [],
   };
 }
 
@@ -242,7 +270,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
 // ---------- parsing ----------
 
-type SectionKey = 'summary' | 'experience' | 'education' | 'skills' | 'projects' | 'certifications' | 'languages';
+type SectionKey = 'summary' | 'experience' | 'education' | 'skills' | 'projects' | 'certifications' | 'languages' | 'awards' | 'publications' | 'volunteer' | 'courses';
 
 const SECTION_DEFS: { re: RegExp; section: SectionKey }[] = [
   { re: /^(work\s+)?experience$/, section: 'experience' },
@@ -259,6 +287,22 @@ const SECTION_DEFS: { re: RegExp; section: SectionKey }[] = [
   { re: /^certifications?$/, section: 'certifications' },
   { re: /^licenses(\s+(and|&)\s+certifications?)?$/, section: 'certifications' },
   { re: /^languages?$/, section: 'languages' },
+  { re: /^awards?$/, section: 'awards' },
+  { re: /^honou?rs$/, section: 'awards' },
+  { re: /^awards?\s+(and|&)\s+honou?rs$/, section: 'awards' },
+  { re: /^honou?rs\s+(and|&)\s+awards?$/, section: 'awards' },
+  { re: /^recognitions?$/, section: 'awards' },
+  { re: /^publications?$/, section: 'publications' },
+  { re: /^(research\s+)?papers$/, section: 'publications' },
+  { re: /^selected\s+publications$/, section: 'publications' },
+  { re: /^volunteer(\s+(experience|work))?$/, section: 'volunteer' },
+  { re: /^volunteering$/, section: 'volunteer' },
+  { re: /^community\s+service$/, section: 'volunteer' },
+  { re: /^courses?$/, section: 'courses' },
+  { re: /^training$/, section: 'courses' },
+  { re: /^coursework$/, section: 'courses' },
+  { re: /^courses?\s+(and|&)\s+training$/, section: 'courses' },
+  { re: /^professional\s+development$/, section: 'courses' },
 ];
 
 function detectSection(line: string): SectionKey | null {
@@ -756,6 +800,86 @@ function parseLanguages(lines: string[]): ParsedLanguageEntry[] {
   }).filter((l) => l.language);
 }
 
+/**
+ * Awards: "Title, Issuer, Year" per line; a bullet under an award becomes its
+ * one-line description.
+ */
+function parseAwards(lines: string[]): ParsedAwardEntry[] {
+  const awards: ParsedAwardEntry[] = [];
+  let current: ParsedAwardEntry | null = null;
+  for (const line of lines) {
+    const bullet = stripBullet(line);
+    const text = (bullet !== null ? bullet : line).trim();
+    if (!text) continue;
+    if (bullet !== null && current) {
+      current.description = current.description ? `${current.description} ${text}` : text;
+      continue;
+    }
+    const parts = text.split(',').map((p) => p.trim()).filter(Boolean);
+    let title = text;
+    let issuer = '';
+    let year = '';
+    if (parts.length >= 2 && /^\d{4}$/.test(parts[parts.length - 1])) {
+      year = parts.pop()!;
+      issuer = parts.slice(1).join(', ');
+      title = parts[0];
+    } else if (parts.length >= 2) {
+      title = parts[0];
+      issuer = parts.slice(1).join(', ');
+    }
+    current = { title, issuer, year, description: '' };
+    awards.push(current);
+  }
+  return awards.filter((a) => a.title);
+}
+
+/**
+ * Publications: the title leads; a URL on the line is lifted into the link
+ * field; "Publisher, Year" after the last comma fills the tail fields.
+ */
+function parsePublications(lines: string[]): ParsedPublicationEntry[] {
+  return lines
+    .map((line) => {
+      const text = stripLineBullet(line);
+      const url = text.match(URL_RE);
+      const link = url ? url[0].replace(/\/$/, '') : '';
+      const noUrl = url ? text.replace(url[0], '').replace(/[·|()\s]+$/, '').trim() : text;
+      const parts = noUrl.split(',').map((p) => p.trim()).filter(Boolean);
+      let title = noUrl;
+      let publisher = '';
+      let year = '';
+      if (parts.length >= 2 && /^\d{4}$/.test(parts[parts.length - 1])) {
+        year = parts.pop()!;
+        publisher = parts.slice(1).join(', ');
+        title = parts[0];
+      } else if (parts.length >= 2) {
+        title = parts[0];
+        publisher = parts.slice(1).join(', ');
+      }
+      return { title, publisher, year, link };
+    })
+    .filter((p) => p.title);
+}
+
+/** Volunteer experience has the same shape as work experience (role, org, dates, bullets). */
+function parseVolunteer(lines: string[]): ParsedWorkEntry[] {
+  return parseExperience(lines);
+}
+
+/** Courses / training: "Name, Provider, Year" per line. */
+function parseCourses(lines: string[]): ParsedCourseEntry[] {
+  return lines.map((line) => {
+    const text = stripLineBullet(line);
+    const parts = text.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 3) return { name: parts[0], provider: parts.slice(1, -1).join(', '), year: parts[parts.length - 1] };
+    if (parts.length === 2) {
+      const yearLike = /^\d{4}$/.test(parts[1]);
+      return { name: parts[0], provider: yearLike ? '' : parts[1], year: yearLike ? parts[1] : '' };
+    }
+    return { name: text, provider: '', year: '' };
+  }).filter((c) => c.name);
+}
+
 /** Parse plain resume text into structured fields using line-based heuristics. */
 export function parseResumeText(text: string): ParsedResume {
   const out = blankParsed();
@@ -807,6 +931,14 @@ export function parseResumeText(text: string): ParsedResume {
   if (certifications) out.certifications = parseCertifications(certifications);
   const languages = sections.get('languages');
   if (languages) out.languages = parseLanguages(languages);
+  const awards = sections.get('awards');
+  if (awards) out.awards = parseAwards(awards);
+  const publications = sections.get('publications');
+  if (publications) out.publications = parsePublications(publications);
+  const volunteer = sections.get('volunteer');
+  if (volunteer) out.volunteer = parseVolunteer(volunteer);
+  const courses = sections.get('courses');
+  if (courses) out.courses = parseCourses(courses);
   return out;
 }
 
@@ -871,6 +1003,40 @@ export function parsedToResumeData(p: ParsedResume): ResumeData {
     id: genId(),
     language: l.language,
     level: l.level,
+  }));
+  r.awards = p.awards.map((a) => ({
+    ...blankAwardEntry(),
+    id: genId(),
+    title: a.title,
+    issuer: a.issuer,
+    year: a.year,
+    description: a.description,
+  }));
+  r.publications = p.publications.map((pub) => ({
+    ...blankPublicationEntry(),
+    id: genId(),
+    title: pub.title,
+    publisher: pub.publisher,
+    year: pub.year,
+    link: pub.link,
+  }));
+  r.volunteer = p.volunteer.map((e) => ({
+    ...blankWorkEntry(),
+    id: genId(),
+    title: e.title,
+    company: e.company,
+    location: e.location,
+    start: e.start,
+    end: e.end,
+    current: e.current,
+    bullets: [...e.bullets],
+  }));
+  r.courses = p.courses.map((c) => ({
+    ...blankCourseEntry(),
+    id: genId(),
+    name: c.name,
+    provider: c.provider,
+    year: c.year,
   }));
   return r;
 }

@@ -33,6 +33,26 @@ export function initVideoConverter(): void {
     return (checked?.value as OutFormat) || 'mp4';
   }
 
+  /** True when the input file is already in the chosen output container,
+   *  so ffmpeg can copy the streams instead of re-encoding them. */
+  function canFastCopy(): boolean {
+    if (!file) return false;
+    const inExt = extOf(file.name).toLowerCase();
+    const fmt = selectedFormat();
+    return inExt === '.' + fmt || (fmt === 'mp4' && inExt === '.m4v');
+  }
+
+  function updateFastCopyRow(): void {
+    const row = el('fastcopy-row');
+    const match = canFastCopy();
+    row.hidden = !match;
+    if (match) el<HTMLInputElement>('fastcopy-check').checked = true;
+  }
+
+  document.querySelectorAll('input[name="format"]').forEach((r) => {
+    r.addEventListener('change', updateFastCopyRow);
+  });
+
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
     const f = files[0];
@@ -40,6 +60,7 @@ export function initVideoConverter(): void {
     file = f;
     el('file-info').textContent = `${f.name} · ${formatBytes(f.size)}`;
     el<HTMLButtonElement>('convert-btn').disabled = false;
+    updateFastCopyRow();
     status.hidden = false;
     status.textContent = 'Loading the video engine (about 30MB, first use only)…';
     try {
@@ -72,7 +93,13 @@ export function initVideoConverter(): void {
         setProgress(pct, `Converting… ${pct}%`);
       });
       const args =
-        fmt === 'mp4'
+        canFastCopy() && el<HTMLInputElement>('fastcopy-check').checked
+          ? // Same container: copy the original streams. No re-encode, no
+            // quality loss, and it finishes in seconds. faststart only
+            // applies to the MP4/MOV muxers.
+            ['-y', '-i', inName, '-c', 'copy',
+             ...(fmt === 'webm' ? [] : ['-movflags', '+faststart']), outName]
+          : fmt === 'mp4'
           ? ['-y', '-i', inName, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
              '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', outName]
           : fmt === 'webm'

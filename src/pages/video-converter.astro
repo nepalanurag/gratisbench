@@ -1,6 +1,7 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
+import ToolkitTabs from '../components/ToolkitTabs.astro';
 
 const title = 'Video Converter - MP4, WebM, MOV Online Free | TruePDF';
 const description =
@@ -67,6 +68,14 @@ const lede = 'Turn video between MP4, WebM, and MOV. Real encoding, on your devi
     },
   ]}
 >
+  <ToolkitTabs
+    current="/video-converter"
+    tabs={[
+      { href: '/video-compressor', label: 'Compress' },
+      { href: '/video-trimmer', label: 'Trim' },
+      { href: '/video-converter', label: 'Convert' },
+    ]}
+  />
   <section class="tool-card" slot="tool" aria-label="Video converter tool">
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a video to convert">
       <div class="dz-icon"><Icon name="video" size={30} /></div>
@@ -85,6 +94,9 @@ const lede = 'Turn video between MP4, WebM, and MOV. Real encoding, on your devi
       <label class="radio-card"><input type="radio" name="format" value="mov" /><span><strong>MOV</strong><small>H.264. For Apple workflows.</small></span></label>
     </div>
     <p class="honest-note"><strong>WebM uses VP8 here, not VP9.</strong> The in-browser encoder's VP9 hangs, so VP8 is the reliable choice. It plays everywhere WebM does.</p>
+    <div class="field" id="fastcopy-row" hidden>
+      <label class="checkline"><input type="checkbox" id="fastcopy-check" checked /> <span><strong>Fast copy.</strong> Your file is already in this format, so copy the streams without re-encoding: much faster, zero quality loss. Uncheck to force a fresh encode.</span></label>
+    </div>
 
     <div class="btn-row">
       <button id="convert-btn" class="btn" disabled>Convert video</button>

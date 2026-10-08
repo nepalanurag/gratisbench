@@ -73,6 +73,12 @@ const lede = 'Make a QR code for a link or any text. Add your logo, tune the col
   <section class="tool-card" slot="tool" aria-label="QR code generator">
     <div class="qr-layout">
       <div>
+        <div class="btn-row qr-templates" role="group" aria-label="Content templates">
+          <button type="button" class="btn btn-secondary btn-small" data-qr-template="https://">Website</button>
+          <button type="button" class="btn btn-secondary btn-small" data-qr-template="WIFI:T:WPA;S:YourNetwork;P:YourPassword;;">WiFi</button>
+          <button type="button" class="btn btn-secondary btn-small" data-qr-template="mailto:you@example.com">Email</button>
+          <button type="button" class="btn btn-secondary btn-small" data-qr-template="tel:+15551234567">Phone</button>
+        </div>
         <div class="field">
           <label for="qr-text">Link or text</label>
           <textarea id="qr-text" placeholder="https://example.com, or any text"></textarea>

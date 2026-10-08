@@ -1,6 +1,7 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
+import ToolkitTabs from '../components/ToolkitTabs.astro';
 
 const title = 'Audio Merger - Join Audio Files Online Free | TruePDF';
 const description =
@@ -18,14 +19,14 @@ const lede = 'Stitch voice memos, song parts, or podcast segments into one file,
   intro={[
     'Joining audio clips is the kind of job that sounds trivial until a website makes it complicated: upload each file, wait in a queue, sit through an ad, then discover the download has a watermark or a daily limit attached. This merger does the whole thing in your tab. Files are decoded locally, arranged in your order, joined locally, and handed back as a download. No queue, no account, nothing uploaded.',
     'The part most mergers get wrong is the join itself. Slamming two clips together usually leaves an audible click where they meet. This tool fades the end of each clip out and the start of the next one in, with a fade length you control from zero to five seconds. A short fade of half a second is enough to kill the click; longer fades give you a smooth DJ-style blend between segments.',
-    'Clips do not need to match. Different sample rates and mono versus stereo are normalized before joining, so a phone voice memo and a desktop recording land in the same file without pitch or speed surprises. The result exports as WAV, which keeps every sample exactly as rendered: lossless, and ready for any editor or player.',
+    'Clips do not need to match. Different sample rates and mono versus stereo are normalized before joining, so a phone voice memo and a desktop recording land in the same file without pitch or speed surprises. Pick WAV for a lossless file ready for any editor, or MP3 at 192 kbps when you want a much smaller file for sharing.',
   ]}
   steps={[
     'Drop your audio clips onto the box above, or click it to browse. Add as many as you like, in any order.',
     'Reorder the clips with the up and down arrows. The number on each row is its position in the final file.',
     'Set the fade length for the joins. Half a second removes clicks; longer fades blend the clips together. Set it to zero for hard cuts.',
     'Click "Join clips". The merged file is rendered on your device.',
-    'Download the result as a WAV file.',
+    'Download the result as a WAV or MP3 file, whichever you picked.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
@@ -56,8 +57,8 @@ const lede = 'Stitch voice memos, song parts, or podcast segments into one file,
       a: 'Yes. Clips are resampled to the highest sample rate among them before joining, and mono clips are widened to stereo when mixed with stereo ones. The pitch and speed of every clip stay correct. The only thing to know is that the final file takes the highest sample rate present.',
     },
     {
-      q: 'Why is the output WAV and not MP3?',
-      a: 'WAV is lossless, so the joined file keeps every sample exactly as rendered, and it exports instantly with no extra downloads. If you need an MP3, trim or convert the result afterwards with the audio trimmer, which exports real MP3s. Keeping one honest lossless output here beats a fake MP3 button.',
+      q: 'Should I pick WAV or MP3?',
+      a: 'WAV is lossless, so the joined file keeps every sample exactly as rendered, ready for any editor. MP3 at 192 kbps is much smaller and sounds the same to most ears, so pick it when the file is for sharing or listening. Both are encoded on your device, nothing is uploaded.',
     },
     {
       q: 'How many clips can I join at once?',
@@ -69,6 +70,14 @@ const lede = 'Stitch voice memos, song parts, or podcast segments into one file,
     },
   ]}
 >
+  <ToolkitTabs
+    current="/audio-merger"
+    tabs={[
+      { href: '/audio-trimmer', label: 'Trim' },
+      { href: '/audio-merger', label: 'Merge' },
+      { href: '/audio-converter', label: 'Convert' },
+    ]}
+  />
   <section class="tool-card" slot="tool" aria-label="Audio merger tool">
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add audio clips to join">
       <div class="dz-icon"><Icon name="audio" size={30} /></div>
@@ -87,6 +96,12 @@ const lede = 'Stitch voice memos, song parts, or podcast segments into one file,
         <span class="range-val" id="fade-val">0.5s</span>
       </div>
       <p class="hint">Each join fades the outgoing clip out and the incoming clip in. Zero means a hard cut.</p>
+    </div>
+
+    <h3 class="tool-step">Output format</h3>
+    <div class="radio-cards" role="radiogroup" aria-label="Output format">
+      <label class="radio-card"><input type="radio" name="out-format" value="wav" checked /><span><strong>WAV</strong><small>Lossless. Big files, best for editing.</small></span></label>
+      <label class="radio-card"><input type="radio" name="out-format" value="mp3" /><span><strong>MP3</strong><small>Much smaller. Best for sharing.</small></span></label>
     </div>
 
     <div class="btn-row">

@@ -165,3 +165,35 @@ export const ICONS = {
   down: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg>',
   x: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>',
 };
+
+/**
+ * Remember a tool setting in localStorage and restore it on load.
+ * Usage: bindSetting('image-compressor', 'quality', rangeEl, '80')
+ * Reads the stored value (if any), sets the element, and saves on change.
+ */
+export function bindSetting(
+  tool: string,
+  key: string,
+  element: HTMLInputElement | HTMLSelectElement,
+  defaultValue: string
+): void {
+  const storageKey = `truepdf:${tool}:${key}`;
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (stored !== null) {
+      element.value = stored;
+      // Fire input/change so any bound UI (like range value labels) updates.
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  } catch {
+    /* localStorage unavailable — use defaults */
+  }
+  element.addEventListener('change', () => {
+    try {
+      localStorage.setItem(storageKey, element.value);
+    } catch {
+      /* ignore quota errors */
+    }
+  });
+}

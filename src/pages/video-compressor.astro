@@ -1,6 +1,7 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
+import ToolkitTabs from '../components/ToolkitTabs.astro';
 
 const title = 'Video Compressor - Shrink Video Online Free | TruePDF';
 const description =
@@ -69,6 +70,14 @@ const lede = 'Shrink a video to fit a 25MB chat limit or a 10MB email attachment
     },
   ]}
 >
+  <ToolkitTabs
+    current="/video-compressor"
+    tabs={[
+      { href: '/video-compressor', label: 'Compress' },
+      { href: '/video-trimmer', label: 'Trim' },
+      { href: '/video-converter', label: 'Convert' },
+    ]}
+  />
   <section class="tool-card" slot="tool" aria-label="Video compressor tool">
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a video to compress">
       <div class="dz-icon"><Icon name="video" size={30} /></div>

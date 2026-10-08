@@ -74,7 +74,7 @@ const lede =
     },
     {
       q: 'Are the totals exact?',
-      a: 'Yes. Every amount is stored and computed in integer cents, so the classic floating-point problem where 0.1 + 0.2 = 0.30000000000000004 cannot happen. What you type is what gets added up, and the remaining-to-assign figure is exact to the cent. The display formats amounts with your browser\u2019s standard currency formatting.',
+      a: 'Yes. Every amount is stored and computed in integer cents, so the classic floating-point problem where 0.1 + 0.2 = 0.30000000000000004 cannot happen. What you type is what gets added up, and the remaining-to-assign figure is exact to the cent. The display formats amounts with your browser\u2019s standard number formatting, in the currency you pick above the budget (it defaults from your browser language and is remembered).',
     },
     {
       q: 'What happens if I overspend a category?',
@@ -93,6 +93,25 @@ const lede =
       <h3 id="budget-month-label" class="month-label">This month</h3>
       <button id="budget-next" class="btn btn-secondary" type="button">Next &rarr;</button>
       <button id="budget-today" class="btn btn-secondary" type="button">This month</button>
+      <label class="mini-label" for="budget-currency">Currency
+        <select id="budget-currency" aria-label="Currency">
+          <option value="USD">$ USD</option>
+          <option value="EUR">€ EUR</option>
+          <option value="GBP">£ GBP</option>
+          <option value="JPY">¥ JPY</option>
+          <option value="INR">₹ INR</option>
+          <option value="CAD">$ CAD</option>
+          <option value="AUD">$ AUD</option>
+          <option value="CHF">CHF</option>
+          <option value="CNY">¥ CNY</option>
+          <option value="SEK">kr SEK</option>
+          <option value="NZD">$ NZD</option>
+          <option value="SGD">$ SGD</option>
+          <option value="HKD">$ HKD</option>
+          <option value="MXN">$ MXN</option>
+          <option value="BRL">R$ BRL</option>
+        </select>
+      </label>
     </div>
     <div id="budget-summary" class="stat-grid" aria-live="polite"></div>
     <div id="budget-charts"></div>

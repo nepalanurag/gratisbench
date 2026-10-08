@@ -10,6 +10,7 @@ import {
   hideError,
   setBusy,
   setupDropzone,
+  bindSetting,
 } from './common.ts';
 
 interface PageImage {
@@ -68,6 +69,16 @@ function renderList(): void {
 
 export function initPdfToJpg(): void {
   const convertBtn = el<HTMLButtonElement>('convert-btn');
+
+  // Remember the resolution and format picks between visits.
+  const dpiSel = el<HTMLSelectElement>('dpi-select');
+  bindSetting('pdf-to-jpg', 'dpi', dpiSel, '150');
+  bindSetting('pdf-to-jpg', 'format', el<HTMLSelectElement>('format-select'), 'jpg');
+  const syncDpiWarning = () => {
+    el('dpi-warning').hidden = dpiSel.value !== '600';
+  };
+  dpiSel.addEventListener('change', syncDpiWarning);
+  syncDpiWarning();
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');

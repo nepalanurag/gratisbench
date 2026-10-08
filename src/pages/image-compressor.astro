@@ -1,6 +1,7 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
+import ToolkitTabs from '../components/ToolkitTabs.astro';
 
 const title = 'Image Compressor - Free Online Image Compressor';
 const description =
@@ -70,6 +71,16 @@ const lede = 'Shrink your photos and screenshots with a quality slider you contr
     },
   ]}
 >
+  <ToolkitTabs
+    current="/image-compressor"
+    tabs={[
+      { href: '/image-compressor', label: 'Compress' },
+      { href: '/image-converter', label: 'Convert' },
+      { href: '/background-remover', label: 'Remove background' },
+      { href: '/image-ocr', label: 'OCR' },
+      { href: '/image-tracer', label: 'Trace' },
+    ]}
+  />
   <section class="tool-card" slot="tool" aria-label="Image compressor tool">
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add images to compress">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>

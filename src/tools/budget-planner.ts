@@ -34,7 +34,24 @@ import {
   type BudgetCategory,
 } from '../lib/budget-core.ts';
 import { hbarChart, trendSvg, trendLegend, categoryLegend, shortMonthLabel } from '../lib/money-charts.ts';
-import { el, showError, hideError, downloadText, copyText } from './common.ts';
+import { el, showError, hideError, downloadText, copyText, bindSetting } from './common.ts';
+
+/** Best-guess currency from the browser language; the user can change it. */
+function guessCurrency(): string {
+  const lang = (navigator.language || 'en-US').toLowerCase();
+  const table: [string, string][] = [
+    ['en-gb', 'GBP'], ['en-in', 'INR'], ['hi', 'INR'], ['en-ca', 'CAD'],
+    ['en-au', 'AUD'], ['en-nz', 'NZD'], ['en-hk', 'HKD'], ['en-sg', 'SGD'],
+    ['ja', 'JPY'], ['de-ch', 'CHF'], ['fr-ch', 'CHF'], ['it-ch', 'CHF'],
+    ['es-mx', 'MXN'], ['pt-br', 'BRL'], ['de', 'EUR'], ['fr', 'EUR'],
+    ['it', 'EUR'], ['es', 'EUR'], ['nl', 'EUR'], ['pt', 'EUR'],
+    ['zh-hk', 'HKD'], ['zh', 'CNY'], ['sv', 'SEK'],
+  ];
+  for (const [prefix, code] of table) {
+    if (lang.startsWith(prefix)) return code;
+  }
+  return 'USD';
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -49,6 +66,42 @@ export function initBudgetPlanner(): void {
   }
   let key = currentMonthKey();
   let editingIncomeId: string | null = null;
+
+  // Currency: default from the browser language, remembered per visitor.
+  const currencySel = el<HTMLSelectElement>('budget-currency');
+  try {
+    if (!localStorage.getItem('truepdf:budget-planner:currency')) {
+      currencySel.value = guessCurrency();
+    }
+  } catch {
+    currencySel.value = guessCurrency();
+  }
+  bindSetting('budget-planner', 'currency', currencySel, guessCurrency());
+  currencySel.addEventListener('change', render);
+
+  /** Format cents in the chosen currency with the browser's number formatting. */
+  function fmt(cents: number): string {
+    const code = currencySel.value || 'USD';
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(cents / 100);
+    } catch {
+      return formatMoney(cents, 'USD');
+    }
+  }
+
+  /** Compact axis formatting for the trend chart, currency-aware. */
+  function fmtCompact(cents: number): string {
+    const code = currencySel.value || 'USD';
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: code,
+        notation: 'compact',
+      }).format(cents / 100);
+    } catch {
+      return formatMoney(cents, 'USD');
+    }
+  }
 
   function save(): void {
     try {
@@ -65,7 +118,7 @@ export function initBudgetPlanner(): void {
 
   function stat(label: string, cents: number, extra = ''): string {
     const neg = cents < 0 ? ' style="color: var(--danger);"' : '';
-    return `<div class="stat"${extra}><div class="k">${label}</div><div class="v"${neg}>${formatMoney(cents, 'USD')}</div></div>`;
+    return `<div class="stat"${extra}><div class="k">${label}</div><div class="v"${neg}>${fmt(cents)}</div></div>`;
   }
 
   function render(): void {
@@ -75,15 +128,15 @@ export function initBudgetPlanner(): void {
     const remaining = remainingToAssignCents(m);
     const heroClass = remaining === 0 ? ' hero zero' : ' hero';
     const heroNote = remaining === 0
-      ? 'Every dollar has a job.'
+      ? 'Every cent has a job.'
       : remaining > 0
-        ? `${formatMoney(remaining, 'USD')} still needs a job.`
-        : `${formatMoney(-remaining, 'USD')} over budget.`;
+        ? `${fmt(remaining)} still needs a job.`
+        : `${fmt(-remaining)} over budget.`;
     el('budget-summary').innerHTML =
       stat('Income', totalIncomeCents(m)) +
       stat('Planned', totalPlannedCents(m)) +
       stat('Spent so far', totalActualCents(m)) +
-      `<div class="stat${heroClass}"><div class="k">Remaining to assign</div><div class="v">${formatMoney(remaining, 'USD')}</div><div class="stat-sub">${heroNote}</div></div>` +
+      `<div class="stat${heroClass}"><div class="k">Remaining to assign</div><div class="v">${fmt(remaining)}</div><div class="stat-sub">${heroNote}</div></div>` +
       stat('Left to spend', actualLeftCents(m));
 
     const incomeList = el('budget-income-list');
@@ -96,7 +149,7 @@ export function initBudgetPlanner(): void {
       row.className = 'entry-row';
       row.innerHTML =
         `<span class="grow"><strong>${escapeHtml(e.label.trim() || 'Untitled')}</strong></span>` +
-        `<span class="entry-amount">${formatMoney(e.cents, 'USD')}</span>` +
+        `<span class="entry-amount">${fmt(e.cents)}</span>` +
         `<button type="button" class="icon-btn" data-act="edit-income" data-id="${e.id}" aria-label="Edit income entry">Edit</button>` +
         `<button type="button" class="icon-btn" data-act="del-income" data-id="${e.id}" aria-label="Remove income entry">×</button>`;
       incomeList.appendChild(row);
@@ -113,7 +166,7 @@ export function initBudgetPlanner(): void {
       row.className = 'entry-row entry-row-grid';
       row.innerHTML =
         `<span class="grow"><strong>${escapeHtml(c.name.trim() || 'Untitled')}</strong>` +
-        `<span class="entry-left ${left < 0 ? 'over' : ''}">${left < 0 ? `${formatMoney(-left, 'USD')} over` : `${formatMoney(left, 'USD')} left`}</span></span>` +
+        `<span class="entry-left ${left < 0 ? 'over' : ''}">${left < 0 ? `${fmt(-left)} over` : `${fmt(left)} left`}</span></span>` +
         `<label class="mini-label">Planned <input type="text" inputmode="decimal" class="money-input" data-act="planned" data-id="${c.id}" value="${(c.plannedCents / 100).toFixed(2)}" aria-label="Planned amount for ${escapeHtml(c.name)}"></label>` +
         `<label class="mini-label">Spent <input type="text" inputmode="decimal" class="money-input" data-act="actual" data-id="${c.id}" value="${(c.actualCents / 100).toFixed(2)}" aria-label="Actual spent for ${escapeHtml(c.name)}"></label>` +
         `<button type="button" class="icon-btn" data-act="del-cat" data-id="${c.id}" aria-label="Remove category">×</button>`;
@@ -135,7 +188,7 @@ export function initBudgetPlanner(): void {
       const scale = Math.max(1, ...m.categories.map((c) => Math.max(c.plannedCents, c.actualCents)));
       const rows = m.categories.map((c) => ({
         label: c.name.trim() || 'Untitled',
-        caption: `${formatMoney(c.actualCents, 'USD')} of ${formatMoney(c.plannedCents, 'USD')}`,
+        caption: `${fmt(c.actualCents)} of ${fmt(c.plannedCents)}`,
         pct: (c.actualCents / scale) * 100,
         markerPct: (c.plannedCents / scale) * 100,
         over: c.actualCents > c.plannedCents,
@@ -151,11 +204,9 @@ export function initBudgetPlanner(): void {
         incomeCents: p.incomeCents,
         spentCents: p.spentCents,
       }));
-      const compact = (cents: number) =>
-        cents >= 100000 ? `$${(cents / 100000).toFixed(1)}k` : formatMoney(cents, 'USD');
       panels.push(
         `<div class="chart-box"><h3 class="chart-title">Income vs spending, last ${trend.length} months</h3>` +
-          `${trendSvg(pts, compact)}${trendLegend()}</div>`
+          `${trendSvg(pts, fmtCompact)}${trendLegend()}</div>`
       );
     }
     box.innerHTML = panels.length > 0 ? `<div class="charts">${panels.join('')}</div>` : '';
@@ -163,14 +214,17 @@ export function initBudgetPlanner(): void {
 
   el('budget-prev').addEventListener('click', () => {
     key = shiftMonth(key, -1);
+    clearIncomeForm();
     render();
   });
   el('budget-next').addEventListener('click', () => {
     key = shiftMonth(key, 1);
+    clearIncomeForm();
     render();
   });
   el('budget-today').addEventListener('click', () => {
     key = currentMonthKey();
+    clearIncomeForm();
     render();
   });
 
@@ -343,11 +397,11 @@ export function initBudgetPlanner(): void {
     const m = month();
     const text = [
       `Budget - ${monthLabel(key)}`,
-      `Income: ${formatMoney(totalIncomeCents(m), 'USD')}`,
-      `Planned: ${formatMoney(totalPlannedCents(m), 'USD')}`,
-      `Spent: ${formatMoney(totalActualCents(m), 'USD')}`,
-      `Remaining to assign: ${formatMoney(remainingToAssignCents(m), 'USD')}`,
-      `Left to spend: ${formatMoney(actualLeftCents(m), 'USD')}`,
+      `Income: ${fmt(totalIncomeCents(m))}`,
+      `Planned: ${fmt(totalPlannedCents(m))}`,
+      `Spent: ${fmt(totalActualCents(m))}`,
+      `Remaining to assign: ${fmt(remainingToAssignCents(m))}`,
+      `Left to spend: ${fmt(actualLeftCents(m))}`,
     ].join('\n');
     const btn = el<HTMLButtonElement>('budget-copy-summary');
     void copyText(text).then((ok) => {

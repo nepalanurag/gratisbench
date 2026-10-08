@@ -62,7 +62,7 @@ export function bgProgressLabel(key: string, current: number, total: number): st
 export function bgRemoveErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (/network|fetch|failed to fetch|load/i.test(msg)) {
-    return 'Could not download the AI model. Check your connection and try again. Your image never left your device.';
+    return 'Could not download the AI model. Check your connection and try again — your image never left your device.';
   }
   if (/webgl|webgpu|gpu|wasm/i.test(msg)) {
     return 'Your browser could not start the AI engine (WebAssembly/WebGL blocked). Try a recent Chrome, Edge, Firefox, or Safari.';

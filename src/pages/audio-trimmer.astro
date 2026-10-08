@@ -1,6 +1,7 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
+import ToolkitTabs from '../components/ToolkitTabs.astro';
 
 const title = 'Audio Trimmer - Cut Audio Online Free | TruePDF';
 const description =
@@ -68,6 +69,14 @@ const lede = 'Cut the silence off a recording, pull a clip out of a song, or sho
     },
   ]}
 >
+  <ToolkitTabs
+    current="/audio-trimmer"
+    tabs={[
+      { href: '/audio-trimmer', label: 'Trim' },
+      { href: '/audio-merger', label: 'Merge' },
+      { href: '/audio-converter', label: 'Convert' },
+    ]}
+  />
   <section class="tool-card" slot="tool" aria-label="Audio trimmer tool">
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add an audio file to trim">
       <div class="dz-icon"><Icon name="audio" size={30} /></div>

@@ -29,6 +29,7 @@ import {
   hideError,
   setBusy,
   setupDropzone,
+  bindSetting,
 } from './common.ts';
 
 interface Item {
@@ -156,6 +157,7 @@ export function initImageConverter(): void {
   select.addEventListener('change', refreshJpegUi);
 
   const qualityRange = el<HTMLInputElement>('quality-range');
+  bindSetting('image-converter', 'quality', qualityRange, '90');
   const syncQualityLabel = () => {
     el('quality-val').textContent = qualityRange.value;
   };

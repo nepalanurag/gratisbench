@@ -1,6 +1,7 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
+import ToolkitTabs from '../components/ToolkitTabs.astro';
 
 const title = 'Image OCR - Free Online Text Recognition (OCR)';
 const description =
@@ -74,6 +75,16 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     },
   ]}
 >
+  <ToolkitTabs
+    current="/image-ocr"
+    tabs={[
+      { href: '/image-compressor', label: 'Compress' },
+      { href: '/image-converter', label: 'Convert' },
+      { href: '/background-remover', label: 'Remove background' },
+      { href: '/image-ocr', label: 'OCR' },
+      { href: '/image-tracer', label: 'Trace' },
+    ]}
+  />
   <section class="tool-card" slot="tool" aria-label="Image OCR tool">
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add an image to read text from">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
@@ -116,7 +127,7 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     <div id="result-block" class="result" hidden>
       <h3>Recognized text</h3>
       <p id="result-info"></p>
-      <textarea id="ocr-output" class="ocr-output" readonly aria-label="Recognized text"></textarea>
+      <textarea id="ocr-output" class="ocr-output" aria-label="Recognized text — you can edit it before copying"></textarea>
       <div class="btn-row btn-row-tight">
         <button id="copy-btn" class="btn btn-secondary" disabled>Copy</button>
         <button id="download-btn" class="btn btn-secondary" disabled>Download .txt</button>

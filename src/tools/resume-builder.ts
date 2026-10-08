@@ -558,6 +558,43 @@ export function initResumeBuilder(): void {
     renderPreview();
   });
 
+  el('rb-export-json').addEventListener('click', () => {
+    hideError('rb-error');
+    const name = resume.contact.fullName.trim();
+    downloadText(name ? `${name} - resume.json` : 'resume-data.json', serialize(resume), 'application/json');
+  });
+
+  el('rb-import-json').addEventListener('click', () => {
+    hideError('rb-error');
+    el<HTMLInputElement>('rb-import-json-file').click();
+  });
+
+  el<HTMLInputElement>('rb-import-json-file').addEventListener('change', async () => {
+    hideError('rb-error');
+    const input = el<HTMLInputElement>('rb-import-json-file');
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    let raw: string;
+    try {
+      raw = await file.text();
+    } catch {
+      showError('rb-error', 'Could not read that file.');
+      return;
+    }
+    const info = deserializeInfo(raw);
+    if (info.wiped) {
+      showError('rb-error', 'That file does not look like a resume backup from this tool.');
+      el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    if (!window.confirm('Replace your current resume with the imported file? This cannot be undone.')) return;
+    resume = info.resume;
+    save();
+    renderEditor();
+    renderPreview();
+  });
+
   // Filled by the import panel (src/tools/resume-import-ui.ts): replace the
   // whole resume with the parsed data, then re-render editor and preview.
   window.addEventListener('freekit:resume-import', (e) => {

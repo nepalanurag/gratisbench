@@ -2413,6 +2413,7 @@ console.log('== element-id cross-checks (glue ids exist in pages) ==');
   checkGlueIds('src/tools/image-tracer.ts', 'src/pages/image-tracer.astro');
   checkGlueIds('src/tools/business-profile.ts', 'src/pages/business-profile.astro');
   checkGlueIds('src/tools/resume-import-ui.ts', 'src/pages/resume-builder.astro');
+  checkGlueIds('src/tools/resume-builder.ts', 'src/pages/resume-builder.astro');
   checkGlueIds('src/tools/budget-planner.ts', 'src/pages/budget-planner.astro');
   checkGlueIds('src/tools/subscription-tracker.ts', 'src/pages/subscription-tracker.astro');
   checkGlueIds('src/tools/logo-maker.ts', 'src/pages/logo-maker.astro');

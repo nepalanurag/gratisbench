@@ -8,7 +8,7 @@ export function pageFileName(stem: string, pageNumber: number, format: PageImage
   return `${clean}-page-${pageNumber}.${format}`;
 }
 
-export const PAGE_IMAGE_DPIS = [72, 150, 300] as const;
+export const PAGE_IMAGE_DPIS = [72, 150, 300, 600] as const;
 
 export interface PageImageOptions {
   dpi: number;

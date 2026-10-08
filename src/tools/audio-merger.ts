@@ -1,13 +1,15 @@
 // Audio merger: DOM glue. Clips are decoded with Web Audio, resampled to a
 // common rate with the pure resampleLinear helper, concatenated in an
 // OfflineAudioContext with a linear fade-out/fade-in at each join, and the
-// render is encoded as WAV with the pure encodeWav helper.
+// render is encoded as WAV (pure encodeWav helper) or MP3 (lamejs), per the
+// user's format choice.
 import {
   formatTime,
   resampleLinear,
   encodeWav,
   withExtension,
 } from '../lib/media-core.ts';
+import { encodeMp3 } from '../lib/mp3-encode.ts';
 import {
   el,
   formatBytes,
@@ -102,6 +104,29 @@ export function initAudioMerger(): void {
     el('fade-val').textContent = `${Number((e.target as HTMLInputElement).value).toFixed(1)}s`;
   });
 
+  // Remember the output format between visits.
+  const fmtKey = 'truepdf:audio-merger:out-format';
+  const fmtRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="out-format"]'));
+  try {
+    const stored = localStorage.getItem(fmtKey);
+    if (stored === 'mp3' || stored === 'wav') {
+      fmtRadios.forEach((r) => {
+        r.checked = r.value === stored;
+      });
+    }
+  } catch {
+    /* localStorage unavailable — keep the default */
+  }
+  fmtRadios.forEach((r) =>
+    r.addEventListener('change', () => {
+      try {
+        localStorage.setItem(fmtKey, r.value);
+      } catch {
+        /* ignore quota errors */
+      }
+    })
+  );
+
   el('merge-btn').addEventListener('click', async () => {
     hideError('error-box');
     el('result').hidden = true;
@@ -156,13 +181,23 @@ export function initAudioMerger(): void {
       for (let i = 0; i < rendered.numberOfChannels; i++) {
         outChannels.push(rendered.getChannelData(i).slice());
       }
-      const wav = encodeWav(outChannels, targetRate);
-      const name = withExtension('merged-audio', 'wav');
-      downloadBytes(name, wav, 'audio/wav');
-      el('result').hidden = false;
-      el('result-info').textContent =
-        `${clips.length} clips joined · ${formatTime(totalSec)} · ${formatBytes(wav.length)}` +
-        (fadeSec > 0 ? ` · ${fadeSec.toFixed(1)}s fades at each join` : '');
+      const asMp3 = document.querySelector<HTMLInputElement>('input[name="out-format"]:checked')?.value === 'mp3';
+      const fadeNote = fadeSec > 0 ? ` · ${fadeSec.toFixed(1)}s fades at each join` : '';
+      if (asMp3) {
+        const mp3 = await encodeMp3(outChannels, targetRate, 192);
+        const name = withExtension('merged-audio', 'mp3');
+        downloadBytes(name, mp3, 'audio/mpeg');
+        el('result').hidden = false;
+        el('result-info').textContent =
+          `${clips.length} clips joined · ${formatTime(totalSec)} · ${formatBytes(mp3.length)} · MP3 192 kbps` + fadeNote;
+      } else {
+        const wav = encodeWav(outChannels, targetRate);
+        const name = withExtension('merged-audio', 'wav');
+        downloadBytes(name, wav, 'audio/wav');
+        el('result').hidden = false;
+        el('result-info').textContent =
+          `${clips.length} clips joined · ${formatTime(totalSec)} · ${formatBytes(wav.length)}` + fadeNote;
+      }
     } catch (err) {
       showError('error-box', err instanceof Error ? err.message : 'Joining the clips failed.');
     } finally {

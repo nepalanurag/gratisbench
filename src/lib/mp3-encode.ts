@@ -42,7 +42,7 @@ export async function encodeMp3(
   const stereo = prepared.length === 2;
   const encoder = new Mp3Encoder(stereo ? 2 : 1, targetRate, kb);
   const BLOCK = 1152; // one MP3 frame's worth of samples per channel
-  const parts: Int8Array[] = [];
+  const parts: Uint8Array[] = [];
   const total = prepared[0].length;
   for (let i = 0; i < total; i += BLOCK) {
     const left = prepared[0].subarray(i, i + BLOCK);
@@ -58,7 +58,7 @@ export async function encodeMp3(
   const out = new Uint8Array(bytes);
   let o = 0;
   for (const p of parts) {
-    out.set(new Uint8Array(p.buffer, p.byteOffset, p.length), o);
+    out.set(p, o);
     o += p.length;
   }
   return out;

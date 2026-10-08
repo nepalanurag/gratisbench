@@ -26,6 +26,7 @@ import {
   hideError,
   setBusy,
   setupDropzone,
+  bindSetting,
 } from './common.ts';
 
 interface Item {
@@ -38,6 +39,10 @@ interface Item {
   resultName: string | null;
   resultData: Uint8Array | null;
   resultMime: string | null;
+  /** Blob URL of the compressed bytes, for the before/after compare. */
+  resultUrl: string | null;
+  /** Whether the row thumbnail is currently showing the compressed result. */
+  showingAfter: boolean;
 }
 
 const items: Item[] = [];
@@ -74,8 +79,18 @@ function renderList(): void {
 
     const thumb = document.createElement('img');
     thumb.className = 'thumb';
-    thumb.src = item.thumb;
+    thumb.src = item.showingAfter && item.resultUrl ? item.resultUrl : item.thumb;
     thumb.alt = '';
+
+    const thumbWrap = document.createElement('span');
+    thumbWrap.className = 'thumb-wrap';
+    thumbWrap.appendChild(thumb);
+    if (item.resultUrl) {
+      const badge = document.createElement('span');
+      badge.className = 'compare-badge';
+      badge.textContent = item.showingAfter ? 'After' : 'Before';
+      thumbWrap.appendChild(badge);
+    }
 
     const name = document.createElement('span');
     name.className = 'file-name';
@@ -94,6 +109,20 @@ function renderList(): void {
 
     const actions = document.createElement('span');
     actions.className = 'file-actions';
+    if (item.resultUrl) {
+      const cmp = document.createElement('button');
+      cmp.type = 'button';
+      cmp.className = 'icon-btn compare-btn';
+      cmp.title = 'Toggle before/after preview';
+      cmp.setAttribute('aria-label', `Toggle before and after preview for ${item.file.name}`);
+      cmp.setAttribute('aria-pressed', String(item.showingAfter));
+      cmp.textContent = item.showingAfter ? 'After' : 'Before';
+      cmp.addEventListener('click', () => {
+        item.showingAfter = !item.showingAfter;
+        renderList();
+      });
+      actions.appendChild(cmp);
+    }
     if (item.resultData && item.resultName && item.resultMime) {
       const dl = document.createElement('button');
       dl.type = 'button';
@@ -115,13 +144,14 @@ function renderList(): void {
     rm.innerHTML = X_SVG;
     rm.addEventListener('click', () => {
       URL.revokeObjectURL(item.url);
+      if (item.resultUrl) URL.revokeObjectURL(item.resultUrl);
       items.splice(idx, 1);
       refreshJpegUi();
       renderList();
     });
     actions.appendChild(rm);
 
-    row.append(thumb, name, meta, actions);
+    row.append(thumbWrap, name, meta, actions);
     list.appendChild(row);
   });
   el('empty-state').hidden = items.length > 0;
@@ -151,6 +181,7 @@ export function initImageCompressor(): void {
   };
   qualityRange.addEventListener('input', syncQualityLabel);
   syncQualityLabel();
+  bindSetting('image-compressor', 'quality', qualityRange, '80');
 
   document.querySelectorAll('input[name="out-format"]').forEach((radio) => {
     radio.addEventListener('change', refreshJpegUi);
@@ -176,6 +207,8 @@ export function initImageCompressor(): void {
           resultName: null,
           resultData: null,
           resultMime: null,
+          resultUrl: null,
+          showingAfter: false,
         });
       } catch {
         showError(
@@ -206,6 +239,8 @@ export function initImageCompressor(): void {
         item.resultName = outputFileName(item.file.name, '-compressed', settings.outputFormat);
         item.resultData = data;
         item.resultMime = settings.mime;
+        if (item.resultUrl) URL.revokeObjectURL(item.resultUrl);
+        item.resultUrl = URL.createObjectURL(new Blob([data as BlobPart], { type: settings.mime }));
         renderList();
       }
       updateTotals();

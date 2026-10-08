@@ -1,6 +1,6 @@
 // QR generator tool: DOM glue. Core logic lives in ../lib/qr-core.ts
 import { makeQrPng, makeQrSvg, type QrErrorCorrection } from '../lib/qr-core.ts';
-import { el, downloadDataUrl, downloadText, showError, hideError, setBusy, loadImage } from './common.ts';
+import { el, downloadDataUrl, downloadText, showError, hideError, setBusy, loadImage, bindSetting } from './common.ts';
 
 function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
   let t: ReturnType<typeof setTimeout> | undefined;
@@ -76,6 +76,26 @@ export function initQrGenerator(): void {
     node.addEventListener('input', refreshSoon);
     node.addEventListener('change', refreshSoon);
   }
+
+  // Content templates: fill the textarea with the right format for the job.
+  document.querySelectorAll<HTMLButtonElement>('[data-qr-template]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      textInput.value = btn.getAttribute('data-qr-template') || '';
+      refreshSoon();
+      textInput.focus();
+      // Put the cursor where the user types their own value.
+      const v = textInput.value;
+      const at = v.indexOf('YourNetwork') >= 0 ? v.indexOf('YourNetwork')
+        : v.indexOf('you@example.com') >= 0 ? v.indexOf('you@example.com')
+        : v.indexOf('+15551234567') >= 0 ? v.indexOf('+15551234567')
+        : v.length;
+      textInput.setSelectionRange(at, at + (v.startsWith('WIFI') ? 11 : v.startsWith('mailto') ? 15 : v.startsWith('tel') ? 12 : 0));
+    });
+  });
+
+  // Remember the size and error-correction picks between visits.
+  bindSetting('qr-generator', 'size', sizeSel, '1024');
+  bindSetting('qr-generator', 'ec', ecSel, 'M');
 
   logoInput.addEventListener('change', () => {
     logoFile = logoInput.files?.[0] ?? null;

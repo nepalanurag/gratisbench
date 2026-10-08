@@ -79,6 +79,8 @@ export function parsePageRanges(input: string, pageCount: number): number[] {
   return [...picked].sort((x, y) => x - y);
 }
 
+export const MAX_SPLIT_GROUPS = 50;
+
 /**
  * Split a PDF according to a spec. Commas group pages into one file;
  * semicolons start a new output file. Example: "1-3; 4-6; 9" -> 3 PDFs.
@@ -95,8 +97,8 @@ export async function splitPdf(buffer: Uint8Array, spec: string): Promise<SplitP
   if (groups.length === 0) {
     throw new Error('Enter page ranges to extract, for example "1-3; 4-6".');
   }
-  if (groups.length > 50) {
-    throw new Error('Too many output files. Keep it to 50 or fewer groups.');
+  if (groups.length > MAX_SPLIT_GROUPS) {
+    throw new Error(`Too many output files. Keep it to ${MAX_SPLIT_GROUPS} or fewer groups.`);
   }
 
   const results: SplitPart[] = [];
@@ -107,6 +109,62 @@ export async function splitPdf(buffer: Uint8Array, spec: string): Promise<SplitP
     for (const page of pages) out.addPage(page);
     results.push({
       name: groups.length === 1 ? 'split.pdf' : `split-part-${i + 1}.pdf`,
+      data: await out.save(),
+    });
+  }
+  return results;
+}
+
+/**
+ * One-click "split every page": one output PDF per page.
+ * Names are split-page-1.pdf, split-page-2.pdf, ... so the UI can re-stem them.
+ */
+export async function splitEveryPage(buffer: Uint8Array): Promise<SplitPart[]> {
+  const src = await PDFDocument.load(buffer, { ignoreEncryption: false });
+  const pageCount = src.getPageCount();
+  if (pageCount > MAX_SPLIT_GROUPS) {
+    throw new Error(
+      `This PDF has ${pageCount} pages. Splitting every page is capped at ${MAX_SPLIT_GROUPS} files per run; use "every N pages" for bigger documents.`
+    );
+  }
+  const results: SplitPart[] = [];
+  for (let i = 0; i < pageCount; i++) {
+    const out = await PDFDocument.create();
+    const [page] = await out.copyPages(src, [i]);
+    out.addPage(page);
+    results.push({ name: `split-page-${i + 1}.pdf`, data: await out.save() });
+  }
+  return results;
+}
+
+/**
+ * Chunk a PDF into fixed-size groups of N pages: pages 1-N, N+1-2N, ...
+ * The last group holds whatever remains.
+ */
+export async function splitEveryNPages(buffer: Uint8Array, n: number): Promise<SplitPart[]> {
+  if (!Number.isInteger(n) || n < 1) {
+    throw new Error('Pages per file must be a whole number of 1 or more.');
+  }
+  if (n > MAX_SPLIT_GROUPS) {
+    throw new Error(`Pages per file is capped at ${MAX_SPLIT_GROUPS}.`);
+  }
+  const src = await PDFDocument.load(buffer, { ignoreEncryption: false });
+  const pageCount = src.getPageCount();
+  const groupCount = Math.ceil(pageCount / n);
+  if (groupCount > MAX_SPLIT_GROUPS) {
+    throw new Error(
+      `That would make ${groupCount} files. Keep it to ${MAX_SPLIT_GROUPS} or fewer; use a bigger chunk size.`
+    );
+  }
+  const results: SplitPart[] = [];
+  for (let g = 0; g < groupCount; g++) {
+    const indices: number[] = [];
+    for (let i = g * n; i < Math.min((g + 1) * n, pageCount); i++) indices.push(i);
+    const out = await PDFDocument.create();
+    const pages = await out.copyPages(src, indices);
+    for (const page of pages) out.addPage(page);
+    results.push({
+      name: groupCount === 1 ? 'split.pdf' : `split-part-${g + 1}.pdf`,
       data: await out.save(),
     });
   }

@@ -186,6 +186,7 @@ export function initLogoMaker(): void {
   });
   el('logo-example').addEventListener('click', () => {
     hideError('logo-error');
+    if (!window.confirm('Replace your current logo with the example?')) return;
     spec = exampleLogoSpec();
     nameInput.value = spec.name;
     taglineInput.value = spec.tagline;

@@ -37,6 +37,12 @@ export function initAudioTrimmer(): void {
   let playhead = 0;
   let source: AudioBufferSourceNode | null = null;
   let playTimer: number | null = null;
+  // Cached per loaded file: the mono mix and the peaks for the current canvas
+  // width. draw() runs on every slider move and every 50ms during playback;
+  // without this cache it re-mixed the full-length buffer (~600MB for an
+  // hour-long file) on every single repaint.
+  let mono: Float32Array = new Float32Array(0);
+  let peakCache: { buckets: number; peaks: Float32Array } | null = null;
 
   function getCtx(): AudioContext {
     if (!audioCtx) {
@@ -67,8 +73,10 @@ export function initAudioTrimmer(): void {
     ctx.clearRect(0, 0, cssW, cssH);
 
     const buckets = Math.max(1, Math.floor(cssW));
-    const mono = mixMono();
-    const peaks = computePeaks(mono, buckets);
+    if (!peakCache || peakCache.buckets !== buckets) {
+      peakCache = { buckets, peaks: computePeaks(mono, buckets) };
+    }
+    const peaks = peakCache.peaks;
     const mid = cssH / 2;
     const c = themeColors();
 
@@ -193,6 +201,9 @@ export function initAudioTrimmer(): void {
       for (let i = 0; i < decoded.numberOfChannels; i++) {
         channels.push(decoded.getChannelData(i).slice());
       }
+      // Cache the mono mix once per file; draw() reuses it on every repaint.
+      mono = mixMono();
+      peakCache = null;
       fileName = file.name;
       start = 0;
       end = Math.round(duration * 10) / 10;

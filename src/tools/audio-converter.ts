@@ -10,6 +10,7 @@ import {
   hideError,
   setBusy,
   setupDropzone,
+  bindSetting,
 } from './common.ts';
 
 type OutFormat = 'mp3' | 'wav' | 'ogg';
@@ -35,7 +36,31 @@ export function initAudioConverter(): void {
   }
   document.querySelectorAll('input[name="format"]').forEach((r) => {
     r.addEventListener('change', qualityRowVisible);
+    r.addEventListener('change', updateSameFormatNote);
   });
+  // Remember the bitrate pick between visits.
+  bindSetting('audio-converter', 'bitrate', el<HTMLSelectElement>('quality-select'), '192');
+
+  /** Warn when the input is already in the selected lossy format: converting
+   *  re-encodes it, which can only lose quality. WAV-to-WAV is lossless, so
+   *  no warning there. */
+  function updateSameFormatNote(): void {
+    const note = el('same-format-note');
+    if (!file) {
+      note.hidden = true;
+      return;
+    }
+    const fmt = selectedFormat();
+    const inExt = extOf(file.name).toLowerCase();
+    const lossyMatch = (fmt === 'mp3' || fmt === 'ogg') && inExt === '.' + fmt;
+    note.hidden = !lossyMatch;
+    if (lossyMatch) {
+      note.textContent =
+        `Heads up: this file is already ${fmt.toUpperCase()}, so converting re-encodes ` +
+        `it and can slightly lower the quality. That is fine if you are changing ` +
+        `the bitrate, but if you just need the same file, you already have it.`;
+    }
+  }
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
@@ -44,6 +69,7 @@ export function initAudioConverter(): void {
     file = f;
     el('file-info').textContent = `${f.name} · ${formatBytes(f.size)}`;
     el<HTMLButtonElement>('convert-btn').disabled = false;
+    updateSameFormatNote();
     // Start loading the engine in the background while the user picks options.
     status.hidden = false;
     status.textContent = 'Loading the audio engine (about 30MB, first use only)…';

@@ -1,6 +1,7 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
+import ToolkitTabs from '../components/ToolkitTabs.astro';
 
 const title = 'Audio Converter - MP3, WAV, OGG Online Free | TruePDF';
 const description =
@@ -68,6 +69,14 @@ const lede = 'Turn audio between MP3, WAV, and OGG Vorbis. Real encoding, on you
     },
   ]}
 >
+  <ToolkitTabs
+    current="/audio-converter"
+    tabs={[
+      { href: '/audio-trimmer', label: 'Trim' },
+      { href: '/audio-merger', label: 'Merge' },
+      { href: '/audio-converter', label: 'Convert' },
+    ]}
+  />
   <section class="tool-card" slot="tool" aria-label="Audio converter tool">
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add an audio file to convert">
       <div class="dz-icon"><Icon name="audio" size={30} /></div>
@@ -85,6 +94,7 @@ const lede = 'Turn audio between MP3, WAV, and OGG Vorbis. Real encoding, on you
       <label class="radio-card"><input type="radio" name="format" value="wav" /><span><strong>WAV</strong><small>Lossless. Big files, best for editing.</small></span></label>
       <label class="radio-card"><input type="radio" name="format" value="ogg" /><span><strong>OGG Vorbis</strong><small>Open format, great quality per bit.</small></span></label>
     </div>
+    <p id="same-format-note" class="hint" hidden></p>
 
     <div class="field field-narrow" id="quality-row">
       <label for="quality-select">Bitrate</label>

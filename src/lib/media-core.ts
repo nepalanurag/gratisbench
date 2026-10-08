@@ -196,11 +196,11 @@ export function floatToInt16(samples: Float32Array): Int16Array {
  * Good enough for MP3 encoding prep; not studio-grade.
  */
 export function resampleLinear(
-  input: Float32Array,
+  input: Float32Array<ArrayBufferLike>,
   fromRate: number,
   toRate: number
-): Float32Array {
-  if (fromRate === toRate) return input.slice();
+): Float32Array<ArrayBuffer> {
+  if (fromRate === toRate) return Float32Array.from(input);
   if (fromRate <= 0 || toRate <= 0) {
     throw new Error('Sample rates must be positive.');
   }
@@ -248,17 +248,43 @@ export function computePeaks(channel: Float32Array, buckets: number): Float32Arr
 
 /** Copy [startSample, endSample) out of each channel. Sample indices are clamped. */
 export function sliceChannels(
-  channels: Float32Array[],
+  channels: Float32Array<ArrayBufferLike>[],
   startSample: number,
   endSample: number
-): Float32Array[] {
+): Float32Array<ArrayBuffer>[] {
   const frames = channels.length > 0 ? channels[0].length : 0;
   const s = clamp(Math.floor(startSample), 0, frames);
   const e = clamp(Math.ceil(endSample), 0, frames);
   if (e <= s) {
     throw new Error('The selection is empty. Pick a start before the end.');
   }
-  return channels.map((c) => c.slice(s, e));
+  // Explicit copies into fresh ArrayBuffers: DOM APIs like
+  // AudioBuffer.copyToChannel reject SharedArrayBuffer-backed views.
+  return channels.map((c) => {
+    const out = new Float32Array(e - s);
+    out.set(c.subarray(s, e));
+    return out;
+  });
+}
+
+/**
+ * Apply short fade-in/out to sliced channels so cuts don't click.
+ * fadeMs of 10ms at each end is inaudible as an effect but kills the pop.
+ */
+export function applyFades(
+  sliced: Float32Array<ArrayBuffer>[],
+  sampleRate: number,
+  fadeMs = 10
+): void {
+  const fadeSamples = Math.max(1, Math.floor((sampleRate * fadeMs) / 1000));
+  for (const ch of sliced) {
+    const n = Math.min(fadeSamples, Math.floor(ch.length / 2));
+    for (let i = 0; i < n; i++) {
+      const g = i / n;
+      ch[i] *= g;
+      ch[ch.length - 1 - i] *= g;
+    }
+  }
 }
 
 export interface TrimRange {

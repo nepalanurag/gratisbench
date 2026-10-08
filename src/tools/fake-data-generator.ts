@@ -6,6 +6,7 @@ import {
   hideError,
   setBusy,
   downloadText,
+  bindSetting,
 } from './common.ts';
 import {
   FAKEDATA_STORAGE_KEY,
@@ -239,10 +240,13 @@ export function initFakeDataGenerator(): void {
     regenerate();
   };
   seedInput.addEventListener('change', applySeed);
+  // Remember the seed so the same dataset can be regenerated next visit.
+  bindSetting('fake-data-generator', 'seed', seedInput, String(seed));
   el('fakedata-reroll').addEventListener('click', () => {
     seed = Math.floor(Math.random() * 900000) + 100000;
     seedInput.value = String(seed);
-    regenerate();
+    // Fire change so the seed is validated, persisted, and applied.
+    seedInput.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
   el('fakedata-download').addEventListener('click', () => {

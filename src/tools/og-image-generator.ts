@@ -203,6 +203,7 @@ export function initOgImageGenerator(): void {
   });
 
   el('og-example').addEventListener('click', () => {
+    if (!window.confirm('Replace your current card with the example?')) return;
     spec = exampleOgSpec();
     presetSel.value = spec.presetId;
     patternSel.value = spec.pattern;
