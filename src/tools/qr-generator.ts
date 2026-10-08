@@ -111,30 +111,32 @@ export function initQrGenerator(): void {
 
 /** Draw the QR code and center the logo on top with a white backing. */
 async function composeWithLogo(qrDataUrl: string, logo: File, size: number): Promise<string> {
-  const [qrImg, logoImg] = await Promise.all([
-    loadImage(qrDataUrl),
-    loadImage(URL.createObjectURL(logo)),
-  ]);
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas is not available in this browser.');
-  ctx.drawImage(qrImg, 0, 0, size, size);
+  const logoUrl = URL.createObjectURL(logo);
+  try {
+    const [qrImg, logoImg] = await Promise.all([loadImage(qrDataUrl), loadImage(logoUrl)]);
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas is not available in this browser.');
+    ctx.drawImage(qrImg, 0, 0, size, size);
 
-  const logoSize = Math.round(size * 0.22);
-  const x = (size - logoSize) / 2;
-  const y = (size - logoSize) / 2;
-  // White rounded backing keeps the logo area scannable.
-  const pad = Math.round(size * 0.02);
-  const rx = x - pad;
-  const ry = y - pad;
-  const rw = logoSize + pad * 2;
-  const rr = Math.round(size * 0.03);
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.roundRect(rx, ry, rw, rw, rr);
-  ctx.fill();
-  ctx.drawImage(logoImg, x, y, logoSize, logoSize);
-  return canvas.toDataURL('image/png');
+    const logoSize = Math.round(size * 0.22);
+    const x = (size - logoSize) / 2;
+    const y = (size - logoSize) / 2;
+    // White rounded backing keeps the logo area scannable.
+    const pad = Math.round(size * 0.02);
+    const rx = x - pad;
+    const ry = y - pad;
+    const rw = logoSize + pad * 2;
+    const rr = Math.round(size * 0.03);
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(rx, ry, rw, rw, rr);
+    ctx.fill();
+    ctx.drawImage(logoImg, x, y, logoSize, logoSize);
+    return canvas.toDataURL('image/png');
+  } finally {
+    URL.revokeObjectURL(logoUrl);
+  }
 }
