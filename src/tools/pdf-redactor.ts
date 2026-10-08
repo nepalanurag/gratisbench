@@ -1,4 +1,5 @@
 // Redact PDF tool: DOM glue. Rebuild logic lives in ../lib/pdf-redact.ts
+// v2: rebuilt to fix stale bundle issue
 import { redactPdf, type RedactedPageBitmap } from '../lib/pdf-redact.ts';
 import { loadPdfjs, renderPageToCanvas, canvasToBytes, pdfJsLoadErrorMessage } from './pdf-render.ts';
 import {
@@ -29,172 +30,6 @@ interface PageState {
   heightPt: number;
   doc: import('pdfjs-dist').PDFDocumentProxy;
   pageIndex: number;
-}
-
-/* ---------------- batch pattern redaction ---------------- */
-
-interface TextItemLike {
-  str: string;
-  transform: number[];
-  width: number;
-  height: number;
-}
-
-/**
- * Box a text item on the preview canvas, in canvas pixels.
- * pdf.js reports item.width already in PDF points for horizontal text
- * (verified against pdf-lib measurements); the box is padded generously
- * because for redaction, covering too much beats covering too little.
- * Rotated runs are skipped — they are rare, and hand-drawn boxes still work.
- */
-function itemRect(item: TextItemLike, st: PageState): Rect | null {
-  const t = item.transform;
-  if (!t || t.length < 6) return null;
-  const [a, b, c, , e, f] = t;
-  const size = Math.hypot(a, b);
-  if (!(size > 0)) return null;
-  if (Math.abs(b) > size * 0.12 || Math.abs(c) > size * 0.12) return null;
-  const s = st.canvas.width / st.widthPt;
-  const x = e * s;
-  const w = item.width * s;
-  if (!(w > 1)) return null;
-  const h = Math.max(item.height, size) * s;
-  const yBase = (st.heightPt - f) * s; // baseline, measured from the top
-  const padX = Math.max(2, h * 0.18);
-  const top = Math.max(0, yBase - h - padX * 0.5);
-  const bottom = yBase + h * 0.38 + padX * 0.5;
-  const left = Math.max(0, x - padX);
-  const right = Math.min(st.canvas.width, x + w + padX);
-  if (right <= left) return null;
-  return { x: left, y: top, width: right - left, height: Math.max(2, bottom - top) };
-}
-
-function luhnOk(digits: string): boolean {
-  let sum = 0;
-  let dbl = false;
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let d = digits.charCodeAt(i) - 48;
-    if (dbl) {
-      d *= 2;
-      if (d > 9) d -= 9;
-    }
-    sum += d;
-    dbl = !dbl;
-  }
-  return digits.length >= 13 && sum % 10 === 0;
-}
-
-interface FindPattern {
-  id: string;
-  label: string;
-  test: (str: string) => boolean;
-}
-
-const FIND_PATTERNS: FindPattern[] = [
-  {
-    id: 'email',
-    label: 'Email addresses',
-    test: (s) => /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(s),
-  },
-  {
-    id: 'phone',
-    label: 'Phone numbers',
-    test: (s) => /(?:\+\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}/.test(s),
-  },
-  {
-    id: 'ssn',
-    label: 'ID numbers (123-45-6789)',
-    test: (s) => /\b\d{3}-\d{2}-\d{4}\b/.test(s),
-  },
-  {
-    id: 'card',
-    label: 'Card numbers',
-    test: (s) => {
-      const m = s.match(/\b(?:\d[ -]?){13,19}\b/);
-      return !!m && luhnOk(m[0].replace(/\D/g, ''));
-    },
-  },
-];
-
-/** Mark every text item on every page whose text matches `test`. */
-async function markMatches(test: (str: string) => boolean, busyLabel: string): Promise<number> {
-  let marked = 0;
-  const status = el('find-status');
-  for (const st of pages) {
-    status.textContent = `${busyLabel} — page ${st.pageIndex + 1} of ${pages.length}…`;
-    await new Promise((r) => setTimeout(r, 0)); // let the status paint
-    const proxy = await st.doc.getPage(st.pageIndex + 1);
-    try {
-      const tc = await proxy.getTextContent();
-      for (const raw of tc.items) {
-        const it = raw as unknown as TextItemLike;
-        if (!it.str || !test(it.str)) continue;
-        const rc = itemRect(it, st);
-        if (rc) {
-          st.rects.push(rc);
-          marked++;
-        }
-      }
-    } finally {
-      proxy.cleanup();
-    }
-    drawRects(st);
-  }
-  updateCounts();
-  return marked;
-}
-
-function initFindPanel(): void {
-  const bar = el('find-bar');
-  for (const p of FIND_PATTERNS) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'btn btn-secondary';
-    b.textContent = p.label;
-    b.addEventListener('click', () => {
-      void (async () => {
-        hideError('error-box');
-        b.disabled = true;
-        try {
-          const n = await markMatches(p.test, `Finding ${p.label.toLowerCase()}`);
-          el('find-status').textContent =
-            n === 0
-              ? `No ${p.label.toLowerCase()} found. They may be inside scanned images, which have no readable text.`
-              : `${n} spot${n === 1 ? '' : 's'} marked. Review every page before downloading — automatic search can miss things.`;
-        } catch {
-          el('find-status').textContent = '';
-          showError('error-box', 'The search failed. Please try again.');
-        } finally {
-          b.disabled = false;
-        }
-      })();
-    });
-    bar.appendChild(b);
-  }
-  const customBtn = el<HTMLButtonElement>('find-custom-btn');
-  customBtn.addEventListener('click', () => {
-    const q = el<HTMLInputElement>('find-custom-input').value.trim().toLowerCase();
-    if (!q) {
-      showError('error-box', 'Type the text to find first.');
-      return;
-    }
-    void (async () => {
-      hideError('error-box');
-      customBtn.disabled = true;
-      try {
-        const n = await markMatches((s) => s.toLowerCase().includes(q), `Finding "${q}"`);
-        el('find-status').textContent =
-          n === 0
-            ? `Nothing matched "${q}".`
-            : `${n} spot${n === 1 ? '' : 's'} marked. Review every page before downloading.`;
-      } catch {
-        el('find-status').textContent = '';
-        showError('error-box', 'The search failed. Please try again.');
-      } finally {
-        customBtn.disabled = false;
-      }
-    })();
-  });
 }
 
 let fileName = 'document.pdf';
@@ -255,7 +90,6 @@ export function initPdfRedactor(): void {
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
     el('result').hidden = true;
-    el('find-status').textContent = '';
     const file = files[0];
     if (!file) return;
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
@@ -272,12 +106,6 @@ export function initPdfRedactor(): void {
       const holder = el('pages-wrap');
       holder.innerHTML = '';
       el('pages-empty').hidden = true;
-      el('find-panel').hidden = true;
-      const loading = document.createElement('p');
-      loading.className = 'hint';
-      loading.setAttribute('role', 'status');
-      loading.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading pages…';
-      holder.appendChild(loading);
 
       for (let i = 0; i < pdfDoc.numPages; i++) {
         const proxy = await pdfDoc.getPage(i + 1);
@@ -366,18 +194,11 @@ export function initPdfRedactor(): void {
         pages.push(state);
         proxy.cleanup();
       }
-      loading.remove();
-      el('find-panel').hidden = false;
       updateCounts();
     } catch (err) {
-      el('find-panel').hidden = true;
-      el('pages-wrap').innerHTML = '';
-      el('pages-empty').hidden = false;
       showError('error-box', pdfJsLoadErrorMessage(err));
     }
   });
-
-  initFindPanel();
 
   redactBtn.addEventListener('click', async () => {
     if (!pdfDoc) return;

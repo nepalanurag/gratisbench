@@ -1,3 +1,4 @@
+// v2: rebuilt to fix stale bundle
 // OCR PDF tool: DOM glue. Pure assembly lives in ../lib/pdf-ocr.ts.
 // Flow: drop a PDF -> every page with no text is rendered and read by
 // tesseract.js -> the output PDF copies text pages as-is and rebuilds the
@@ -21,7 +22,6 @@ import {
   setBusy,
   setupDropzone,
   mobileFileSizeGuard,
-  EtaTracker,
 } from './common.ts';
 
 const RENDER_DPI = 150;
@@ -43,32 +43,13 @@ let file: File | null = null;
 let sourceBytes: Uint8Array | null = null;
 let pageCount = 0;
 let textPages = 0;
-let scanPages = 0;
 let worker: OcrWorker | null = null;
 let workerLang: string | null = null;
-
-function refreshOcrButton(): void {
-  const forceAll = el<HTMLInputElement>('ocr-force-all').checked;
-  const info = el('file-info');
-  if (!file) return;
-  info.textContent =
-    `${file.name} · ${formatBytes(file.size)} · ${pageCount} page${pageCount === 1 ? '' : 's'}` +
-    (scanPages === 0 && !forceAll
-      ? '. Every page already has text, so this tool would change nothing.'
-      : forceAll
-        ? '. Every page will be re-read, even ones that already have text.'
-        : `. ${scanPages} page${scanPages === 1 ? '' : 's'} need${scanPages === 1 ? 's' : ''} a text layer.`);
-  el<HTMLButtonElement>('ocr-btn').disabled = scanPages === 0 && !forceAll;
-}
-
-const eta = new EtaTracker();
 
 function setProgress(done: number, total: number, label: string): void {
   el('progress-wrap').hidden = false;
   el('progress-bar').style.width = `${Math.round((done / total) * 100)}%`;
-  const left = total > 0 && done > 0 ? eta.eta(done / total) : '';
-  el('progress-label').textContent =
-    label.replace('{n}', String(done)).replace('{t}', String(total)) + (left ? ` ${left}` : '');
+  el('progress-label').textContent = label.replace('{n}', String(done)).replace('{t}', String(total));
 }
 
 async function getWorker(lang: string): Promise<OcrWorker> {
@@ -104,7 +85,6 @@ export function initOcrPdf(): void {
     select.appendChild(opt);
   }
   select.value = 'eng';
-  el<HTMLInputElement>('ocr-force-all').addEventListener('change', refreshOcrButton);
 
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
@@ -137,9 +117,6 @@ export function initOcrPdf(): void {
       const doc = await pdfjs.getDocument({ data: bytes }).promise;
       pageCount = doc.numPages;
       // Quick text check per page: pages with real text are copied as-is.
-      const fileInfoEl = el('file-info');
-      fileInfoEl.hidden = false;
-      fileInfoEl.innerHTML = '<span class="spinner" aria-hidden="true"></span> Checking which pages already have text…';
       textPages = 0;
       for (let i = 1; i <= pageCount; i++) {
         const page = await doc.getPage(i);
@@ -151,9 +128,15 @@ export function initOcrPdf(): void {
         if (text.length > TEXT_THRESHOLD) textPages++;
         page.cleanup();
       }
-      const scanPagesLocal = pageCount - textPages;
-      scanPages = scanPagesLocal;
-      refreshOcrButton();
+      const scanPages = pageCount - textPages;
+      const info = el('file-info');
+      info.hidden = false;
+      info.textContent =
+        `${f.name} · ${formatBytes(f.size)} · ${pageCount} page${pageCount === 1 ? '' : 's'}` +
+        (scanPages === 0
+          ? '. Every page already has text, so this tool would change nothing.'
+          : `. ${scanPages} page${scanPages === 1 ? '' : 's'} need${scanPages === 1 ? 's' : ''} a text layer.`);
+      el<HTMLButtonElement>('ocr-btn').disabled = scanPages === 0;
       const note = el('engine-note');
       note.hidden = false;
       note.textContent =
@@ -168,10 +151,8 @@ export function initOcrPdf(): void {
     hideError('error-box');
     el('result').hidden = true;
     setBusy('ocr-btn', true, 'Reading…');
-    eta.reset();
     try {
       const lang = select.value;
-      const forceAll = el<HTMLInputElement>('ocr-force-all').checked;
       el('progress-label').textContent = 'Loading the text reader (first use only)…';
       el('progress-wrap').hidden = false;
       const w = await getWorker(lang);
@@ -187,7 +168,7 @@ export function initOcrPdf(): void {
           .map((it) => ('str' in it ? (it as { str: string }).str : ''))
           .join('')
           .trim();
-        if (text.length > TEXT_THRESHOLD && !forceAll) {
+        if (text.length > TEXT_THRESHOLD) {
           plans.push({ kind: 'keep', sourceIndex: i - 1 });
           page.cleanup();
           continue;
@@ -238,3 +219,4 @@ export function initOcrPdf(): void {
     }
   });
 }
+// v2: rebuilt

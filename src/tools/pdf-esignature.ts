@@ -1,5 +1,5 @@
+// v2: rebuilt to fix stale bundle
 // E-signature tool: DOM glue. Placement math + flattening live in ../lib/pdf-esign.ts
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { signPdf, previewRectToPdf, type SignaturePlacement } from '../lib/pdf-esign.ts';
 import { loadPdfjs, renderPageToCanvas, pdfJsLoadErrorMessage } from './pdf-render.ts';
 import {
@@ -18,7 +18,6 @@ const PAD_H = 180;
 
 interface PlacedSig {
   pageIndex: number;
-  signer: number;
   x: number;
   y: number;
   width: number;
@@ -33,17 +32,9 @@ interface PageView {
   pageIndex: number;
 }
 
-/** One person's signature. Several people can sign the same document. */
-interface Signer {
-  label: string;
-  png: Uint8Array | null;
-  w: number;
-  h: number;
-  url: string;
-}
-
-let signers: Signer[] = [{ label: 'Signature 1', png: null, w: 0, h: 0, url: '' }];
-let activeSigner = 0;
+let sigPng: Uint8Array | null = null;
+let sigW = 0;
+let sigH = 0;
 let sourceBytes: Uint8Array | null = null;
 let fileName = 'document.pdf';
 let pageViews: PageView[] = [];
@@ -89,67 +80,22 @@ async function useSignature(canvas: HTMLCanvasElement): Promise<void> {
   const bytes = new Uint8Array(
     await (await fetch(url)).arrayBuffer()
   );
-  const s = signers[activeSigner];
-  s.png = bytes;
-  s.w = trimmed.width;
-  s.h = trimmed.height;
-  s.url = url;
+  sigPng = bytes;
+  sigW = trimmed.width;
+  sigH = trimmed.height;
   const img = el<HTMLImageElement>('sig-preview');
   img.src = url;
   img.hidden = false;
-  el('sig-status').textContent = `${s.label} ready. Now click on a page below to place it.`;
+  el('sig-status').textContent = 'Signature ready. Now click on a page below to place it.';
   hideError('error-box');
   refreshSignButton();
 }
 
 function refreshSignButton(): void {
-  const ready = placements.length > 0 && !!sourceBytes && placements.every((p) => signers[p.signer]?.png);
-  el<HTMLButtonElement>('sign-btn').disabled = !ready;
+  el<HTMLButtonElement>('sign-btn').disabled = !sigPng || placements.length === 0 || !sourceBytes;
   const n = placements.length;
   el('placements-label').textContent =
     n === 0 ? 'No placements yet.' : `${n} placement${n === 1 ? '' : 's'}`;
-}
-
-/** The signature picker: one button per signer plus "add another". */
-function renderSigners(): void {
-  const bar = el('signer-bar');
-  bar.innerHTML = '';
-  signers.forEach((s, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = `tab-btn${i === activeSigner ? ' tab-active' : ''}`;
-    b.textContent = s.label;
-    b.setAttribute('aria-pressed', String(i === activeSigner));
-    b.addEventListener('click', () => {
-      activeSigner = i;
-      const img = el<HTMLImageElement>('sig-preview');
-      if (s.png) {
-        img.src = s.url;
-        img.hidden = false;
-        el('sig-status').textContent = `${s.label} ready. Click on a page below to place it.`;
-      } else {
-        img.hidden = true;
-        el('sig-status').textContent = `No signature yet for ${s.label}. Draw or type it above.`;
-      }
-      renderSigners();
-      refreshSignButton();
-    });
-    bar.appendChild(b);
-  });
-  const add = document.createElement('button');
-  add.type = 'button';
-  add.className = 'tab-btn';
-  add.textContent = '+ Add another';
-  add.setAttribute('aria-label', 'Add another signature, for example a second person signing');
-  add.addEventListener('click', () => {
-    signers.push({ label: `Signature ${signers.length + 1}`, png: null, w: 0, h: 0, url: '' });
-    activeSigner = signers.length - 1;
-    el<HTMLImageElement>('sig-preview').hidden = true;
-    el('sig-status').textContent = `Draw or type ${signers[activeSigner].label} above.`;
-    renderSigners();
-    refreshSignButton();
-  });
-  bar.appendChild(add);
 }
 
 function renderPlacements(): void {
@@ -162,10 +108,7 @@ function renderPlacements(): void {
     name.className = 'file-name';
     // Number placements on the same page: "Page 2", "Page 2 (2)", …
     const samePage = placements.slice(0, i + 1).filter((q) => q.pageIndex === p.pageIndex).length;
-    const signerLabel = signers[p.signer]?.label ?? '';
-    name.textContent =
-      (samePage > 1 ? `Page ${p.pageIndex + 1} (${samePage})` : `Page ${p.pageIndex + 1}`) +
-      ` · ${signerLabel}`;
+    name.textContent = samePage > 1 ? `Page ${p.pageIndex + 1} (${samePage})` : `Page ${p.pageIndex + 1}`;
     const hint = document.createElement('span');
     hint.className = 'file-meta';
     hint.textContent = 'drag on the page to move';
@@ -174,7 +117,7 @@ function renderPlacements(): void {
     const rm = document.createElement('button');
     rm.type = 'button';
     rm.className = 'icon-btn';
-    rm.setAttribute('aria-label', `Remove ${signers[p.signer]?.label ?? 'signature'} ${i + 1} from page ${p.pageIndex + 1}`);
+    rm.setAttribute('aria-label', `Remove signature ${i + 1} from page ${p.pageIndex + 1}`);
     rm.innerHTML =
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>';
     rm.addEventListener('click', () => {
@@ -198,7 +141,7 @@ function paintOverlays(): void {
       .forEach((p) => {
         const img = document.createElement('img');
         img.className = 'sig-placed';
-        img.src = signers[p.signer]?.url ?? '';
+        img.src = el<HTMLImageElement>('sig-preview').src;
         img.alt = '';
         // Percentages: the stage is sized in CSS px, the canvas may be CSS-scaled.
         img.style.left = `${(p.x / pv.canvas.width) * 100}%`;
@@ -284,56 +227,12 @@ function paintOverlays(): void {
 /** Timestamp of the last overlay drag end; stage clicks right after are ignored. */
 let lastDragEnd = 0;
 
-function signatureSizeFor(pv: PageView, signerIdx: number): { width: number; height: number } {
-  const s = signers[signerIdx];
+function signatureSizeFor(pv: PageView): { width: number; height: number } {
   const scale = Number(el<HTMLInputElement>('sig-scale').value) / 100;
   // Natural pad pixels map 1:1 onto preview pixels; the slider scales up/down.
-  const width = Math.min(s.w * scale, pv.canvas.width * 0.9);
-  const height = (width / s.w) * s.h;
+  const width = Math.min(sigW * scale, pv.canvas.width * 0.9);
+  const height = (width / sigW) * sigH;
   return { width, height };
-}
-
-/** Today's date in the style the user picked. */
-function dateString(): string {
-  const d = new Date();
-  const fmt = el<HTMLSelectElement>('sig-date-format').value;
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  if (fmt === 'numeric') return `${mm}/${dd}/${d.getFullYear()}`;
-  if (fmt === 'iso') return `${d.getFullYear()}-${mm}-${dd}`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-/** Stamp the date under each signature, centered on the signature width. */
-async function stampDates(
-  bytes: Uint8Array,
-  rects: { pageIndex: number; x: number; y: number; width: number }[],
-  text: string
-): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(bytes);
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  for (const r of rects) {
-    const page = doc.getPage(r.pageIndex);
-    const size = Math.min(11, Math.max(7, r.width / 16));
-    const tw = font.widthOfTextAtSize(text, size);
-    const x = Math.min(Math.max(0, r.x + (r.width - tw) / 2), Math.max(0, page.getWidth() - tw));
-    const y = Math.max(2, r.y - size - 5);
-    page.drawText(text, { x, y, size, font, color: rgb(0.25, 0.25, 0.25) });
-  }
-  return doc.save();
-}
-
-/** Convert placement rectangles from preview pixels to PDF points. */
-function placementToPdf(p: PlacedSig): SignaturePlacement & { pageIndex: number } {
-  const pv = pageViews[p.pageIndex];
-  const pdf = previewRectToPdf(
-    { x: p.x, y: p.y, width: p.width, height: p.height },
-    pv.canvas.width,
-    pv.canvas.height,
-    pv.widthPt,
-    pv.heightPt
-  );
-  return { pageIndex: p.pageIndex, ...pdf };
 }
 
 export function initPdfEsignature(): void {
@@ -483,7 +382,7 @@ export function initPdfEsignature(): void {
       if (!pv) continue;
       const cx = p.x + p.width / 2;
       const cy = p.y + p.height / 2;
-      const { width, height } = signatureSizeFor(pv, p.signer);
+      const { width, height } = signatureSizeFor(pv);
       p.width = width;
       p.height = height;
       p.x = Math.min(Math.max(0, cx - width / 2), Math.max(0, pv.canvas.width - width));
@@ -499,7 +398,6 @@ export function initPdfEsignature(): void {
     const file = files[0];
     if (!file) return;
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
-      el('doc-info').textContent = '';
       showError('error-box', `"${file.name}" is not a PDF.`);
       return;
     }
@@ -514,11 +412,6 @@ export function initPdfEsignature(): void {
       const holder = el('pages-wrap');
       holder.innerHTML = '';
       el('pages-empty').hidden = true;
-      const loading = document.createElement('p');
-      loading.className = 'hint';
-      loading.setAttribute('role', 'status');
-      loading.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading pages…';
-      holder.appendChild(loading);
       for (let i = 0; i < doc.numPages; i++) {
         const proxy = await doc.getPage(i + 1);
         const canvas = await renderPageToCanvas(proxy, PREVIEW_DPI);
@@ -540,73 +433,56 @@ export function initPdfEsignature(): void {
           // that land on an existing placed signature (bubbles up from it).
           if (Date.now() - lastDragEnd < 200) return;
           if ((e.target as HTMLElement).closest('.sig-placed')) return;
-          const signer = signers[activeSigner];
-          if (!signer.png) {
-            showError('error-box', `Create ${signer.label} first (draw or type it above).`);
+          if (!sigPng) {
+            showError('error-box', 'Create your signature first (draw or type it above).');
             return;
           }
           hideError('error-box');
           const r = canvas.getBoundingClientRect();
           const cx = ((e.clientX - r.left) / r.width) * canvas.width;
           const cy = ((e.clientY - r.top) / r.height) * canvas.height;
-          const { width, height } = signatureSizeFor(pv, activeSigner);
+          const { width, height } = signatureSizeFor(pv);
           const x = Math.min(Math.max(0, cx - width / 2), canvas.width - width);
           const y = Math.min(Math.max(0, cy - height / 2), canvas.height - height);
           // Multiple signatures per page are allowed; each click adds one.
-          placements.push({ pageIndex: i, signer: activeSigner, x, y, width, height });
+          placements.push({ pageIndex: i, x, y, width, height });
           paintOverlays();
           renderPlacements();
           refreshSignButton();
         });
         proxy.cleanup();
       }
-      loading.remove();
       paintOverlays();
       renderPlacements();
       refreshSignButton();
       el('doc-info').textContent = `${file.name} · ${doc.numPages} page${doc.numPages === 1 ? '' : 's'} · ${formatBytes(file.size)}`;
     } catch (err) {
-      el('pages-wrap').innerHTML = '';
-      el('pages-empty').hidden = false;
       showError('error-box', pdfJsLoadErrorMessage(err));
     }
   });
 
   el('sign-btn').addEventListener('click', async () => {
-    const ready = placements.filter((p) => signers[p.signer]?.png);
-    if (!sourceBytes || ready.length === 0) return;
+    if (!sigPng || !sourceBytes || placements.length === 0) return;
     hideError('error-box');
     el('result').hidden = true;
     setBusy('sign-btn', true, 'Signing…');
     try {
-      // Signatures are flattened signer by signer; each call copies the
-      // pages and adds one signer's images.
-      const bySigner = new Map<number, PlacedSig[]>();
-      for (const p of ready) {
-        const arr = bySigner.get(p.signer) ?? [];
-        arr.push(p);
-        bySigner.set(p.signer, arr);
-      }
-      let out = sourceBytes;
-      const pdfRects: (SignaturePlacement & { pageIndex: number })[] = [];
-      for (const [si, ps] of bySigner) {
-        const list = ps.map(placementToPdf);
-        pdfRects.push(...list);
-        const png = signers[si].png;
-        if (!png) continue;
-        out = await signPdf(out, png, list);
-      }
-      if (el<HTMLInputElement>('sig-date').checked) {
-        out = await stampDates(out, pdfRects, dateString());
-      }
+      const list: SignaturePlacement[] = placements.map((p) => {
+        const pv = pageViews[p.pageIndex];
+        const pdf = previewRectToPdf(
+          { x: p.x, y: p.y, width: p.width, height: p.height },
+          pv.canvas.width,
+          pv.canvas.height,
+          pv.widthPt,
+          pv.heightPt
+        );
+        return { pageIndex: p.pageIndex, ...pdf };
+      });
+      const out = await signPdf(sourceBytes, sigPng, list);
       const stem = fileName.replace(/\.[^.]+$/, '');
-      const pageCount = new Set(ready.map((p) => p.pageIndex)).size;
-      const signerCount = bySigner.size;
+      const pageCount = new Set(list.map((l) => l.pageIndex)).size;
       el('result-info').textContent =
-        `${formatBytes(out.length)} · ${ready.length} signature${ready.length === 1 ? '' : 's'}` +
-        (signerCount > 1 ? ` from ${signerCount} people` : '') +
-        ` on ${pageCount} page${pageCount === 1 ? '' : 's'}` +
-        (el<HTMLInputElement>('sig-date').checked ? ' · dated' : '');
+        `${formatBytes(out.length)} · ${list.length} signature${list.length === 1 ? '' : 's'} on ${pageCount} page${pageCount === 1 ? '' : 's'}`;
       el('result').hidden = false;
       el<HTMLButtonElement>('download-btn').onclick = () =>
         downloadBytes(`${stem}-signed.pdf`, out, 'application/pdf');
@@ -619,6 +495,6 @@ export function initPdfEsignature(): void {
   });
 
   showTab(0);
-  renderSigners();
   refreshSignButton();
 }
+// v2: rebuilt
