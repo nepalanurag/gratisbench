@@ -45,11 +45,11 @@ export function initScreenRecorder(): void {
   }
 
   function setState(s: 'idle' | 'recording' | 'paused' | 'done'): void {
-    startBtn.disabled = s !== 'idle';
+    startBtn.disabled = s !== 'idle' && s !== 'done';
     pauseBtn.disabled = s !== 'recording' && s !== 'paused';
     stopBtn.disabled = s !== 'recording' && s !== 'paused';
     pauseBtn.textContent = s === 'paused' ? 'Resume' : 'Pause';
-    el('mic-toggle').disabled = s !== 'idle';
+    el<HTMLInputElement>('mic-toggle').disabled = s !== 'idle' && s !== 'done';
     const dot = el('rec-dot');
     dot.hidden = s !== 'recording';
     el('rec-status').textContent =
@@ -168,15 +168,22 @@ export function initScreenRecorder(): void {
     preview.controls = true;
     el('result').hidden = false;
     el('result-info').textContent = `Recording · ${formatBytes(blob.size)} · ${el('rec-timer').textContent}`;
+    // The recorded format can be mp4 on Safari; label the button with what it is.
+    el<HTMLButtonElement>('download-btn').textContent = type.includes('mp4')
+      ? 'Download MP4'
+      : 'Download WebM';
     el<HTMLButtonElement>('download-btn').onclick = () => downloadBlob();
     setState('done');
   }
 
   function downloadBlob(): void {
     if (!blobUrl) return;
+    const type = mimeType.split(';')[0] || 'video/webm';
+    // The recorded MIME can be mp4 on Safari; name the file to match what it is.
+    const ext = type.includes('mp4') ? 'mp4' : 'webm';
     const a = document.createElement('a');
     a.href = blobUrl;
-    a.download = withExtension('screen-recording', 'webm');
+    a.download = withExtension('screen-recording', ext);
     document.body.appendChild(a);
     a.click();
     a.remove();
