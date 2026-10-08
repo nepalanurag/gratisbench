@@ -17,21 +17,21 @@ const lede =
   toolName="TruePDF Fake Data Generator"
   intro={[
     'Mockaroo is the name most developers reach for when they need test data, and its free tier stops at 1,000 rows; anything serious starts at $50 a year. That pricing made sense when generating data required a server. It does not anymore. Random names, addresses, and dates are a few kilobytes of word lists plus a seeded random number generator, which is exactly what this page ships, running entirely on your machine.',
-    'Pick your columns from 21 types: first and last names, full names, emails, phone numbers, street addresses, cities, states, ZIP codes, countries, companies, job titles, lorem text, integers, decimals, dates, UUIDs, and yes/no flags. Set the row count anywhere from 10 to 10,000, choose CSV, JSON, or SQL INSERTs, and download the file. Every run is seeded, and the seed is shown on screen, so the exact same dataset can be reproduced whenever a test needs to run twice.',
+    'Pick your columns from 21 types: first and last names, full names, emails, phone numbers, street addresses, cities, states, ZIP codes, countries, companies, job titles, lorem text, integers, decimals, dates, UUIDs, and yes/no flags. Set the row count anywhere from 10 to 50,000, choose CSV, JSON, or SQL INSERTs, and download the file. Every run is seeded, and the seed is shown on screen, so the exact same dataset can be reproduced whenever a test needs to run twice.',
     'Two honest notes. First, everything runs in your browser and nothing is uploaded; your column setup is even remembered in this browser for next time. Second, the data is obviously fake: plausible-looking rows for development and testing, not real people, and not for fraud. Emails use reserved domains like example.com that can never reach a real inbox, and phone numbers use the fictional 555 exchange, on purpose.',
   ]}
   steps={[
     'The page starts with a sensible preset: name, email, phone, address, company, job title, and a signup date. Use the add control to append any of the 21 column types.',
     'Click a column\u2019s label to rename it. That label becomes the CSV header, the JSON key, or the SQL column name.',
     'Tune each column: word counts for lorem text, min and max for integers and decimals, and from/to dates for the date column.',
-    'Choose 10 to 10,000 rows and pick CSV, JSON, or SQL INSERTs. For SQL, set the table name too.',
+    'Choose 10 to 50,000 rows and pick CSV, JSON, or SQL INSERTs. For SQL, set the table name too.',
     'Note the seed, then download. The same seed with the same settings always reproduces the same file, which is what you want for repeatable tests. Hit re-roll for a fresh dataset.',
   ]}
   specs={[
     ['Cost', 'Free, unlimited files within the per-file row cap'],
     ['Signup', 'None. No account, no email.'],
     ['Column types', '21: names, email, phone, addresses, company, job title, lorem text, integers, decimals, dates, UUIDs, yes/no'],
-    ['Rows per file', '10 to 10,000'],
+    ['Rows per file', '10 to 50,000'],
     ['Output formats', 'CSV (RFC 4180 quoting), pretty JSON, SQL INSERTs batched 500 rows per statement'],
     ['Reproducibility', 'Seeded RNG. The seed is shown, editable, and re-rollable; same seed and settings give the same file'],
     ['Safety', 'Data is obviously fake and generated locally. Not for fraud.'],
@@ -58,7 +58,7 @@ const lede =
     },
     {
       q: 'Can I use this for load testing?',
-      a: 'Yes. Ten thousand rows per file in CSV or SQL INSERTs is a solid chunk for seeding a test database or hammering an import endpoint, and multiple files with different seeds stack without duplicates getting in the way conceptually. For very large volumes, generate several files and concatenate them; each file is plain text.',
+      a: 'Yes. Fifty thousand rows per file in CSV or SQL INSERTs is a solid chunk for seeding a test database or hammering an import endpoint, and multiple files with different seeds stack without duplicates getting in the way conceptually. For very large volumes, generate several files and concatenate them; each file is plain text.',
     },
     {
       q: 'Is my generated data private?',

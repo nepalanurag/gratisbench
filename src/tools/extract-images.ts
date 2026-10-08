@@ -191,6 +191,7 @@ export function initExtractImages(): void {
     el('result').hidden = true;
     el('img-controls').hidden = true;
     el('images-wrap').innerHTML = '';
+    el('images-empty').hidden = true;
     el('small-note').hidden = true;
     el<HTMLButtonElement>('zip-btn').disabled = true;
     images = [];
@@ -214,7 +215,11 @@ export function initExtractImages(): void {
     }
     try {
       const bytes = new Uint8Array(await f.arrayBuffer());
+      const wrap = el('images-wrap');
+      wrap.innerHTML =
+        '<p class="hint" role="status"><span class="spinner" aria-hidden="true"></span> Reading the PDF…</p>';
       images = await extractEmbeddedImages(bytes);
+      wrap.innerHTML = '';
       kept = images.map(() => true);
       if (images.length === 0) {
         el('images-empty').hidden = false;
@@ -227,6 +232,7 @@ export function initExtractImages(): void {
       await renderGrid();
       el('result').hidden = false;
     } catch (err) {
+      el('images-wrap').innerHTML = '';
       showError('error-box', pdfLoadErrorMessage(err));
     }
   });

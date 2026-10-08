@@ -34,7 +34,7 @@ import {
   type BudgetCategory,
 } from '../lib/budget-core.ts';
 import { hbarChart, trendSvg, trendLegend, categoryLegend, shortMonthLabel } from '../lib/money-charts.ts';
-import { el, showError, hideError, downloadText, copyText, bindSetting } from './common.ts';
+import { el, showError, hideError, downloadText, copyText, bindSetting, armConfirmButton } from './common.ts';
 
 /** Best-guess currency from the browser language; the user can change it. */function guessCurrency(): string {
   const lang = (navigator.language || 'en-US').toLowerCase();
@@ -424,38 +424,37 @@ export function initBudgetPlanner(): void {
     commit();
   });
 
-  el('budget-example').addEventListener('click', () => {
-    hideError('budget-error');
-    if (
-      (month().income.length > 0 || month().categories.length > 0) &&
-      !window.confirm(`Replace this month's plan with the example budget? This cannot be undone.`)
-    ) {
-      return;
-    }
-    store.months[key] = exampleMonth(key);
-    commit();
-  });
+  const exampleBtn = el<HTMLButtonElement>('budget-example');
+  exampleBtn.addEventListener('click', () => hideError('budget-error'));
+  armConfirmButton(
+    exampleBtn,
+    () => {
+      store.months[key] = exampleMonth(key);
+      commit();
+    },
+    'Click again to replace',
+    () => month().income.length > 0 || month().categories.length > 0
+  );
 
-  el('budget-copy-plan').addEventListener('click', () => {
-    hideError('budget-error');
-    const current = month();
-    const { source, month: copied } = copyPlanFromPrevious(store, key);
-    if (!source) {
-      showError(
-        'budget-error',
-        "No earlier month has anything to copy. Plan this month by hand, or load the example."
-      );
-      return;
-    }
-    if (
-      (current.income.length > 0 || current.categories.length > 0) &&
-      !window.confirm(`Replace this month's plan with a copy of ${monthLabel(source.monthKey)}? This cannot be undone.`)
-    ) {
-      return;
-    }
-    store.months[key] = copied;
-    commit();
-  });
+  const copyPlanBtn = el<HTMLButtonElement>('budget-copy-plan');
+  armConfirmButton(
+    copyPlanBtn,
+    () => {
+      hideError('budget-error');
+      const { source, month: copied } = copyPlanFromPrevious(store, key);
+      if (!source) {
+        showError(
+          'budget-error',
+          'No earlier month has anything to copy. Plan this month by hand, or load the example.'
+        );
+        return;
+      }
+      store.months[key] = copied;
+      commit();
+    },
+    'Click again to replace',
+    () => month().income.length > 0 || month().categories.length > 0
+  );
 
   el('budget-export').addEventListener('click', () => {
     downloadText(`budget-${key}.csv`, monthToCsv(month()), 'text/csv');
@@ -480,12 +479,15 @@ export function initBudgetPlanner(): void {
     });
   });
 
-  el('budget-clear').addEventListener('click', () => {
-    if (!window.confirm(`Clear everything for ${monthLabel(key)}? This cannot be undone.`)) return;
-    store.months[key] = blankMonth(key);
-    clearIncomeForm();
-    commit();
-  });
+  armConfirmButton(
+    el<HTMLButtonElement>('budget-clear'),
+    () => {
+      store.months[key] = blankMonth(key);
+      clearIncomeForm();
+      commit();
+    },
+    'Click again to clear'
+  );
 
   // quiet validation hint on load
   const problems = validateBudgetMonth(month());

@@ -169,6 +169,20 @@ const lede =
       </div>
     </div>
   </section>
+  <style>
+    /* Import review list: matches the global #import-review dl styling. */
+    #rb-import-fields { display: grid; grid-template-columns: 150px 1fr; margin: 0.6rem 0 0; font-size: 0.93rem; }
+    #rb-import-fields > div { display: contents; }
+    #rb-import-fields dt { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 8px 0; border-bottom: 1px solid var(--line); }
+    #rb-import-fields dd { margin: 0; padding: 8px 0 8px 12px; border-bottom: 1px solid var(--line); font-weight: 500; }
+    #rb-import-status { font-size: 0.92rem; color: var(--muted); margin: 0.8rem 0 0; display: flex; align-items: center; gap: 0.6rem; }
+    #rb-import-status[hidden] { display: none; }
+    @media (max-width: 560px) {
+      #rb-import-fields { grid-template-columns: 1fr; }
+      #rb-import-fields dt { border-bottom: none; padding-bottom: 0; }
+      #rb-import-fields dd { padding-top: 2px; }
+    }
+  </style>
   <script>
     import { initResumeBuilder } from '../tools/resume-builder';
     import { initResumeImport } from '../tools/resume-import-ui';

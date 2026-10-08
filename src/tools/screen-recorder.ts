@@ -240,6 +240,7 @@ export function initScreenRecorder(): void {
 
       stream = combined;
       preview.srcObject = stream;
+      preview.hidden = false;
       preview.muted = true;
       await preview.play().catch(() => undefined);
 
@@ -267,6 +268,7 @@ export function initScreenRecorder(): void {
             compositeCleanup = null;
             stopCompositing();
             preview.srcObject = null;
+            preview.hidden = true;
             el('rec-status').textContent = 'Recording cancelled.';
             setState('idle');
             return;

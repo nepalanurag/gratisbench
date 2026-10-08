@@ -99,14 +99,16 @@ const lede = 'Type into a PDF form without printing it. Text fields, checkboxes,
     </p>
 
     <p id="file-info" class="hint" hidden></p>
-    <p id="no-fields" class="empty-state" hidden>No form fields yet. Add a PDF form above.</p>
+    <p id="no-fields" class="empty-state" hidden>This PDF has no fillable form fields. Scanned pages need the OCR PDF tool first; on flat pages, the Sign PDF tool can place typed text as a workaround.</p>
 
     <div id="form-wrap" hidden>
       <p id="fill-progress" class="hint" aria-live="polite"></p>
       <div id="fields-list" class="form-fields"></div>
-      <div class="checkline" style="margin-top:1rem;">
-        <input type="checkbox" id="opt-flatten" />
-        <label for="opt-flatten">Lock the fields after filling (answers cannot be changed later)</label>
+      <div class="field">
+        <div class="checkline">
+          <input type="checkbox" id="opt-flatten" />
+          <label for="opt-flatten">Lock the fields after filling (answers cannot be changed later)</label>
+        </div>
       </div>
       <div class="btn-row">
         <button id="save-btn" class="btn">Save and download</button>

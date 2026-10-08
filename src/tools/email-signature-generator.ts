@@ -14,7 +14,7 @@ import {
   deserializeSignature,
   renderSignature,
 } from '../lib/signature-core.ts';
-import { el, showError, hideError, ICONS, downscaleImageFile } from './common.ts';
+import { el, showError, hideError, ICONS, downscaleImageFile, armConfirmButton } from './common.ts';
 import { loadBusinessProfile, saveBusinessProfile, profileIsEmpty } from '../lib/business-profile.ts';
 import { loadBusinessExtras } from '../lib/business-extras.ts';
 import {
@@ -164,7 +164,7 @@ export function initSignatureGenerator(): void {
     const s = sig;
     const photo = s.photoDataUrl
       ? `<div class="logo-pick"><img class="thumb" src="${escapeHtml(s.photoDataUrl)}" alt="Photo" style="border-radius:50%;" /><span class="file-name-label">Photo added</span><button type="button" class="link-btn" id="es-photo-clear">Remove</button></div>`
-      : `<div class="logo-pick"><label class="btn btn-secondary btn-small" for="es-photo-input" style="cursor:pointer;">Upload photo</label><input type="file" id="es-photo-input" accept="image/*" hidden /><span class="file-name-label">Optional. Shows in Stacked and Two-column.</span></div>`;
+      : `<div class="logo-pick"><label class="btn btn-secondary btn-small file-label" for="es-photo-input">Upload photo</label><input type="file" id="es-photo-input" accept="image/*" hidden /><span class="file-name-label">Optional. Shows in Stacked and Two-column.</span></div>`;
 
     const layoutCards = [...LAYOUTS, ...EXTRA_LAYOUTS].map(
       (l) => `<label class="radio-card">
@@ -423,21 +423,33 @@ export function initSignatureGenerator(): void {
 
   // ---------- toolbar ----------
 
-  el('es-example').addEventListener('click', () => {
-    if (!window.confirm('Replace your current signature with the example content?')) return;
-    sig = exampleSignature();
-    save();
-    renderEditor();
-    renderPreview();
-  });
+  /** True when the user has typed anything worth protecting from overwrite. */
+  const signatureHasContent = (s: SignatureData): boolean =>
+    !!(s.name || s.title || s.company || s.phone || s.email || s.website || s.address || s.photoDataUrl || s.socials.length);
 
-  el('es-clear').addEventListener('click', () => {
-    if (!window.confirm('Clear everything and start over? This cannot be undone.')) return;
-    sig = blankSignature();
-    save();
-    renderEditor();
-    renderPreview();
-  });
+  armConfirmButton(
+    el<HTMLButtonElement>('es-example'),
+    () => {
+      sig = exampleSignature();
+      save();
+      renderEditor();
+      renderPreview();
+    },
+    'Click again to replace',
+    () => signatureHasContent(sig)
+  );
+
+  armConfirmButton(
+    el<HTMLButtonElement>('es-clear'),
+    () => {
+      sig = blankSignature();
+      save();
+      renderEditor();
+      renderPreview();
+    },
+    'Click again to clear',
+    () => signatureHasContent(sig)
+  );
 
   renderEditor();
   renderPreview();

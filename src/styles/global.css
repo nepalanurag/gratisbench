@@ -438,6 +438,15 @@ input[type="checkbox"] { width: 1.05rem; height: 1.05rem; accent-color: var(--ac
 .content th { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; font-weight: 600; }
 .steps { padding-left: 1.35rem; margin: 0.8rem 0; }
 .steps li { margin-bottom: 0.55rem; }
+/* Collapsible SEO intro: keeps the page clean while the text stays in the DOM. */
+.intro-more { margin: 1.2rem 0 0; border: 1px solid var(--line); border-radius: var(--radius); }
+.intro-more summary { cursor: pointer; padding: 0.7rem 1rem; font-size: 0.9rem; color: var(--muted); list-style: none; transition: color 0.14s ease; }
+.intro-more summary::-webkit-details-marker { display: none; }
+.intro-more summary::before { content: "+"; display: inline-block; width: 1.2em; color: var(--accent); font-weight: 600; }
+.intro-more[open] summary::before { content: "–"; }
+.intro-more summary:hover { color: var(--ink); }
+.intro-more > p { padding: 0 1rem; }
+.intro-more > p:last-child { padding-bottom: 1rem; }
 .steps li::marker { color: var(--accent); font-weight: 700; }
 .faq { border-top: 1px solid var(--line); padding: 1rem 0; }
 .faq:last-child { border-bottom: 1px solid var(--line); }
@@ -489,6 +498,24 @@ input[type="checkbox"] { width: 1.05rem; height: 1.05rem; accent-color: var(--ac
 /* Tool index: a plain list, grouped. The group heads carry the structure;
    rows scan fast: number, name + one-line description, tag, arrow. */
 .tool-index { margin: 3rem 0 0; }
+/* "Pick up where you left off" card on the homepage. Hidden until JS fills it. */
+.resume-tool {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: 2.2rem 0 0; padding: 1rem 1.2rem;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+}
+.resume-tool-label { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.resume-tool-link {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-weight: 600; color: var(--ink); text-decoration: none;
+  padding: 0.45rem 1rem; border: 1px solid var(--accent); border-radius: var(--radius);
+  transition: background 0.14s ease, transform 0.08s ease;
+}
+.resume-tool-link:hover { background: var(--accent-tint); transform: translateY(-1px); }
+.resume-tool-link .arrow { color: var(--accent); }
+/* "What next?" cross-tool suggestions after a successful download. */
+.next-steps { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.next-steps-label { margin: 0; font-size: 0.85rem; color: var(--muted); }
 .tool-group { margin-bottom: 3rem; }
 .tool-group-head { display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--rule); padding-bottom: 8px; margin-bottom: 2px; }
 .tool-group-head h2 { font-size: 1.05rem; margin: 0; letter-spacing: -0.01em; }

@@ -103,11 +103,11 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
       Draw each box a little larger than the text it covers.
     </p>
 
-    <div class="field" id="find-panel">
+    <div class="field" id="find-panel" hidden>
       <label>Or find sensitive text automatically</label>
-      <div class="btn-row" id="find-bar" style="justify-content:flex-start;flex-wrap:wrap;"></div>
-      <div class="field-row" style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
-        <input type="text" id="find-custom-input" placeholder="Or type text to find, e.g. a name" style="flex:1;min-width:200px;" maxlength="80" />
+      <div class="btn-row" id="find-bar"></div>
+      <div class="field-row">
+        <input type="text" id="find-custom-input" placeholder="Or type text to find, e.g. a name" maxlength="80" />
         <button type="button" id="find-custom-btn" class="btn btn-secondary">Mark all matches</button>
       </div>
       <p id="find-status" class="hint" role="status" aria-live="polite"></p>

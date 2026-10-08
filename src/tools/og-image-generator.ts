@@ -29,7 +29,7 @@ import {
   saveOgExtraPreset,
   type OgStyleExtras,
 } from '../lib/og-extras.ts';
-import { el, downloadDataUrl, showError, hideError } from './common.ts';
+import { el, downloadDataUrl, showError, hideError, armConfirmButton } from './common.ts';
 
 const EXTRA_PATTERNS = [
   { id: 'waves', name: 'Waves' },
@@ -308,17 +308,21 @@ export function initOgImageGenerator(): void {
     }
   });
 
-  el('og-example').addEventListener('click', () => {
-    if (!window.confirm('Replace your current card with the example?')) return;
-    spec = exampleOgSpec();
-    presetSel.value = spec.presetId;
-    patternId = spec.pattern;
-    patternSel.value = patternId;
-    el<HTMLTextAreaElement>('og-headline').value = spec.headline;
-    el<HTMLInputElement>('og-subtext').value = spec.subtext;
-    el<HTMLInputElement>('og-brand').value = spec.brand;
-    render();
-  });
+  armConfirmButton(
+    el<HTMLButtonElement>('og-example'),
+    () => {
+      spec = exampleOgSpec();
+      presetSel.value = spec.presetId;
+      patternId = spec.pattern;
+      patternSel.value = patternId;
+      el<HTMLTextAreaElement>('og-headline').value = spec.headline;
+      el<HTMLInputElement>('og-subtext').value = spec.subtext;
+      el<HTMLInputElement>('og-brand').value = spec.brand;
+      render();
+    },
+    'Click again to replace',
+    () => el<HTMLTextAreaElement>('og-headline').value.trim() !== '' || el<HTMLInputElement>('og-subtext').value.trim() !== ''
+  );
 
   render();
 }

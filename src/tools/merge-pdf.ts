@@ -12,6 +12,7 @@ import {
   setupDropzone,
   pdfLoadErrorMessage,
   ICONS,
+  suggestNextSteps,
 } from './common.ts';
 
 interface Item {
@@ -120,6 +121,7 @@ export function initMergePdf(): void {
           ? `${items[0].file.name.replace(/\.pdf$/i, '') || 'merged'}-merged.pdf`
           : `merged-${items.length}-files.pdf`;
       result.hidden = false;
+      suggestNextSteps('result', 'merge-pdf');
       el('result-info').textContent = `${formatBytes(out.length)} · ${items.reduce((a, b) => a + b.pages, 0)} pages`;
       const dl = el<HTMLButtonElement>('download-btn');
       dl.onclick = () => downloadBytes(name, out, 'application/pdf');

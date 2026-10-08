@@ -139,6 +139,11 @@ const lede =
       <button id="budget-clear" class="btn btn-secondary" type="button">Clear month</button>
     </div>
   </section>
+  <style>
+    /* Standalone .mini-label: global CSS only styles it inside .entry-row-grid. */
+    .mini-label { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 600; color: var(--muted); }
+    .mini-label select { font-weight: 400; }
+  </style>
   <script>
     import { initBudgetPlanner } from '../tools/budget-planner';
     initBudgetPlanner();

@@ -1,4 +1,5 @@
 // Small DOM helpers shared by all tool pages. No business logic here.
+import { basePath } from '../lib/site.ts';
 export function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
   if (!node) throw new Error(`Missing element #${id}`);
@@ -89,8 +90,164 @@ export function setBusy(btnId: string, busy: boolean, label = ''): void {
   }
 }
 
-/** Wire a drop zone: click opens the file picker, drop adds files. */
-export function setupDropzone(
+/**
+ * Two-step inline confirm for destructive buttons. First click arms the button
+ * ("Click again to delete", .btn-armed styling, auto-disarms after 5s);
+ * second click runs the action. Replaces window.confirm(), which is
+ * auto-dismissed in some contexts and breaks the interaction flow.
+ */
+export function armConfirmButton(
+  btn: HTMLButtonElement,
+  action: () => void,
+  armLabel = 'Click again to confirm',
+  shouldArm: () => boolean = () => true
+): void {
+  let armed = false;
+  let timer: number | undefined;
+  const originalLabel = btn.textContent;
+  const disarm = () => {
+    armed = false;
+    btn.textContent = originalLabel;
+    btn.classList.remove('btn-armed');
+    if (timer) {
+      window.clearTimeout(timer);
+      timer = undefined;
+    }
+  };
+  btn.addEventListener('click', () => {
+    if (!shouldArm()) {
+      action();
+      return;
+    }
+    if (!armed) {
+      armed = true;
+      btn.textContent = armLabel;
+      btn.classList.add('btn-armed');
+      timer = window.setTimeout(disarm, 5000);
+      return;
+    }
+    disarm();
+    action();
+  });
+}
+
+/**
+ * Two-step inline confirm for buttons inside delegated click handlers
+ * (dynamically rendered lists). Same arming behavior as armConfirmButton,
+ * but driven manually from an existing handler instead of a listener.
+ */
+export function armDelegatedConfirm(
+  btn: HTMLElement,
+  action: () => void,
+  armLabel = 'Click again to confirm'
+): void {
+  if (btn.dataset.armed === '1') {
+    delete btn.dataset.armed;
+    btn.textContent = btn.dataset.origLabel || '';
+    btn.classList.remove('btn-armed');
+    action();
+    return;
+  }
+  btn.dataset.armed = '1';
+  btn.dataset.origLabel = btn.textContent || '';
+  btn.textContent = armLabel;
+  btn.classList.add('btn-armed');
+  window.setTimeout(() => {
+    if (btn.dataset.armed === '1') {
+      delete btn.dataset.armed;
+      btn.textContent = btn.dataset.origLabel || '';
+      btn.classList.remove('btn-armed');
+    }
+  }, 5000);
+}
+
+/**
+ * Cross-tool retention: after a successful download, suggest logical next
+ * steps. Renders "What next?" links into the given container. Call once per
+ * successful run; it replaces any previous suggestions.
+ */
+const NEXT_STEPS: Record<string, Array<{ href: string; name: string }>> = {
+  'pdf-compressor': [
+    { href: '/merge-pdf', name: 'Merge PDFs' },
+    { href: '/pdf-editor', name: 'Reorder or edit pages' },
+  ],
+  'merge-pdf': [
+    { href: '/pdf-compressor', name: 'Compress the result' },
+    { href: '/pdf-editor', name: 'Reorder or delete pages' },
+  ],
+  'split-pdf': [
+    { href: '/merge-pdf', name: 'Merge some back together' },
+    { href: '/pdf-compressor', name: 'Compress the result' },
+  ],
+  'pdf-to-jpg': [
+    { href: '/image-compressor', name: 'Compress the images' },
+    { href: '/images-to-pdf', name: 'Make a new PDF' },
+  ],
+  'images-to-pdf': [
+    { href: '/pdf-compressor', name: 'Compress the PDF' },
+    { href: '/merge-pdf', name: 'Merge with another PDF' },
+  ],
+  'image-compressor': [
+    { href: '/image-converter', name: 'Convert the format' },
+    { href: '/images-to-pdf', name: 'Make a PDF from them' },
+  ],
+  'image-converter': [
+    { href: '/image-compressor', name: 'Compress the result' },
+    { href: '/images-to-pdf', name: 'Make a PDF from them' },
+  ],
+  'video-compressor': [
+    { href: '/video-trimmer', name: 'Trim it' },
+    { href: '/subtitle-editor', name: 'Add subtitles' },
+  ],
+  'video-trimmer': [
+    { href: '/video-compressor', name: 'Compress the result' },
+    { href: '/subtitle-editor', name: 'Add subtitles' },
+  ],
+  'video-converter': [
+    { href: '/video-compressor', name: 'Compress the result' },
+    { href: '/video-trimmer', name: 'Trim it' },
+  ],
+  'audio-trimmer': [
+    { href: '/audio-merger', name: 'Merge with another clip' },
+    { href: '/audio-converter', name: 'Convert the format' },
+  ],
+  'audio-merger': [
+    { href: '/audio-converter', name: 'Convert the format' },
+    { href: '/audio-trimmer', name: 'Trim the result' },
+  ],
+  'qr-generator': [
+    { href: '/pdf-editor', name: 'Add it to a PDF' },
+    { href: '/og-image-generator', name: 'Make a social card' },
+  ],
+  'pdf-editor': [
+    { href: '/pdf-compressor', name: 'Compress the result' },
+    { href: '/merge-pdf', name: 'Merge with another PDF' },
+  ],
+};
+
+export function suggestNextSteps(containerId: string, toolId: string): void {
+  const steps = NEXT_STEPS[toolId];
+  if (!steps || steps.length === 0) return;
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  box.querySelector('.next-steps')?.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'next-steps';
+  const label = document.createElement('p');
+  label.className = 'next-steps-label';
+  label.textContent = 'What next?';
+  wrap.appendChild(label);
+  for (const s of steps) {
+    const a = document.createElement('a');
+    a.className = 'link-btn';
+    a.href = basePath(s.href);
+    a.textContent = s.name;
+    wrap.appendChild(a);
+  }
+  box.appendChild(wrap);
+}
+
+/** Wire a drop zone: click opens the file picker, drop adds files. */export function setupDropzone(
   zoneId: string,
   inputId: string,
   onFiles: (files: File[]) => void
@@ -298,4 +455,50 @@ export function pulseDone(btnId: string): void {
   void btn.offsetWidth;
   btn.classList.add('download-done');
   setTimeout(() => btn.classList.remove('download-done'), 600);
+}
+
+function formatEta(sec: number): string {
+  const s = Math.max(1, Math.round(sec));
+  if (s < 50) return `${s} second${s === 1 ? '' : 's'}`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} minute${m === 1 ? '' : 's'}`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest === 0 ? `${h} hour${h === 1 ? '' : 's'}` : `${h}h ${rest}m`;
+}
+
+/**
+ * Estimates time remaining for a long operation from its progress fraction.
+ * Feed it the 0..1 progress each time it updates; `eta()` returns '' until
+ * enough progress (default 12%) and a couple of seconds have passed, so the
+ * label never shows a wild early guess. If progress jumps backwards (a new
+ * phase starting over at 0%), the timer resets automatically.
+ */
+export class EtaTracker {
+  private start = 0;
+  private lastFrac = 0;
+  private readonly minFrac: number;
+
+  constructor(minFrac = 0.12) {
+    this.minFrac = minFrac;
+    this.reset();
+  }
+
+  reset(): void {
+    this.start = performance.now();
+    this.lastFrac = 0;
+  }
+
+  /** "About 3 minutes left", or '' when too early to estimate. */
+  eta(frac: number): string {
+    if (!(frac > 0) || frac >= 1) return '';
+    if (frac < this.lastFrac - 0.05) this.reset(); // new phase
+    this.lastFrac = frac;
+    if (frac < this.minFrac) return '';
+    const elapsedSec = (performance.now() - this.start) / 1000;
+    if (elapsedSec < 2) return '';
+    const remainSec = (elapsedSec / frac) * (1 - frac);
+    if (!(remainSec > 1)) return '';
+    return `About ${formatEta(remainSec)} left`;
+  }
 }

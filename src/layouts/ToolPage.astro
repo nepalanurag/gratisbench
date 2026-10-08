@@ -92,13 +92,30 @@ const jsonLd = [
       but never injected into the HTML), leaving every tool dead.
     -->
 
+    <script>
+      // Remember the last-used tool for the homepage "pick up where you left off" card.
+      try {
+        const h1 = document.querySelector('.page-head h1');
+        const name = h1 ? (h1.textContent || '').trim() : '';
+        if (name) {
+          localStorage.setItem(
+            'truepdf-last-tool',
+            JSON.stringify({ href: window.location.pathname, name, t: Date.now() })
+          );
+        }
+      } catch { /* localStorage unavailable — skip quietly */ }
+    </script>
+
     <!-- Ad slot: below the tool / results area (AdSense display unit goes here) -->
     <div class="ad-slot" data-ad-slot="tool-bottom" aria-hidden="true"><span>Advertisement</span></div>
 
     <SupportNotice />
 
     <div class="content">
-      {intro.map((p) => <p>{p}</p>)}
+      <details class="intro-more">
+        <summary>About this tool</summary>
+        {intro.map((p) => <p>{p}</p>)}
+      </details>
 
       <h2>How to use it</h2>
       <ol class="steps">

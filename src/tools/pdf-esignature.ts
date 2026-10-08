@@ -499,6 +499,7 @@ export function initPdfEsignature(): void {
     const file = files[0];
     if (!file) return;
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+      el('doc-info').textContent = '';
       showError('error-box', `"${file.name}" is not a PDF.`);
       return;
     }
@@ -513,6 +514,11 @@ export function initPdfEsignature(): void {
       const holder = el('pages-wrap');
       holder.innerHTML = '';
       el('pages-empty').hidden = true;
+      const loading = document.createElement('p');
+      loading.className = 'hint';
+      loading.setAttribute('role', 'status');
+      loading.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading pages…';
+      holder.appendChild(loading);
       for (let i = 0; i < doc.numPages; i++) {
         const proxy = await doc.getPage(i + 1);
         const canvas = await renderPageToCanvas(proxy, PREVIEW_DPI);
@@ -554,11 +560,14 @@ export function initPdfEsignature(): void {
         });
         proxy.cleanup();
       }
+      loading.remove();
       paintOverlays();
       renderPlacements();
       refreshSignButton();
       el('doc-info').textContent = `${file.name} · ${doc.numPages} page${doc.numPages === 1 ? '' : 's'} · ${formatBytes(file.size)}`;
     } catch (err) {
+      el('pages-wrap').innerHTML = '';
+      el('pages-empty').hidden = false;
       showError('error-box', pdfJsLoadErrorMessage(err));
     }
   });

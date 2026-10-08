@@ -24,7 +24,7 @@ import {
   removeFromHistory,
   renderInvoice,
 } from '../lib/invoice-core.ts';
-import { el, showError, hideError, ICONS, downscaleImageFile } from './common.ts';
+import { el, showError, hideError, ICONS, downscaleImageFile, armConfirmButton, armDelegatedConfirm } from './common.ts';
 import { loadBusinessProfile, saveBusinessProfile, profileIsEmpty } from '../lib/business-profile.ts';
 import {
   INVOICE_EXTRAS_KEY,
@@ -180,7 +180,7 @@ export function initInvoiceGenerator(): void {
     const b = invoice.business;
     const logo = b.logoDataUrl
       ? `<div class="logo-pick"><img class="thumb" src="${escapeHtml(b.logoDataUrl)}" alt="Logo" /><span class="file-name-label">Logo added</span><button type="button" class="link-btn" id="inv-logo-clear">Remove</button></div>`
-      : `<div class="logo-pick"><label class="btn btn-secondary btn-small" for="inv-logo-input" style="cursor:pointer;">Upload logo</label><input type="file" id="inv-logo-input" accept="image/*" hidden /><span class="file-name-label">Optional. JPG or PNG, shows on the invoice.</span></div>`;
+      : `<div class="logo-pick"><label class="btn btn-secondary btn-small file-label" for="inv-logo-input">Upload logo</label><input type="file" id="inv-logo-input" accept="image/*" hidden /><span class="file-name-label">Optional. JPG or PNG, shows on the invoice.</span></div>`;
     return `<section class="rb-section" aria-label="Your business">
       <div class="rb-section-head"><h3>Your business</h3></div>
       <div class="rb-grid">
@@ -578,28 +578,54 @@ export function initInvoiceGenerator(): void {
       renderPreview();
       el('inv-editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else if (btn.getAttribute('data-tact') === 'delete') {
-      if (!window.confirm(`Delete template "${t.name}"?`)) return;
-      templates.splice(idx, 1);
-      persistTemplates();
-      renderTemplates();
+      armDelegatedConfirm(
+        btn,
+        () => {
+          templates.splice(idx, 1);
+          persistTemplates();
+          renderTemplates();
+        },
+        'Click again to delete'
+      );
     }
   });
 
-  el('inv-example').addEventListener('click', () => {
-    if (!window.confirm('Replace your current invoice with the example content?')) return;
-    invoice = exampleInvoice();
-    scheduleSave();
-    renderEditor();
-    renderPreview();
-  });
+  /** True when the user has entered anything worth protecting from overwrite. */
+  const invoiceHasContent = (inv: InvoiceData): boolean =>
+    !!(
+      inv.number ||
+      inv.client.name ||
+      inv.client.email ||
+      inv.notes ||
+      inv.business.name ||
+      inv.taxPct ||
+      inv.discountValue ||
+      inv.items.some((it) => it.description || it.qty || it.rate)
+    );
 
-  el('inv-clear').addEventListener('click', () => {
-    if (!window.confirm('Clear everything and start over? This cannot be undone.')) return;
-    invoice = blankInvoice();
-    scheduleSave();
-    renderEditor();
-    renderPreview();
-  });
+  armConfirmButton(
+    el<HTMLButtonElement>('inv-example'),
+    () => {
+      invoice = exampleInvoice();
+      scheduleSave();
+      renderEditor();
+      renderPreview();
+    },
+    'Click again to replace',
+    () => invoiceHasContent(invoice)
+  );
+
+  armConfirmButton(
+    el<HTMLButtonElement>('inv-clear'),
+    () => {
+      invoice = blankInvoice();
+      scheduleSave();
+      renderEditor();
+      renderPreview();
+    },
+    'Click again to clear',
+    () => invoiceHasContent(invoice)
+  );
 
   el('inv-history').addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('button[data-hact]') as HTMLElement | null;
@@ -615,10 +641,15 @@ export function initInvoiceGenerator(): void {
         el('inv-editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     } else if (btn.getAttribute('data-hact') === 'delete') {
-      if (!window.confirm(`Delete saved invoice ${num}?`)) return;
-      history = removeFromHistory(history, num);
-      persistHistory();
-      renderHistory();
+      armDelegatedConfirm(
+        btn,
+        () => {
+          history = removeFromHistory(history, num);
+          persistHistory();
+          renderHistory();
+        },
+        'Click again to delete'
+      );
     }
   });
 

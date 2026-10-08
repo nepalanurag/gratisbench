@@ -12,6 +12,7 @@ import {
   setBusy,
   setupDropzone,
   mobileFileSizeGuard,
+  EtaTracker,
 } from './common.ts';
 
 export function initVideoTrimmer(): void {
@@ -481,9 +482,11 @@ export function initVideoTrimmer(): void {
     try {
       ffmpeg = await loadFFmpeg();
       await ffmpeg.writeFile(inName, await fetchFileBytes(f));
+      const eta = new EtaTracker();
       ffmpeg.on('progress', ({ progress }) => {
         const pct = Math.round(progress * 100);
-        setProgress(pct, `${phase}… ${pct}%`);
+        const left = eta.eta(progress);
+        setProgress(pct, `${phase}… ${pct}%${left ? ` · ${left}` : ''}`);
       });
       // One re-encoded pass per kept section.
       for (let i = 0; i < keeps.length; i++) {
@@ -554,9 +557,11 @@ export function initVideoTrimmer(): void {
     try {
       ffmpeg = await loadFFmpeg();
       await ffmpeg.writeFile(inName, await fetchFileBytes(file));
+      const eta2 = new EtaTracker();
       ffmpeg.on('progress', ({ progress }) => {
         const pct = Math.round(progress * 100);
-        setProgress(pct, `${phase}… ${pct}%`);
+        const left = eta2.eta(progress);
+        setProgress(pct, `${phase}… ${pct}%${left ? ` · ${left}` : ''}`);
       });
       const keep = range.end - range.start;
       const startArg = String(range.start);
@@ -603,6 +608,7 @@ export function initVideoTrimmer(): void {
   });
 
   function setProgress(pct: number, label: string): void {
+    el('progress-wrap').hidden = false;
     el('progress-bar').style.width = `${pct}%`;
     el('progress-label').textContent = label;
   }

@@ -1,5 +1,6 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
 
 const title = 'PDF to Handwriting Free — Turn Typed Text into Realistic Handwriting';
 const description =
@@ -99,6 +100,7 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
 
     <div id="hw-pdf-pane">
       <div id="hw-dropzone" class="dropzone" role="button" tabindex="0" aria-label="Drop a PDF here or click to browse">
+        <div class="dz-icon"><Icon name="upload" size={30} /></div>
         <p class="dz-title">Drop your PDF here</p>
         <p class="dz-sub">or click to browse — files never leave your device</p>
         <input type="file" id="hw-file-input" accept="application/pdf,.pdf" hidden />
@@ -126,7 +128,7 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
         <p class="hint">Draw each letter once in the box below. Letters you skip fall back to the Casual style. Your drawings stay in this browser only — nothing is uploaded.</p>
         <canvas id="hw-draw-canvas" aria-label="Draw the letter here"></canvas>
         <p id="hw-draw-label" class="count-label"></p>
-        <div class="btn-row" style="justify-content:flex-start;flex-wrap:wrap;">
+        <div class="btn-row">
           <button type="button" id="hw-draw-prev" class="btn btn-secondary">← Previous</button>
           <button type="button" id="hw-draw-next" class="btn btn-secondary">Next →</button>
           <button type="button" id="hw-draw-save" class="btn">Save letter</button>
@@ -160,15 +162,24 @@ const lede = 'Turn typed pages into pages that look handwritten. Pick a style, p
       </div>
       <div class="field">
         <label for="hw-size">Text size</label>
-        <input type="range" id="hw-size" min="18" max="42" value="28" />
+        <div class="range-row">
+          <input type="range" id="hw-size" min="18" max="42" value="28" />
+          <span class="range-val" id="hw-size-value">28</span>
+        </div>
       </div>
       <div class="field">
         <label for="hw-slant">Slant</label>
-        <input type="range" id="hw-slant" min="-12" max="12" value="0" />
+        <div class="range-row">
+          <input type="range" id="hw-slant" min="-12" max="12" value="0" />
+          <span class="range-val" id="hw-slant-value">0</span>
+        </div>
       </div>
       <div class="field">
         <label for="hw-mess">Natural variation</label>
-        <input type="range" id="hw-mess" min="0" max="100" value="40" />
+        <div class="range-row">
+          <input type="range" id="hw-mess" min="0" max="100" value="40" />
+          <span class="range-val" id="hw-mess-value">40</span>
+        </div>
         <p class="hint">Turn up for a more uneven, human look. Turn down for tidy and even.</p>
       </div>
     </div>

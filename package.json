@@ -21,6 +21,7 @@
     "docx": "^9.7.2",
     "imagetracerjs": "^1.2.6",
     "jszip": "^3.10.2",
+    "mediabunny": "^1.61.3",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.3.289",
     "qrcode": "^1.5.4",

@@ -6,6 +6,7 @@
 // reliable here. That tradeoff is stated on the page.
 import { withExtension } from '../lib/media-core.ts';
 import { loadFFmpeg, fetchFileBytes, ffmpegErrorMessage } from './ffmpeg-loader.ts';
+import { canUseFastPath, convertVideoFast } from './mediabunny-engine.ts';
 import {
   el,
   formatBytes,
@@ -15,6 +16,7 @@ import {
   setBusy,
   setupDropzone,
   mobileFileSizeGuard,
+  EtaTracker,
 } from './common.ts';
 
 type OutFormat = 'mp4' | 'webm' | 'mov';
@@ -137,13 +139,17 @@ export function initVideoConverter(): void {
     applyFormatDefault(f.name);
     updateFastCopyRow();
     status.hidden = false;
-    status.textContent = 'Loading the video engine (about 30MB, first use only)…';
-    try {
-      await loadFFmpeg();
-      status.textContent = 'Video engine ready. Your file stays on this device.';
-    } catch (err) {
-      status.textContent = '';
-      showError('error-box', ffmpegErrorMessage(err));
+    if (canUseFastPath()) {
+      status.textContent = 'Hardware encoder ready. Your file stays on this device.';
+    } else {
+      status.textContent = 'Loading the video engine (about 30MB, first use only)…';
+      try {
+        await loadFFmpeg();
+        status.textContent = 'Video engine ready. Your file stays on this device.';
+      } catch (err) {
+        status.textContent = '';
+        showError('error-box', ffmpegErrorMessage(err));
+      }
     }
   });
 
@@ -153,6 +159,55 @@ export function initVideoConverter(): void {
     el('result').hidden = true;
     setBusy('convert-btn', true, 'Converting…');
     setProgress(0, 'Starting…');
+    const fmt = selectedFormat();
+    const speed = selectedSpeed();
+    const aspect = selectedAspect();
+    const mute = el<HTMLInputElement>('mute-check').checked;
+    // Re-encoding is required for speed, aspect, or container changes; fast
+    // copy only works when everything stays as-is. Muting does not force a
+    // re-encode: the video stream can still be copied while audio is dropped.
+    const useFastCopy = speed === 1 && aspect === 'original' && canFastCopy() && el<HTMLInputElement>('fastcopy-check').checked;
+    // Fast path: WebCodecs via MediaBunny for plain MP4/MOV transcodes.
+    // Speed changes, aspect crops, and WebM output stay on ffmpeg.wasm.
+    const useFastConvert =
+      canUseFastPath() &&
+      (fmt === 'mp4' || fmt === 'mov') &&
+      speed === 1 &&
+      aspect === 'original' &&
+      !useFastCopy;
+    if (useFastConvert) {
+      status.textContent = 'Converting with your device\u2019s hardware encoder…';
+      const eta = new EtaTracker();
+      try {
+        const blob = await convertVideoFast(file, {
+          format: fmt as 'mp4' | 'mov',
+          mute,
+          onProgress: (progress) => {
+            const pct = Math.round(progress * 100);
+            const left = eta.eta(progress);
+            setProgress(pct, `Converting… ${pct}%${left ? ` · ${left}` : ''}`);
+          },
+        });
+        const out = new Uint8Array(await blob.arrayBuffer());
+        const name = withExtension(file!.name, fmt);
+        downloadBytes(name, out, MIME[fmt]);
+        setProgress(100, 'Done.');
+        el('result').hidden = false;
+        el('result-info').textContent = `${name} · ${formatBytes(out.length)}${mute ? ' · sound removed' : ''}`;
+      } catch (err) {
+        console.warn('Fast convert failed, falling back to ffmpeg.wasm:', err);
+        status.textContent = 'Hardware encode unavailable — using the standard engine…';
+        await convertWithFFmpeg();
+      } finally {
+        setBusy('convert-btn', false);
+      }
+      return;
+    }
+    await convertWithFFmpeg();
+    setBusy('convert-btn', false);
+  });
+
+  async function convertWithFFmpeg(): Promise<void> {
     // Hoisted so finally can clean up MEMFS even on failure. Without it,
     // a leftover output file makes the next run hit ffmpeg's overwrite
     // prompt — and with no stdin in wasm, exec() hangs forever silently.
@@ -161,7 +216,7 @@ export function initVideoConverter(): void {
     const speed = selectedSpeed();
     const aspect = selectedAspect();
     const mute = el<HTMLInputElement>('mute-check').checked;
-    const inName = 'input' + extOf(file.name);
+    const inName = 'input' + extOf(file!.name);
     const outName = 'output.' + fmt;
     // Re-encoding is required for speed, aspect, or container changes; fast
     // copy only works when everything stays as-is. Muting does not force a
@@ -169,10 +224,12 @@ export function initVideoConverter(): void {
     const useFastCopy = speed === 1 && aspect === 'original' && canFastCopy() && el<HTMLInputElement>('fastcopy-check').checked;
     try {
       ffmpeg = await loadFFmpeg();
-      await ffmpeg.writeFile(inName, await fetchFileBytes(file));
+      await ffmpeg.writeFile(inName, await fetchFileBytes(file!));
+      const eta = new EtaTracker();
       ffmpeg.on('progress', ({ progress }) => {
         const pct = Math.round(progress * 100);
-        setProgress(pct, `Converting… ${pct}%`);
+        const left = eta.eta(progress);
+        setProgress(pct, `Converting… ${pct}%${left ? ` · ${left}` : ''}`);
       });
       const vf = videoFilters(speed, aspect);
       const noAudio = mute ? ['-an'] : [];
@@ -194,7 +251,7 @@ export function initVideoConverter(): void {
       await ffmpeg.exec(args);
       const data = (await ffmpeg.readFile(outName)) as Uint8Array;
       const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
-      const name = withExtension(file.name, fmt);
+      const name = withExtension(file!.name, fmt);
       downloadBytes(name, out, MIME[fmt]);
       setProgress(100, 'Done.');
       el('result').hidden = false;
@@ -206,11 +263,11 @@ export function initVideoConverter(): void {
         await ffmpeg.deleteFile(inName).catch(() => {});
         await ffmpeg.deleteFile(outName).catch(() => {});
       }
-      setBusy('convert-btn', false);
     }
-  });
+  }
 
   function setProgress(pct: number, label: string): void {
+    el('progress-wrap').hidden = false;
     el('progress-bar').style.width = `${pct}%`;
     el('progress-label').textContent = label;
   }

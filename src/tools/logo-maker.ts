@@ -18,7 +18,7 @@ import {
   logoFileName,
   type LogoSpec,
 } from '../lib/logo-core.ts';
-import { el, downloadDataUrl, downloadText, showError, hideError } from './common.ts';
+import { el, downloadDataUrl, downloadText, showError, hideError, armConfirmButton } from './common.ts';
 import { loadBusinessProfile, saveBusinessProfile } from '../lib/business-profile.ts';
 import {
   EXTRA_LOGO_ICONS,
@@ -205,14 +205,19 @@ export function initLogoMaker(): void {
     hideError('logo-error');
     downloadText(logoFileName(spec.name, 'svg'), logoSvgExtended(spec), 'image/svg+xml');
   });
-  el('logo-example').addEventListener('click', () => {
-    hideError('logo-error');
-    if (!window.confirm('Replace your current logo with the example?')) return;
-    spec = exampleLogoSpec();
-    nameInput.value = spec.name;
-    taglineInput.value = spec.tagline;
-    refresh();
-  });
+  const logoExampleBtn = el<HTMLButtonElement>('logo-example');
+  logoExampleBtn.addEventListener('click', () => hideError('logo-error'));
+  armConfirmButton(
+    logoExampleBtn,
+    () => {
+      spec = exampleLogoSpec();
+      nameInput.value = spec.name;
+      taglineInput.value = spec.tagline;
+      refresh();
+    },
+    'Click again to replace',
+    () => spec.name.trim() !== '' || spec.tagline.trim() !== ''
+  );
 
   // Save the finished logo into the shared business profile so the other
   // business tools (like the invoice generator) can pick it up.

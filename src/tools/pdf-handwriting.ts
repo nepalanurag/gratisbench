@@ -864,7 +864,16 @@ export function initHandwriting(): void {
     r.addEventListener('change', scheduleLivePreview)
   );
   for (const id of ['hw-size', 'hw-slant', 'hw-mess']) {
-    el<HTMLInputElement>(id).addEventListener('input', scheduleLivePreview);
+    const input = el<HTMLInputElement>(id);
+    const syncVal = () => {
+      const val = document.getElementById(`${id}-value`);
+      if (val) val.textContent = input.value;
+    };
+    input.addEventListener('input', () => {
+      syncVal();
+      scheduleLivePreview();
+    });
+    syncVal();
   }
   el<HTMLInputElement>('hw-ink-custom').addEventListener('input', scheduleLivePreview);
   scheduleLivePreview();

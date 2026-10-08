@@ -13,6 +13,7 @@ import {
 } from './common.ts';
 import { loadPdfjs, renderPageToCanvas } from './pdf-render.ts';
 import { loadTesseract, tesseractLoadErrorMessage } from './tesseract-loader.ts';
+import { basePath } from '../lib/site.ts';
 import { cleanupOcrText } from '../lib/ocr-core.ts';
 import type {
   TextItemLike,
@@ -320,7 +321,7 @@ async function convert(): Promise<void> {
     }
     const scanNote =
       textlessPages > ocrPages
-        ? ' Pages that are scanned images carry no text to extract. Tick "Read text from scanned pages" before converting to have those pages read automatically, or read the text first with the <a href="/image-ocr">Image OCR</a> tool.'
+        ? ` Pages that are scanned images carry no text to extract. Tick "Read text from scanned pages" before converting to have those pages read automatically, or read the text first with the <a href="${basePath('/image-ocr')}">Image OCR</a> tool.`
         : '';
     const ocrNote = ocrUnavailableNote ? ` ${ocrUnavailableNote}` : '';
     el('pdf2word-stats').innerHTML =

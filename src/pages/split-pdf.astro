@@ -140,7 +140,7 @@ const lede = 'Pull pages out of a PDF by page number, split every page into its 
     </div>
     <div class="field">
       <label for="chunk-size">Or split into fixed chunks</label>
-      <div class="btn-row" style="align-items:center">
+      <div class="btn-row">
         <input type="number" id="chunk-size" min="1" max="50" value="5" disabled style="max-width:6rem" />
         <button id="chunk-btn" class="btn btn-secondary" type="button" disabled>Split every N pages</button>
       </div>
@@ -158,7 +158,7 @@ const lede = 'Pull pages out of a PDF by page number, split every page into its 
       </div>
       <div class="field">
         <label for="text-split-input">By words on the page</label>
-        <div class="btn-row" style="align-items:center">
+        <div class="btn-row">
           <input type="text" id="text-split-input" placeholder="e.g. Invoice" autocomplete="off" style="max-width:12rem" disabled />
           <button id="text-split-btn" class="btn btn-secondary" type="button" disabled>Split where found</button>
         </div>

@@ -12,6 +12,7 @@ import {
   setupDropzone,
   bindSetting,
   mobileFileSizeGuard,
+  EtaTracker,
 } from './common.ts';
 
 type OutFormat = 'mp3' | 'wav' | 'ogg';
@@ -120,8 +121,11 @@ export function initAudioConverter(): void {
             ? ['-y', '-i', inName, '-c:a', 'libvorbis', '-b:a', `${kbps}k`, outName]
             : ['-y', '-i', inName, '-c:a', 'pcm_s16le', outName];
 
+      const eta = new EtaTracker();
       ffmpeg.on('progress', ({ progress }) => {
-        setProgress(Math.round(progress * 100), `Converting… ${Math.round(progress * 100)}%`);
+        const pct = Math.round(progress * 100);
+        const left = eta.eta(progress);
+        setProgress(pct, `Converting… ${pct}%${left ? ` · ${left}` : ''}`);
       });
       await ffmpeg.exec(args);
       const data = (await ffmpeg.readFile(outName)) as Uint8Array;
@@ -144,6 +148,7 @@ export function initAudioConverter(): void {
   });
 
   function setProgress(pct: number, label: string): void {
+    el('progress-wrap').hidden = false;
     el('progress-bar').style.width = `${pct}%`;
     el('progress-label').textContent = label;
   }

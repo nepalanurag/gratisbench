@@ -27,7 +27,7 @@ import {
   asSectionOrder,
   renderResume,
 } from '../lib/resume-core.ts';
-import { el, showError, hideError, downloadText, ICONS } from './common.ts';
+import { el, showError, hideError, downloadText, ICONS, armConfirmButton } from './common.ts';
 
 type ListKey = 'experience' | 'education' | 'skills' | 'projects' | 'certifications' | 'languages' | 'awards' | 'publications' | 'volunteer' | 'courses';
 
@@ -677,17 +677,17 @@ export function initResumeBuilder(): void {
     const passes = checks.filter((x) => x.status === 'pass').length;
     const dot = (s: AtsCheck['status']): string =>
       s === 'pass'
-        ? '<span style="color:#2e7d46;" aria-hidden="true">●</span>'
+        ? '<span style="color:var(--ok);" aria-hidden="true">●</span>'
         : s === 'warn'
-          ? '<span style="color:#b3541e;" aria-hidden="true">●</span>'
-          : '<span style="color:#6f665a;" aria-hidden="true">●</span>';
+          ? '<span style="color:var(--danger);" aria-hidden="true">●</span>'
+          : '<span style="color:var(--muted);" aria-hidden="true">●</span>';
     box.innerHTML =
       `<p><strong>${passes} of ${checks.length} checks pass.</strong></p>` +
       `<ul style="list-style:none;padding:0;margin:0.5rem 0;display:grid;gap:0.45rem;">` +
       checks
         .map(
           (x) =>
-            `<li>${dot(x.status)} <strong>${escapeHtml(x.label)}</strong> <span style="color:var(--muted,#6f665a);">${escapeHtml(x.detail)}</span></li>`
+            `<li>${dot(x.status)} <strong>${escapeHtml(x.label)}</strong> <span style="color:var(--muted);">${escapeHtml(x.detail)}</span></li>`
         )
         .join('') +
       `</ul>`;
@@ -804,13 +804,29 @@ export function initResumeBuilder(): void {
     document.title = originalTitle;
   });
 
-  el('rb-example').addEventListener('click', () => {
-    if (!window.confirm('Replace your current resume with the example content?')) return;
-    resume = exampleResume();
-    save();
-    renderEditor();
-    renderPreview();
-  });
+  /** True when the user has entered anything worth protecting from overwrite. */
+  const resumeHasContent = (r: ResumeData): boolean =>
+    !!(
+      r.contact.fullName ||
+      r.contact.email ||
+      r.summary ||
+      r.experience.length ||
+      r.education.length ||
+      r.skills.length ||
+      r.projects.length
+    );
+
+  armConfirmButton(
+    el<HTMLButtonElement>('rb-example'),
+    () => {
+      resume = exampleResume();
+      save();
+      renderEditor();
+      renderPreview();
+    },
+    'Click again to replace',
+    () => resumeHasContent(resume)
+  );
 
   el('rb-export-json').addEventListener('click', () => {
     hideError('rb-error');
@@ -842,7 +858,30 @@ export function initResumeBuilder(): void {
       el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       return;
     }
-    if (!window.confirm('Replace your current resume with the imported file? This cannot be undone.')) return;
+    if (resumeHasContent(resume)) {
+      // Importing over existing work: require an explicit second click.
+      const importBtn = el<HTMLButtonElement>('rb-import-json');
+      if (importBtn.dataset.armed !== '1') {
+        importBtn.dataset.armed = '1';
+        importBtn.dataset.origLabel = importBtn.textContent || '';
+        importBtn.textContent = 'Click again to replace resume';
+        importBtn.classList.add('btn-armed');
+        window.setTimeout(() => {
+          if (importBtn.dataset.armed === '1') {
+            delete importBtn.dataset.armed;
+            importBtn.textContent = importBtn.dataset.origLabel || '';
+            importBtn.classList.remove('btn-armed');
+          }
+        }, 8000);
+        showError('rb-error', 'This will replace your current resume. Click "Import JSON" again to confirm.');
+        el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+      delete importBtn.dataset.armed;
+      importBtn.textContent = importBtn.dataset.origLabel || '';
+      importBtn.classList.remove('btn-armed');
+    }
+    hideError('rb-error');
     resume = info.resume;
     save();
     renderEditor();
@@ -856,7 +895,8 @@ export function initResumeBuilder(): void {
   window.addEventListener('freekit:resume-import', (e) => {
     const data = (e as CustomEvent).detail as ResumeData | null;
     if (!data || typeof data !== 'object' || !data.contact) return;
-    if (!window.confirm('Replace your current resume with the imported details? This cannot be undone.')) return;
+    // The import panel already asks for confirmation before dispatching;
+    // this is a full replace by design (see comment above).
     try {
       resume = data;
       save();
@@ -868,13 +908,17 @@ export function initResumeBuilder(): void {
     }
   });
 
-  el('rb-clear').addEventListener('click', () => {
-    if (!window.confirm('Clear everything and start over? This cannot be undone.')) return;
-    resume = blankResume();
-    save();
-    renderEditor();
-    renderPreview();
-  });
+  armConfirmButton(
+    el<HTMLButtonElement>('rb-clear'),
+    () => {
+      resume = blankResume();
+      save();
+      renderEditor();
+      renderPreview();
+    },
+    'Click again to clear',
+    () => resumeHasContent(resume)
+  );
 
   // ---------- mobile tabs ----------
 

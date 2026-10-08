@@ -74,6 +74,7 @@ const lede = 'Turn video between MP4, WebM, and MOV, right on your device. No up
       { href: '/video-compressor', label: 'Compress' },
       { href: '/video-trimmer', label: 'Trim' },
       { href: '/video-converter', label: 'Convert' },
+      { href: '/subtitle-editor', label: 'Subtitles' },
     ]}
   />
   <section class="tool-card" slot="tool" aria-label="Video converter tool">
@@ -123,7 +124,7 @@ const lede = 'Turn video between MP4, WebM, and MOV, right on your device. No up
     <div class="btn-row">
       <button id="convert-btn" class="btn" disabled>Convert video</button>
     </div>
-    <div class="progress-wrap">
+    <div id="progress-wrap" class="progress-wrap" hidden>
       <div class="progress-label" id="progress-label"></div>
       <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
     </div>

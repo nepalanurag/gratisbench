@@ -11,6 +11,7 @@ import {
   setBusy,
   setupDropzone,
   bindSetting,
+  EtaTracker,
 } from './common.ts';
 
 interface PageImage {
@@ -25,11 +26,14 @@ let fileStem = 'document';
 let pageCount = 0;
 const images: PageImage[] = [];
 
+const eta = new EtaTracker();
+
 function setProgress(done: number, total: number): void {
   const wrap = el('progress-wrap');
   wrap.hidden = false;
   el('progress-bar').style.width = `${Math.round((done / total) * 100)}%`;
-  el('progress-label').textContent = `Rendering page ${done} of ${total}…`;
+  const left = total > 0 ? eta.eta(done / total) : '';
+  el('progress-label').textContent = `Rendering page ${done} of ${total}…${left ? ` ${left}` : ''}`;
 }
 
 function renderList(): void {
@@ -125,6 +129,7 @@ export function initPdfToJpg(): void {
     hideError('error-box');
     setBusy('convert-btn', true, 'Converting…');
     images.length = 0;
+    eta.reset();
     try {
       const dpi = Number(el<HTMLSelectElement>('dpi-select').value);
       const format = el<HTMLSelectElement>('format-select').value as PageImageFormat;

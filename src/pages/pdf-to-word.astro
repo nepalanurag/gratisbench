@@ -104,14 +104,16 @@ const lede =
     <div id="pdf2word-error" class="error-box" hidden></div>
     <p id="pdf2word-file" class="count-label" hidden></p>
     <div class="field">
-      <label style="display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.6rem;cursor:pointer">
-        <input type="checkbox" id="pdf2word-include-images" checked style="margin-top:.25rem" />
-        <span><strong>Include images</strong><br /><span class="hint" style="margin:0">Photos and figures from the PDF are placed in the Word document.</span></span>
-      </label>
-      <label style="display:flex;gap:.6rem;align-items:flex-start;cursor:pointer">
-        <input type="checkbox" id="pdf2word-ocr-scans" style="margin-top:.25rem" />
-        <span><strong>Read text from scanned pages</strong><br /><span class="hint" style="margin:0">Slower. For PDFs that are photos of pages, the text is read automatically. The reading engine downloads the first time you use it, so you need to be online once.</span></span>
-      </label>
+      <div class="checkline">
+        <input type="checkbox" id="pdf2word-include-images" checked />
+        <label for="pdf2word-include-images">Include images</label>
+      </div>
+      <p class="hint">Photos and figures from the PDF are placed in the Word document.</p>
+      <div class="checkline">
+        <input type="checkbox" id="pdf2word-ocr-scans" />
+        <label for="pdf2word-ocr-scans">Read text from scanned pages</label>
+      </div>
+      <p class="hint">Slower. For PDFs that are photos of pages, the text is read automatically. The reading engine downloads the first time you use it, so you need to be online once.</p>
     </div>
     <div class="btn-row">
       <button id="pdf2word-convert" class="btn" disabled>Convert to Word</button>

@@ -22,6 +22,7 @@ import {
   setupDropzone,
   setupPasteHandler,
   loadImage,
+  EtaTracker,
 } from './common.ts';
 
 type OcrWorker = {
@@ -51,10 +52,13 @@ function readOptions(): OcrOptions {
   });
 }
 
+const etaTracker = new EtaTracker();
+
 function setProgress(percent: number, label: string): void {
   el('progress-wrap').hidden = false;
   el('progress-bar').style.width = `${Math.max(0, Math.min(100, percent))}%`;
-  el('progress-label').textContent = label;
+  const eta = etaTracker.eta(percent / 100);
+  el('progress-label').textContent = eta ? `${label} — ${eta}` : label;
 }
 
 function clearProgress(): void {

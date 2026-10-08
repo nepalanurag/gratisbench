@@ -1,5 +1,6 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
 
 const title = 'Edit PDF Free — Reorder, Rotate, Edit Text, Watermark, Page Numbers';
 const description =
@@ -71,6 +72,7 @@ const lede = 'One workspace for everything you do to PDFs. Drop a file, arrange 
     <div id="error-box" class="error-box" hidden></div>
 
     <div id="ws-dropzone" class="dropzone" role="button" tabindex="0" aria-label="Drop PDF files here or click to browse">
+      <div class="dz-icon"><Icon name="upload" size={30} /></div>
       <p class="dz-title">Drop your PDFs here</p>
       <p class="dz-sub">or click to browse — files never leave your device</p>
       <input type="file" id="ws-file-input" accept="application/pdf,.pdf" multiple hidden />

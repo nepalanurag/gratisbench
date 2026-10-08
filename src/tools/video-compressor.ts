@@ -3,6 +3,7 @@
 // with ffmpeg.wasm, lazy-loaded after the user picks a file.
 import { estimateVideoBitrateKbps, mbToBytes, formatTime, withExtension } from '../lib/media-core.ts';
 import { loadFFmpeg, fetchFileBytes, ffmpegErrorMessage } from './ffmpeg-loader.ts';
+import { canUseFastPath, compressVideoFast } from './mediabunny-engine.ts';
 import {
   el,
   formatBytes,
@@ -12,6 +13,8 @@ import {
   setBusy,
   setupDropzone,
   mobileFileSizeGuard,
+  EtaTracker,
+  suggestNextSteps,
 } from './common.ts';
 
 export function initVideoCompressor(): void {
@@ -91,13 +94,17 @@ export function initVideoCompressor(): void {
     }
     updateEstimate();
     status.hidden = false;
-    status.textContent = 'Loading the video engine (about 30MB, first use only)…';
-    try {
-      await loadFFmpeg();
-      status.textContent = 'Video engine ready. Your file stays on this device.';
-    } catch (err) {
-      status.textContent = '';
-      showError('error-box', ffmpegErrorMessage(err));
+    if (canUseFastPath()) {
+      status.textContent = 'Hardware encoder ready. Your file stays on this device.';
+    } else {
+      status.textContent = 'Loading the video engine (about 30MB, first use only)…';
+      try {
+        await loadFFmpeg();
+        status.textContent = 'Video engine ready. Your file stays on this device.';
+      } catch (err) {
+        status.textContent = '';
+        showError('error-box', ffmpegErrorMessage(err));
+      }
     }
   });
 
@@ -115,22 +122,65 @@ export function initVideoCompressor(): void {
     }
     setBusy('compress-btn', true, 'Compressing…');
     setProgress(0, 'Starting…');
+
+    const vkb = estimateVideoBitrateKbps(mbToBytes(targetMB()), duration);
+    const outName = withExtension(file.name.replace(/(\.\w+)?$/, '-compressed$1'), 'mp4');
+
+    // Fast path: WebCodecs via MediaBunny (10-50x faster, hardware encoding).
+    // Falls back to ffmpeg.wasm automatically on unsupported browsers/files.
+    if (canUseFastPath()) {
+      status.textContent = 'Compressing with your device\u2019s hardware encoder…';
+      const eta = new EtaTracker();
+      try {
+        const blob = await compressVideoFast(file, {
+          videoBitrateKbps: vkb,
+          audioBitrateKbps: 128,
+          onProgress: (progress) => {
+            const pct = Math.round(progress * 100);
+            const left = eta.eta(progress);
+            setProgress(pct, `Compressing… ${pct}%${left ? ` · ${left}` : ''}`);
+          },
+        });
+        const out = new Uint8Array(await blob.arrayBuffer());
+        downloadBytes(outName, out, 'video/mp4');
+        setProgress(100, 'Done.');
+        el('result').hidden = false;
+      suggestNextSteps('result', 'video-compressor');
+        const savedPct = Math.round((1 - out.length / file.size) * 100);
+        el('result-info').textContent =
+          `${outName} · ${formatBytes(out.length)} (was ${formatBytes(file.size)}, ${savedPct}% smaller)`;
+        setBusy('compress-btn', false);
+        return;
+      } catch (err) {
+        // Fast path failed (exotic codec, no hardware encoder, etc.).
+        // Fall through to the ffmpeg.wasm fallback below.
+        console.warn('Fast encode failed, falling back to ffmpeg.wasm:', err);
+        status.textContent = 'Hardware encode unavailable — using the standard engine…';
+      }
+    }
+
+    await compressWithFFmpeg(file, vkb, outName);
+    setBusy('compress-btn', false);
+  });
+
+  async function compressWithFFmpeg(file: File, vkb: number, outName: string): Promise<void> {
     // Hoisted so the finally block can clean up MEMFS even on failure.
     // Without cleanup, a leftover output file makes the next run hit
     // ffmpeg's overwrite prompt — and with no stdin in wasm, exec()
     // hangs forever with no error (the "starts but never finishes" bug).
     let ffmpeg: import('@ffmpeg/ffmpeg').FFmpeg | null = null;
     const inName = 'input' + extOf(file.name);
-    const outName = 'output.mp4';
+    const outName2 = 'output.mp4';
     try {
       ffmpeg = await loadFFmpeg();
-      const vkb = estimateVideoBitrateKbps(mbToBytes(targetMB()), duration);
       const maxrate = Math.ceil(vkb * 1.5);
       const bufsize = vkb * 2;
       await ffmpeg.writeFile(inName, await fetchFileBytes(file));
+      const eta = new EtaTracker();
       ffmpeg.on('progress', ({ progress }) => {
         const pct = Math.round(progress * 100);
-        setProgress(pct, `Compressing… ${pct}%`);
+        const left = eta.eta(progress);
+        setProgress(pct, `Compressing… ${pct}%${left ? ` · ${left}` : ''}`);
       });
       // Single pass with a computed target bitrate. True two-pass encoding is
       // possible but much slower in a browser for little visible gain, so this
@@ -144,29 +194,29 @@ export function initVideoCompressor(): void {
         '-pix_fmt', 'yuv420p',
         '-c:a', 'aac', '-b:a', '128k',
         '-movflags', '+faststart',
-        outName,
+        outName2,
       ]);
-      const data = (await ffmpeg.readFile(outName)) as Uint8Array;
+      const data = (await ffmpeg.readFile(outName2)) as Uint8Array;
       const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
-      const name = withExtension(file.name.replace(/(\.\w+)?$/, '-compressed$1'), 'mp4');
-      downloadBytes(name, out, 'video/mp4');
+      downloadBytes(outName, out, 'video/mp4');
       setProgress(100, 'Done.');
       el('result').hidden = false;
+      suggestNextSteps('result', 'video-compressor');
       const savedPct = Math.round((1 - out.length / file.size) * 100);
       el('result-info').textContent =
-        `${name} · ${formatBytes(out.length)} (was ${formatBytes(file.size)}, ${savedPct}% smaller)`;
+        `${outName} · ${formatBytes(out.length)} (was ${formatBytes(file.size)}, ${savedPct}% smaller)`;
     } catch (err) {
       showError('error-box', ffmpegErrorMessage(err));
     } finally {
       if (ffmpeg) {
         await ffmpeg.deleteFile(inName).catch(() => {});
-        await ffmpeg.deleteFile(outName).catch(() => {});
+        await ffmpeg.deleteFile(outName2).catch(() => {});
       }
-      setBusy('compress-btn', false);
     }
-  });
+  }
 
   function setProgress(pct: number, label: string): void {
+    el('progress-wrap').hidden = false;
     el('progress-bar').style.width = `${pct}%`;
     el('progress-label').textContent = label;
   }

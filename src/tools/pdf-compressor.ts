@@ -18,6 +18,8 @@ import {
   hideError,
   setBusy,
   setupDropzone,
+  EtaTracker,
+  suggestNextSteps,
 } from './common.ts';
 
 let fileBytes: Uint8Array | null = null;
@@ -90,12 +92,15 @@ function wirePresetChips(): void {
   );
 }
 
+const eta = new EtaTracker();
+
 function setProgress(done: number, total: number): void {
   const wrap = el('progress-wrap');
   wrap.hidden = false;
   el('progress-bar').style.width = total > 0 ? `${Math.round((done / total) * 100)}%` : '100%';
+  const left = total > 0 ? eta.eta(done / total) : '';
   el('progress-label').textContent =
-    total > 0 ? `Optimizing image ${done} of ${total}…` : 'Reading PDF…';
+    total > 0 ? `Optimizing image ${done} of ${total}…${left ? ` ${left}` : ''}` : 'Reading PDF…';
 }
 
 export function initPdfCompressor(): void {
@@ -147,6 +152,7 @@ export function initPdfCompressor(): void {
     hideError('error-box');
     el('result').hidden = true;
     setBusy('compress-btn', true, 'Compressing…');
+    eta.reset();
     setProgress(0, 0);
     try {
       let out: Uint8Array;
@@ -185,6 +191,7 @@ export function initPdfCompressor(): void {
           ? `${formatBytes(originalSize)} → ${formatBytes(out.length)} · ${pct}% smaller${imageNote}${resultNote}`
           : `${formatBytes(originalSize)} → ${formatBytes(out.length)} · no saving this time (this PDF was already compact)`;
       el('result').hidden = false;
+      suggestNextSteps('result', 'pdf-compressor');
       const stem = fileName.replace(/\.[^.]+$/, '');
       el<HTMLButtonElement>('download-btn').onclick = () =>
         downloadBytes(`${stem}-compressed.pdf`, out, 'application/pdf');

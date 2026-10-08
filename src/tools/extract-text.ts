@@ -3,6 +3,7 @@
 // Two output styles: "simple" (one clean flow) and "layout" (rebuilt from
 // each fragment's on-page position, so columns and spacing survive).
 import { loadPdfjs, pdfJsLoadErrorMessage } from './pdf-render.ts';
+import { basePath } from '../lib/site.ts';
 import {
   el,
   formatBytes,
@@ -176,8 +177,8 @@ export function initExtractText(): void {
       el('text-empty').hidden = true;
       if (totalChars === 0) {
         el('text-empty').hidden = false;
-        el('text-empty').textContent =
-          'No text found in this PDF. It may be scanned pages (images with no text). The OCR PDF tool can add a text layer to scans like this.';
+        el('text-empty').innerHTML =
+          `No text found in this PDF. It may be scanned pages (images with no text). The <a href="${basePath('/ocr-pdf')}">OCR PDF</a> tool can add a text layer to scans like this.`;
         return;
       }
       renderOutput();

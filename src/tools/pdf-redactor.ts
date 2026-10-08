@@ -255,6 +255,7 @@ export function initPdfRedactor(): void {
   setupDropzone('dropzone', 'file-input', async (files) => {
     hideError('error-box');
     el('result').hidden = true;
+    el('find-status').textContent = '';
     const file = files[0];
     if (!file) return;
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
@@ -271,6 +272,12 @@ export function initPdfRedactor(): void {
       const holder = el('pages-wrap');
       holder.innerHTML = '';
       el('pages-empty').hidden = true;
+      el('find-panel').hidden = true;
+      const loading = document.createElement('p');
+      loading.className = 'hint';
+      loading.setAttribute('role', 'status');
+      loading.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading pages…';
+      holder.appendChild(loading);
 
       for (let i = 0; i < pdfDoc.numPages; i++) {
         const proxy = await pdfDoc.getPage(i + 1);
@@ -359,8 +366,13 @@ export function initPdfRedactor(): void {
         pages.push(state);
         proxy.cleanup();
       }
+      loading.remove();
+      el('find-panel').hidden = false;
       updateCounts();
     } catch (err) {
+      el('find-panel').hidden = true;
+      el('pages-wrap').innerHTML = '';
+      el('pages-empty').hidden = false;
       showError('error-box', pdfJsLoadErrorMessage(err));
     }
   });

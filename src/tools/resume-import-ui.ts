@@ -69,9 +69,16 @@ export function initResumeImport(): void {
     ).join('');
   }
 
-  function showStatus(msg: string): void {
+  function showStatus(msg: string, busy = false): void {
     status.hidden = false;
-    status.textContent = msg;
+    status.textContent = '';
+    if (busy) {
+      const spin = document.createElement('span');
+      spin.className = 'spinner';
+      spin.setAttribute('aria-hidden', 'true');
+      status.append(spin, ' ');
+    }
+    status.append(msg);
   }
 
   function fail(msg: string): void {
@@ -82,7 +89,7 @@ export function initResumeImport(): void {
   /** AI parsing when the user opted in with their own key, else the heuristic parser. */
   async function parseWithAiOrHeuristic(text: string): Promise<ParsedResume> {
     if (isAiEnabled()) {
-      showStatus('Reading your resume with AI…');
+      showStatus('Reading your resume with AI…', true);
       const ai = await aiParseResume(text);
       if (ai && (ai.fullName || ai.experience.length || ai.education.length || ai.skills.length)) {
         return ai;
@@ -110,14 +117,14 @@ export function initResumeImport(): void {
     }
     working = true;
     drop.setAttribute('aria-disabled', 'true');
-    showStatus('Reading your file…');
+    showStatus('Reading your file…', true);
     try {
       const buf = new Uint8Array(await file.arrayBuffer());
       const asFile = new File([buf.buffer as ArrayBuffer], file.name, { type: file.type });
       let text = isPdf ? await extractTextFromPdf(asFile) : await extractTextFromDocx(asFile);
       if (!text.trim() && isPdf) {
         // A scan or photo of a resume: read the pages with on-device OCR.
-        showStatus('No selectable text found. Reading the scanned pages on this device…');
+        showStatus('No selectable text found. Reading the scanned pages on this device…', true);
         try {
           text = await ocrPdfPages(buf, (label) => showStatus(label));
         } catch (err) {

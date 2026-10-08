@@ -26,7 +26,7 @@ import {
   type SubscriptionStore,
 } from '../lib/subs-core.ts';
 import { hbarChart } from '../lib/money-charts.ts';
-import { el, showError, hideError, downloadText, bindSetting } from './common.ts';
+import { el, showError, hideError, downloadText, bindSetting, armConfirmButton, armDelegatedConfirm } from './common.ts';
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -304,18 +304,24 @@ export function initSubscriptionTracker(): void {
   });
 
   el('subs-list').addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest('button[data-act]');
+    const btn = (e.target as HTMLElement).closest('button[data-act]') as HTMLElement | null;
     if (!btn) return;
     const id = btn.getAttribute('data-id') || '';
     const act = btn.getAttribute('data-act');
     if (act === 'del') {
       const s = store.subscriptions.find((x) => x.id === id);
-      if (s && window.confirm(`Delete "${s.name}"? This cannot be undone.`)) {
-        store.subscriptions = removeSubscription(store.subscriptions, id);
-        delete subExtras[id];
-        saveSubExtras();
-        if (editingId === id) clearForm();
-        commit();
+      if (s) {
+        armDelegatedConfirm(
+          btn,
+          () => {
+            store.subscriptions = removeSubscription(store.subscriptions, id);
+            delete subExtras[id];
+            saveSubExtras();
+            if (editingId === id) clearForm();
+            commit();
+          },
+          'Click again to delete'
+        );
       }
     } else if (act === 'edit') {
       const s = store.subscriptions.find((x) => x.id === id);
@@ -359,26 +365,29 @@ export function initSubscriptionTracker(): void {
     });
   }
 
-  el('subs-example').addEventListener('click', () => {
-    hideError('subs-error');
-    if (
-      store.subscriptions.length > 0 &&
-      !window.confirm('Replace your tracked subscriptions with the example list? This cannot be undone.')
-    ) {
-      return;
-    }
-    store.subscriptions = exampleSubscriptions();
-    clearForm();
-    commit();
-  });
+  const subsExampleBtn = el<HTMLButtonElement>('subs-example');
+  subsExampleBtn.addEventListener('click', () => hideError('subs-error'));
+  armConfirmButton(
+    subsExampleBtn,
+    () => {
+      store.subscriptions = exampleSubscriptions();
+      clearForm();
+      commit();
+    },
+    'Click again to replace',
+    () => store.subscriptions.length > 0
+  );
 
-  el('subs-clear').addEventListener('click', () => {
-    if (store.subscriptions.length === 0) return;
-    if (!window.confirm('Delete all tracked subscriptions? This cannot be undone.')) return;
-    store.subscriptions = [];
-    clearForm();
-    commit();
-  });
+  armConfirmButton(
+    el<HTMLButtonElement>('subs-clear'),
+    () => {
+      store.subscriptions = [];
+      clearForm();
+      commit();
+    },
+    'Click again to delete all',
+    () => store.subscriptions.length > 0
+  );
 
   el<HTMLInputElement>('subs-date').value = today;
   render();

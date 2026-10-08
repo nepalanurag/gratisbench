@@ -21,6 +21,7 @@ import {
   setBusy,
   setupDropzone,
   mobileFileSizeGuard,
+  EtaTracker,
 } from './common.ts';
 
 const RENDER_DPI = 150;
@@ -60,10 +61,14 @@ function refreshOcrButton(): void {
   el<HTMLButtonElement>('ocr-btn').disabled = scanPages === 0 && !forceAll;
 }
 
+const eta = new EtaTracker();
+
 function setProgress(done: number, total: number, label: string): void {
   el('progress-wrap').hidden = false;
   el('progress-bar').style.width = `${Math.round((done / total) * 100)}%`;
-  el('progress-label').textContent = label.replace('{n}', String(done)).replace('{t}', String(total));
+  const left = total > 0 && done > 0 ? eta.eta(done / total) : '';
+  el('progress-label').textContent =
+    label.replace('{n}', String(done)).replace('{t}', String(total)) + (left ? ` ${left}` : '');
 }
 
 async function getWorker(lang: string): Promise<OcrWorker> {
@@ -132,6 +137,9 @@ export function initOcrPdf(): void {
       const doc = await pdfjs.getDocument({ data: bytes }).promise;
       pageCount = doc.numPages;
       // Quick text check per page: pages with real text are copied as-is.
+      const fileInfoEl = el('file-info');
+      fileInfoEl.hidden = false;
+      fileInfoEl.innerHTML = '<span class="spinner" aria-hidden="true"></span> Checking which pages already have text…';
       textPages = 0;
       for (let i = 1; i <= pageCount; i++) {
         const page = await doc.getPage(i);
@@ -145,7 +153,6 @@ export function initOcrPdf(): void {
       }
       const scanPagesLocal = pageCount - textPages;
       scanPages = scanPagesLocal;
-      el('file-info').hidden = false;
       refreshOcrButton();
       const note = el('engine-note');
       note.hidden = false;
@@ -161,6 +168,7 @@ export function initOcrPdf(): void {
     hideError('error-box');
     el('result').hidden = true;
     setBusy('ocr-btn', true, 'Reading…');
+    eta.reset();
     try {
       const lang = select.value;
       const forceAll = el<HTMLInputElement>('ocr-force-all').checked;

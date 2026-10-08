@@ -91,7 +91,7 @@ let headerFooter: { header: string; footer: string; size: number } | null = null
 let protectPassword: string | null = null;
 let pageViewUid: string | null = null;
 
-const THUMB_W = 168;
+const THUMB_W = 240;
 
 function uid(): string {
   return `p${nextUid++}`;
@@ -202,6 +202,134 @@ async function renderThumbsIncremental(): Promise<void> {
   }
 }
 
+/* ---------------- stamp preview: draw watermarks / page numbers /
+   headers onto thumbnails so the preview matches the download ---------------- */
+
+let wmImgEl: HTMLImageElement | null = null;
+let wmImgBytes: Uint8Array | null = null;
+
+async function watermarkImage(): Promise<HTMLImageElement | null> {
+  if (!watermark || watermark.kind !== 'image') {
+    wmImgEl = null;
+    wmImgBytes = null;
+    return null;
+  }
+  if (wmImgEl && wmImgBytes === watermark.bytes) return wmImgEl;
+  const url = URL.createObjectURL(new Blob([watermark.bytes as BlobPart], { type: 'image/png' }));
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error('bad watermark image'));
+      im.src = url;
+    });
+    wmImgEl = img;
+    wmImgBytes = watermark.bytes;
+    return img;
+  } catch {
+    wmImgEl = null;
+    wmImgBytes = null;
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Draw text watermark, page numbers, and header/footer onto a thumbnail
+ *  canvas. Mirrors applyWatermark/applyPageNumbers/applyHeaderFooter. */
+function drawTextStamps(
+  ctx: CanvasRenderingContext2D,
+  cw: number,
+  ch: number,
+  pageW: number, // PDF points (rotated space)
+  pageH: number,
+  pageIdx: number
+): void {
+  const s = cw / pageW; // canvas px per PDF point
+  if (watermark?.kind === 'text' && watermark.text.trim()) {
+    ctx.save();
+    ctx.globalAlpha = watermark.opacity;
+    ctx.fillStyle = '#808080';
+    ctx.font = `${Math.max(4, watermark.size * s)}px Helvetica, Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.translate(cw / 2, ch / 2);
+    if (watermark.angle) ctx.rotate(-Math.PI / 4);
+    ctx.fillText(watermark.text, 0, 0);
+    ctx.restore();
+  }
+  if (pageNumbers) {
+    const num = pageNumbers.start + pageIdx;
+    const count = pages.length;
+    const text =
+      pageNumbers.format === 'n-of-n'
+        ? `${num} of ${pageNumbers.start + count - 1}`
+        : pageNumbers.format === 'page-n'
+          ? `Page ${num}`
+          : String(num);
+    ctx.save();
+    ctx.font = `${Math.max(4, pageNumbers.size * s)}px Helvetica, Arial, sans-serif`;
+    ctx.fillStyle = '#595959';
+    ctx.textBaseline = 'alphabetic';
+    const tw = ctx.measureText(text).width;
+    const m = 36 * s;
+    let x = cw / 2 - tw / 2;
+    let y = ch - m;
+    const pos = pageNumbers.pos;
+    if (pos === 'top-center') y = m;
+    else if (pos === 'bottom-left') x = m;
+    else if (pos === 'bottom-right') x = cw - tw - m;
+    else if (pos === 'top-left') { x = m; y = m; }
+    else if (pos === 'top-right') { x = cw - tw - m; y = m; }
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+  if (headerFooter) {
+    ctx.save();
+    ctx.font = `${Math.max(4, headerFooter.size * s)}px Helvetica, Arial, sans-serif`;
+    ctx.fillStyle = '#595959';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    if (headerFooter.header.trim()) ctx.fillText(headerFooter.header, cw / 2, 30 * s);
+    if (headerFooter.footer.trim()) ctx.fillText(headerFooter.footer, cw / 2, ch - 24 * s);
+    ctx.restore();
+  }
+}
+
+/** Draw the image watermark onto a thumbnail canvas. Mirrors applyWatermark. */
+async function drawImageWatermark(
+  ctx: CanvasRenderingContext2D,
+  cw: number,
+  ch: number,
+  pageW: number
+): Promise<void> {
+  if (!watermark || watermark.kind !== 'image') return;
+  const img = await watermarkImage();
+  if (!img || !img.naturalWidth) return;
+  const s = cw / pageW;
+  ctx.save();
+  ctx.globalAlpha = watermark.opacity;
+  const wScale = (pageW * watermark.scale) / img.naturalWidth;
+  const w = img.naturalWidth * wScale * s;
+  const h = img.naturalHeight * wScale * s;
+  let x = cw / 2 - w / 2;
+  let y = ch / 2 - h / 2;
+  const m = 36 * s;
+  if (watermark.position === 'top-left') { x = m; y = m; }
+  else if (watermark.position === 'top-right') { x = cw - w - m; y = m; }
+  else if (watermark.position === 'bottom-left') { x = m; y = ch - h - m; }
+  else if (watermark.position === 'bottom-right') { x = cw - w - m; y = ch - h - m; }
+  ctx.drawImage(img, x, y, w, h);
+  ctx.restore();
+}
+
+/** Re-render every thumbnail (used when a global stamp changes). */
+function refreshAllThumbs(): void {
+  for (const p of pages) p.thumb = null;
+  renderGrid();
+  void renderThumbsIncremental();
+}
+
 async function renderThumb(item: PageItem): Promise<string> {
   const doc = docOf(item);
   const page = await doc.jsDoc.getPage(item.pageIndex + 1);
@@ -214,7 +342,15 @@ async function renderThumb(item: PageItem): Promise<string> {
   const viewport = page.getViewport({ scale, rotation: item.rotation });
   const canvas = await renderPageToCanvas(page, scale * 72, item.rotation);
   page.cleanup();
-  if (!crops.get(item.uid)) return canvas.toDataURL('image/jpeg', 0.8);
+  // Composite stamps onto the thumbnail so it shows what the download will
+  // look like: watermark, page numbers, header/footer.
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const pageIdx = pages.findIndex((p) => p.uid === item.uid);
+    drawTextStamps(ctx, canvas.width, canvas.height, base.width, base.height, pageIdx < 0 ? 0 : pageIdx);
+    await drawImageWatermark(ctx, canvas.width, canvas.height, base.width);
+  }
+  if (!crops.get(item.uid)) return canvas.toDataURL('image/jpeg', 0.85);
   const crop = crops.get(item.uid)!;
   // Map the crop rect (stored in un-rotated PDF points) into the rendered
   // canvas through the viewport, so it stays correct on rotated pages.
@@ -227,11 +363,11 @@ async function renderThumb(item: PageItem): Promise<string> {
   const out = document.createElement('canvas');
   out.width = Math.max(1, Math.round(sw));
   out.height = Math.max(1, Math.round(sh));
-  const ctx = out.getContext('2d');
-  if (!ctx) return canvas.toDataURL('image/jpeg', 0.8);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, out.width, out.height);
-  ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+  const octx = out.getContext('2d');
+  if (!octx) return canvas.toDataURL('image/jpeg', 0.8);
+  octx.fillStyle = '#ffffff';
+  octx.fillRect(0, 0, out.width, out.height);
+  octx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
   return out.toDataURL('image/jpeg', 0.8);
 }
 
@@ -647,7 +783,7 @@ async function openPageView(pageUid: string): Promise<void> {
   const idx = pages.indexOf(item);
   el('ws-pv-label').textContent = `Page ${idx + 1} of ${pages.length}`;
   const stage = el('ws-pv-stage');
-  stage.innerHTML = '<p class="hint">Loading page…</p>';
+  stage.innerHTML = '<p class="hint" role="status"><span class="spinner" aria-hidden="true"></span> Loading page…</p>';
   try {
     await ensurePdfjs();
     const doc = docOf(item);

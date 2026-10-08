@@ -105,16 +105,17 @@ const lede = 'Turn scanned PDFs into searchable documents. Pages with no text ar
     <p id="engine-note" class="hint" hidden></p>
 
     <div class="row-2">
-      <div class="field-row" style="display:grid;gap:0.3rem;">
-        <label for="lang-select" style="font-weight:600;font-size:0.9rem;">Text language</label>
+      <div class="field">
+        <label for="lang-select">Text language</label>
         <select id="lang-select" class="select-input"></select>
       </div>
-      <div class="field-row" style="display:grid;gap:0.3rem;align-content:start;">
-        <span style="font-weight:600;font-size:0.9rem;">Options</span>
-        <label style="display:flex;gap:0.5rem;align-items:flex-start;font-size:0.9rem;cursor:pointer;">
-          <input type="checkbox" id="ocr-force-all" style="margin-top:0.2rem;" />
-          <span>Re-read pages that already have text<br /><small class="hint" style="margin:0;">For documents where the existing text is garbled. Slower, since every page is read again.</small></span>
-        </label>
+      <div class="field">
+        <span class="field-row-label">Options</span>
+        <div class="checkline">
+          <input type="checkbox" id="ocr-force-all" />
+          <label for="ocr-force-all">Re-read pages that already have text</label>
+        </div>
+        <p class="hint">For documents where the existing text is garbled. Slower, since every page is read again.</p>
       </div>
     </div>
 

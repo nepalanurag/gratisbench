@@ -277,6 +277,7 @@ export function initSplitPdf(): void {
     actions.className = 'file-actions';
     const btn = document.createElement('button');
     btn.type = 'button';
+    btn.className = 'btn btn-secondary btn-small';
     btn.textContent = 'Download';
     btn.addEventListener('click', () => downloadBytes(name, data, 'application/pdf'));
     actions.appendChild(btn);
@@ -392,7 +393,8 @@ export function initSplitPdf(): void {
     }
   });
 
-  extractBtn.addEventListener('click', async () => {    if (!pdfBytes || picked.size === 0) return;
+  extractBtn.addEventListener('click', async () => {
+    if (!pdfBytes || picked.size === 0) return;
     hideError('error-box');
     result.hidden = true;
     setBusy('extract-btn', true, 'Extracting…');
