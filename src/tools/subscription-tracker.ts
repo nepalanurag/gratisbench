@@ -69,7 +69,7 @@ export function initSubscriptionTracker(): void {
     const upcoming = upcomingRenewals(store.subscriptions, today, 7);
     const upBox = el('subs-upcoming');
     if (store.subscriptions.length === 0) {
-      upBox.innerHTML = '<p class="empty-state">Nothing here yet. Add a subscription below.</p>';
+      upBox.innerHTML = '<p class="empty-state">Nothing here yet. Add a subscription above.</p>';
     } else if (upcoming.length === 0) {
       upBox.innerHTML = '<p class="empty-state">Nothing renews in the next 7 days.</p>';
     } else {
@@ -263,6 +263,12 @@ export function initSubscriptionTracker(): void {
 
   el('subs-example').addEventListener('click', () => {
     hideError('subs-error');
+    if (
+      store.subscriptions.length > 0 &&
+      !window.confirm('Replace your tracked subscriptions with the example list? This cannot be undone.')
+    ) {
+      return;
+    }
     store.subscriptions = exampleSubscriptions();
     clearForm();
     commit();
