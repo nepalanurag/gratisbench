@@ -1,12 +1,11 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
-import Icon from '../components/Icon.astro';
 
-const title = 'Edit PDF Free — Reorder, Rotate, Edit Text, Watermark, Page Numbers';
+const title = 'Edit PDF Free — Combine, Organize, Edit Text, Add Page Numbers';
 const description =
-  'A full PDF workspace in your browser: reorder pages by dragging, rotate, delete, edit text in place, add watermarks, page numbers, headers, crop pages, protect with a password. Free, no signup, files never leave your device.';
+  'Edit PDFs in your browser: combine multiple PDFs, reorder or delete pages, fix text, add page numbers or watermarks, protect with a password. Free, no signup, files never leave your device.';
 const h1 = 'PDF Editor';
-const lede = 'One workspace for everything you do to PDFs. Drop a file, arrange its pages, fix the text, stamp it, number it, lock it. Free, no account, no watermark.';
+const lede = 'Fix your PDF in three steps. No account, no upload, no watermark on your file.';
 ---
 <ToolPage
   title={title}
@@ -16,65 +15,59 @@ const lede = 'One workspace for everything you do to PDFs. Drop a file, arrange 
   crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'PDF Editor', href: '/pdf-editor' }]}
   toolName="TruePDF PDF Editor"
   intro={[
-    'Most PDF jobs are not one action. You merge two scans, then realize page three is upside down, then notice a typo on page one, then need page numbers before sending. The usual answer is five different tools on five different sites, each with its own upload, its own limits, and its own watermark.',
-    'This editor puts the whole job on one screen. Your pages appear as thumbnails you can drag into order, rotate, or delete. Click any page to edit its text directly, add a watermark or page numbers, crop the margins, or lock the file with a password. Everything happens in your browser: the file never goes to a server, and when the tab closes nothing remains but your download.',
+    'Combine bank statements for a loan application. Fix a typo in a contract before signing. Add page numbers to a report. Delete the blank pages from a scan.',
+    'Drop your PDF below. Your pages appear as pictures you can drag into order, rotate, or delete. Tap a page to fix its text. Add page numbers, a watermark, or a password when you need them. Everything happens in your browser — your file never goes to a server.',
   ]}
   steps={[
-    'Drop a PDF onto the box below, or click it to browse. You can add more PDFs any time; their pages join the same workspace.',
-    'Drag thumbnails to reorder. Hover a page for rotate and delete. Click pages to select several at once, then act on all of them.',
-    'Use the toolbar for the rest: edit text, watermark, page numbers, headers and footers, crop, password protection.',
-    'Click "Download PDF". Your pages, in your order, with every change applied, save to your device.',
+    'Drop your PDF onto the box below, or tap it to browse. You can add more PDFs any time.',
+    'Drag the page pictures to reorder them. Tap a picture to open it and fix the text. Use the buttons to add page numbers, a watermark, or a password.',
+    'Tap "Download PDF". Your file saves to your device with every change applied.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
     ['Signup', 'None. No account, no email.'],
-    ['Watermark', 'None, unless you add your own.'],
-    ['Where files are processed', 'In your browser, on your device'],
-    ['Text editing', 'Click text on a page and type; the replacement matches the original size and position'],
-    ['Page operations', 'Reorder, rotate, delete, extract, merge more files in'],
-    ['Stamping', 'Text watermark, page numbers, headers and footers'],
-    ['Protection', 'Password-protect the download'],
+    ['Your files', 'Never leave your device. Everything runs in your browser.'],
+    ['Combine PDFs', 'Drop in more files; their pages join the list'],
+    ['Organize', 'Drag pages to reorder, tap to rotate or delete'],
+    ['Fix text', 'Tap a page, tap the text, type the correction'],
+    ['Add to pages', 'Page numbers, watermark, header and footer'],
+    ['Protect', 'Add a password to the download'],
     ['Works offline', 'Yes, once the page has loaded'],
   ]}
   faqs={[
     {
-      q: 'Is this PDF editor really free?',
-      a: 'Yes. There is no paid tier, no daily quota, and no watermark. Editing runs entirely in your browser, so there is nothing to charge for.',
+      q: 'Is this really free?',
+      a: 'Yes. No paid tier, no daily limits, no watermark on your file. Everything runs in your browser, so there is nothing to charge for.',
     },
     {
-      q: 'Are my PDFs uploaded anywhere?',
-      a: 'No. Every operation runs locally in your browser. Your documents never leave your device, which makes this safe for contracts, medical records, and anything else sensitive.',
+      q: 'Do my PDFs get uploaded anywhere?',
+      a: 'No. Your files never leave your device. This makes it safe for contracts, medical records, bank statements, and anything else sensitive.',
     },
     {
-      q: 'How does the text editing work?',
-      a: 'Open a page, click the text you want to change, and type. The replacement is drawn at the same size and position as the original. It works best for short fixes like names, dates, and typos; reflowing whole paragraphs is beyond what in-place PDF editing can do cleanly.',
+      q: 'How do I fix a typo in my PDF?',
+      a: 'Tap the page picture to open it, then tap the text you want to change and type. The fix appears in the same spot as the original text. Best for short fixes like names and dates.',
     },
     {
-      q: 'Can I undo a change?',
-      a: 'Yes. Reorders, rotations, deletions, and added files can all be undone with the Undo button or Ctrl+Z, right up until you download.',
+      q: 'Can I undo if I make a mistake?',
+      a: 'Yes. Tap Undo (or Ctrl+Z) to reverse reorders, rotations, deletions, and added files, right up until you download.',
     },
     {
-      q: 'What happens to links and form fields in my PDF?',
-      a: 'Page order, rotation, and deletion keep the pages themselves intact. Text edits cover the old text with the new text, so links sitting exactly under edited text may be covered too.',
-    },
-    {
-      q: 'Can I edit a password-protected PDF?',
-      a: 'Unlock it first with the unlock tool, then open it here.',
+      q: 'Can I open a password-protected PDF?',
+      a: 'Unlock it first with the Unlock PDF tool, then open it here.',
     },
   ]}
   usecases={[
-    { h: 'Fix a contract before signing', p: 'Correct a name or date directly on the page instead of asking for a new copy.' },
-    { h: 'Assemble a report', p: 'Merge scans, drop the blank pages, rotate the sideways ones, add page numbers, download.' },
-    { h: 'Prepare a scan to share', p: 'Crop the dark scanner margins, stamp it confidential, lock it with a password.' },
+    { h: 'Combine files for a loan application', p: 'Drop in your bank statements, pay slips, and ID. Drag them into order, download one PDF.' },
+    { h: 'Fix a typo in a contract', p: 'Open the page, tap the wrong name or date, type the correction. No need to ask for a new copy.' },
+    { h: 'Clean up a scan', p: 'Delete the blank pages, rotate the sideways ones, crop the dark edges, add page numbers.' },
   ]}
 >
   <section class="tool-card" slot="tool" aria-label="PDF editor workspace">
     <div id="error-box" class="error-box" hidden></div>
 
-    <div id="ws-dropzone" class="dropzone" role="button" tabindex="0" aria-label="Drop PDF files here or click to browse">
-      <div class="dz-icon"><Icon name="upload" size={30} /></div>
+    <div id="ws-dropzone" class="dropzone" role="button" tabindex="0" aria-label="Drop PDF files here or tap to browse">
       <p class="dz-title">Drop your PDFs here</p>
-      <p class="dz-sub">or click to browse — files never leave your device</p>
+      <p class="dz-sub">or tap to browse — files never leave your device</p>
       <input type="file" id="ws-file-input" accept="application/pdf,.pdf" multiple hidden />
     </div>
     <p id="size-note" class="hint" hidden></p>
@@ -86,16 +79,16 @@ const lede = 'One workspace for everything you do to PDFs. Drop a file, arrange 
         <span class="ws-sep"></span>
         <button id="ws-rotate" class="btn btn-secondary" type="button" disabled>Rotate</button>
         <button id="ws-delete" class="btn btn-secondary" type="button" disabled>Delete</button>
-        <button id="ws-extract" class="btn btn-secondary" type="button" disabled>Save selected as new PDF</button>
+        <button id="ws-extract" class="btn btn-secondary" type="button" disabled>Save selected pages</button>
         <span class="ws-sep"></span>
-        <button id="ws-text" class="btn btn-secondary" type="button" disabled>Edit text</button>
+        <button id="ws-text" class="btn btn-secondary" type="button" disabled>Fix text</button>
         <button id="ws-crop" class="btn btn-secondary" type="button" disabled>Crop</button>
       </div>
       <div class="ws-toolbar-row">
         <button id="ws-watermark" class="btn btn-secondary" type="button">Watermark</button>
         <button id="ws-pagenum" class="btn btn-secondary" type="button">Page numbers</button>
-        <button id="ws-headerfooter" class="btn btn-secondary" type="button">Header / footer</button>
-        <button id="ws-protect" class="btn btn-secondary" type="button">Password</button>
+        <button id="ws-headerfooter" class="btn btn-secondary" type="button">Header & footer</button>
+        <button id="ws-protect" class="btn btn-secondary" type="button">Add password</button>
         <span class="ws-sep"></span>
         <button id="ws-download" class="btn" type="button">Download PDF</button>
       </div>
@@ -110,7 +103,7 @@ const lede = 'One workspace for everything you do to PDFs. Drop a file, arrange 
         <span id="ws-pv-label" class="ws-pv-label"></span>
         <button id="ws-pv-crop" class="btn btn-secondary" type="button">Crop this page</button>
       </div>
-      <p class="hint" id="ws-pv-hint">Click any text on the page to edit it.</p>
+      <p class="hint" id="ws-pv-hint">Tap any text on the page to fix it.</p>
       <div id="ws-pv-stage" class="ws-pv-stage"></div>
     </div>
 
