@@ -20,9 +20,9 @@ const lede = 'Turn scanned PDFs into searchable documents. Pages with no text ar
     'Only the pages that need it are touched. If your document mixes scanned pages with real text pages (a common result of scanning one page badly, or combining files), the text pages are copied through unchanged. Pick the language the pages are written in before you run it; that matters for accuracy.',
   ]}
   steps={[
-    'Drop your PDF onto the box above, or click it to browse. Pick the language the pages are written in.',
+    'Drop your PDF onto the box above, or tap it to browse. Pick the language the pages are written in.',
     'The tool checks every page. Pages that already have text are left alone; only scanned pages are read.',
-    'Click "Make searchable". A progress bar shows the page currently being read.',
+    'Tap "Make searchable". A progress bar shows the page currently being read.',
     'Save the result, then test it: open the PDF and search for a word you know is on a scanned page.',
   ]}
   specs={[
@@ -59,12 +59,8 @@ const lede = 'Turn scanned PDFs into searchable documents. Pages with no text ar
       a: 'Not reliably. It is built for printed text. Handwritten pages usually come back as gibberish, so run it on printed documents.',
     },
     {
-      q: 'My PDF already has text, but it is garbled. What can I do?',
-      a: 'Tick "Re-read pages that already have text" before running. The tool will read every page fresh and replace the garbled text layer with a new one, instead of copying the bad pages through untouched.',
-    },
-    {
       q: 'My PDF already has text. What does this tool do with it?',
-      a: 'Nothing, by default. Pages with real text are copied into the result unchanged, which also keeps the file small and the good text perfect. If the existing text is garbled, tick the re-read option above to rebuild it.',
+      a: 'Nothing. Pages with real text are copied into the result unchanged, which also keeps the file small and the good text perfect. If a page has text but it is garbled, convert the page to an image first, or re-scan it.',
     },
     {
       q: 'How long does it take?',
@@ -90,7 +86,7 @@ const lede = 'Turn scanned PDFs into searchable documents. Pages with no text ar
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to make searchable">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
       <div class="dz-title">Drop a PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <p id="size-note" class="hint" hidden></p>
@@ -105,17 +101,9 @@ const lede = 'Turn scanned PDFs into searchable documents. Pages with no text ar
     <p id="engine-note" class="hint" hidden></p>
 
     <div class="row-2">
-      <div class="field">
-        <label for="lang-select">Text language</label>
+      <div class="field-row" style="display:grid;gap:0.3rem;">
+        <label for="lang-select" style="font-weight:600;font-size:0.9rem;">Text language</label>
         <select id="lang-select" class="select-input"></select>
-      </div>
-      <div class="field">
-        <span class="field-row-label">Options</span>
-        <div class="checkline">
-          <input type="checkbox" id="ocr-force-all" />
-          <label for="ocr-force-all">Re-read pages that already have text</label>
-        </div>
-        <p class="hint">For documents where the existing text is garbled. Slower, since every page is read again.</p>
       </div>
     </div>
 

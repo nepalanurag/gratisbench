@@ -21,9 +21,9 @@ const lede = 'Remove the password from a PDF you own. You need to know the passw
     'One honest limit: you must know the password. This tool cannot guess, brute-force, or otherwise crack a password you do not have. That is deliberate.',
   ]}
   steps={[
-    'Drop your locked PDF onto the box above, or click it to browse.',
+    'Drop your locked PDF onto the box above, or tap it to browse.',
     'Type the password you use to open the file (leave it blank if it never had one).',
-    'Click "Unlock PDF". The first run downloads a small unlock engine (one-time); the unlocking itself happens on your device.',
+    'Tap "Unlock PDF". The first run downloads a small unlock engine (one-time); the unlocking itself happens on your device.',
     'Download it. The new file opens with no password.',
   ]}
   specs={[
@@ -36,10 +36,6 @@ const lede = 'Remove the password from a PDF you own. You need to know the passw
     ['Max file size', 'Limited by your device memory; typical documents are fine'],
   ]}
   faqs={[
-    {
-      q: 'The result says my file was not actually locked. What does that mean?',
-      a: 'The file had no real password on it — it may only have carried copy or print limits, or nothing at all. The tool still gives you a clean copy with every limit stripped, so it is safe to use with the other tools.',
-    },
     {
       q: 'Can this unlock a PDF if I forgot the password?',
       a: 'No. The password is the key that decrypts the file, and without it the content is unreadable by design. This tool only removes protection when you supply the correct password. Anything claiming to recover a lost PDF password is either guessing common passwords or misleading you.',
@@ -92,7 +88,7 @@ const lede = 'Remove the password from a PDF you own. You need to know the passw
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a locked PDF to unlock">
       <div class="dz-icon"><Icon name="lock" size={30} /></div>
       <div class="dz-title">Drop your locked PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <p id="file-label" class="count-label" role="status"></p>

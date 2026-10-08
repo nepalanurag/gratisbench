@@ -17,13 +17,13 @@ const lede = 'Pull every embedded picture out of a PDF. See thumbnails of what i
   toolName="TruePDF Extract Images"
   intro={[
     'PDFs often carry full-resolution pictures that you cannot get at any other way: product photos in a catalog, figures in a paper, scans someone embedded instead of attaching. Screenshots of the page give you a low-quality crop. This tool pulls the actual embedded images out at their original resolution.',
-    'Drop the file and every picture inside appears as a thumbnail with its page number, dimensions, and file size. Download the ones you want individually, or tick the ones you want and take them together as a ZIP. Choose the download format: original (as stored), PNG, or JPG. The original PDF is never changed.',
+    'Drop the file and every picture inside appears as a thumbnail with its page number and size. Download the ones you want individually, or take everything at once as a ZIP. Photos come out as JPG; drawings and graphics come out as PNG. The original PDF is never changed.',
   ]}
   steps={[
-    'Drop your PDF onto the box above, or click it to browse.',
+    'Drop your PDF onto the box above, or tap it to browse.',
     'Wait a moment while the tool reads every page. Thumbnails of all embedded images appear below.',
-    'Pick a download format and untick anything you do not want.',
-    'Download images one by one, or take the selected ones together as a ZIP.',
+    'Download single images with their buttons, or take everything at once.',
+    'Use "Download all as ZIP" for the full set in one file.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
@@ -31,15 +31,15 @@ const lede = 'Pull every embedded picture out of a PDF. See thumbnails of what i
     ['Watermark', 'None. The images are yours, untouched.'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Image quality', 'Original resolution, as embedded in the PDF'],
-    ['Download formats', 'Original (as stored), PNG, or JPG'],
-    ['ZIP download', 'Only the images you ticked, in one images.zip file'],
-    ['What is hidden', 'Tiny icons and invisible mask images are hidden by default'],
+    ['Formats', 'JPG for photos, PNG for graphics and drawings'],
+    ['ZIP download', 'All images in one images.zip file'],
+    ['What is skipped', 'Tiny icons and invisible mask images are skipped'],
     ['Password-protected PDFs', 'Not supported. Remove the password first, then extract.'],
   ]}
   faqs={[
     {
-      q: 'Which download format should I pick?',
-      a: 'Original keeps each image exactly as the PDF stores it (usually JPG for photos, PNG for graphics) and is the smallest faithful option. Pick PNG when you plan to edit graphics or logos, and JPG when you want the smallest files for photos.',
+      q: 'Why do some images come out as JPG and others as PNG?',
+      a: 'Photos are usually stored in the PDF as JPEG already, so they come out unchanged as JPG. Drawings, logos, and graphics are usually stored uncompressed, so they are converted to PNG. Either way, the resolution is the original one.',
     },
     {
       q: 'The PDF has pictures but the tool found none. Why?',
@@ -81,7 +81,7 @@ const lede = 'Pull every embedded picture out of a PDF. See thumbnails of what i
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to extract images from">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
       <div class="dz-title">Drop a PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <p id="size-note" class="hint" hidden></p>
@@ -93,86 +93,16 @@ const lede = 'Pull every embedded picture out of a PDF. See thumbnails of what i
     </p>
 
     <p id="images-empty" class="empty-state" hidden>No images yet. Add a PDF above to see what is inside it.</p>
-
-    <div id="img-controls" class="img-controls" hidden>
-      <fieldset class="format-picker">
-        <legend>Download format</legend>
-        <label><input type="radio" name="img-format" value="original" checked /> Original <span class="opt-note">as stored in the PDF</span></label>
-        <label><input type="radio" name="img-format" value="png" /> PNG <span class="opt-note">best for graphics and logos</span></label>
-        <label><input type="radio" name="img-format" value="jpg" /> JPG <span class="opt-note">smaller files, best for photos</span></label>
-      </fieldset>
-      <div class="checkline">
-        <input type="checkbox" id="hide-small" checked />
-        <label for="hide-small">Hide tiny images (icons, bullets, decorations)</label>
-      </div>
-      <div class="btn-row select-row">
-        <button id="select-all" class="btn btn-secondary btn-small" type="button">Select all</button>
-        <button id="select-none" class="btn btn-secondary btn-small" type="button">Select none</button>
-      </div>
-    </div>
-    <p id="small-note" class="hint" hidden></p>
     <div id="images-wrap" class="img-grid"></div>
 
     <div id="result" class="result" hidden>
       <h3>Images found</h3>
       <p id="count-label" class="count-label"></p>
-      <button id="zip-btn" class="btn" disabled>Download as ZIP</button>
+      <button id="zip-btn" class="btn" disabled>Download all as ZIP</button>
     </div>
   </section>
   <script>
     import { initExtractImages } from '../tools/extract-images';
     initExtractImages();
   </script>
-  <style>
-    /* Page-local styles for the format picker and per-image keep toggles. */
-    :global(.img-controls) {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 0.8rem 1rem;
-      margin: 1rem 0;
-      background: var(--paper);
-      display: grid;
-      gap: 0.7rem;
-    }
-    :global(.format-picker) {
-      border: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem 1.2rem;
-      align-items: center;
-    }
-    :global(.format-picker legend) {
-      font-weight: 600;
-      font-size: 0.9rem;
-      padding: 0;
-      margin-right: 0.4rem;
-    }
-    :global(.format-picker label) {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: 0.92rem;
-      cursor: pointer;
-    }
-    :global(.opt-note) {
-      color: var(--muted);
-      font-size: 0.82rem;
-    }
-    :global(.select-row) {
-      margin-top: 0;
-    }
-    :global(.btn-small) {
-      padding: 0.4rem 0.8rem;
-      font-size: 0.85rem;
-    }
-    :global(.keep-row) {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.88rem;
-      cursor: pointer;
-    }
-  </style>
 </ToolPage>

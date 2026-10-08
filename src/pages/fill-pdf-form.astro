@@ -17,13 +17,13 @@ const lede = 'Type into a PDF form without printing it. Text fields, checkboxes,
   toolName="TruePDF Fill PDF Form"
   intro={[
     'Plenty of official documents arrive as PDFs with fillable fields: application forms, tax paperwork, registration forms. The usual options are printing and handwriting (slow, ugly) or expensive software. This tool turns the PDF\u2019s fields into a plain web form: type, tick, choose, save.',
-    'The filled result is a normal PDF with your answers in it. Save it with the fields still fillable if you want to edit later, or tick "lock the fields" to bake your answers in permanently so nobody can change them. Fields the form marks as required are flagged, and you can save your answers to a file to reuse them the next time you face the same form. The file never leaves your device, which matters when the form holds personal details.',
+    'The filled result is a normal PDF with your answers in it. Save it with the fields still fillable if you want to edit later, or tick "lock the fields" to bake your answers in permanently so nobody can change them. The file never leaves your device, which matters when the form holds personal details.',
   ]}
   steps={[
-    'Drop your PDF form onto the box above, or click it to browse. Its fields appear as a plain form.',
-    'Fill in the fields: type into text boxes, tick checkboxes, pick from dropdowns. Required fields are flagged.',
+    'Drop your PDF form onto the box above, or tap it to browse. Its fields appear as a plain form.',
+    'Fill in the fields: type into text boxes, tick checkboxes, pick from dropdowns.',
     'Tick "Lock the fields" if you want the answers baked in so they cannot be changed later.',
-    'Click "Save and download". Open the result to check your answers landed in the right places.',
+    'Tap "Save and download". Open the result to check your answers landed in the right places.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
@@ -31,8 +31,6 @@ const lede = 'Type into a PDF form without printing it. Text fields, checkboxes,
     ['Watermark', 'None.'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Field types', 'Text fields, checkboxes, dropdowns, lists, radio buttons'],
-    ['Required fields', 'Flagged automatically; the tool warns before saving with any empty'],
-    ['Reusable answers', 'Save your answers to a file and load them back for the same form'],
     ['Locking', 'Optional: bake answers into the page so they cannot be edited'],
     ['Output filename', 'Your original name with "-filled" added'],
     ['PDFs with no form fields', 'The tool says so plainly. Scanned forms need OCR PDF first, then a form built in a PDF editor.'],
@@ -54,10 +52,6 @@ const lede = 'Type into a PDF form without printing it. Text fields, checkboxes,
     {
       q: 'Can I sign the form here too?',
       a: 'Not on this page. Fill the form here first, then open the result in the Sign PDF tool to place your signature on it.',
-    },
-    {
-      q: 'What does "Save my answers" do?',
-      a: 'It downloads a small file holding everything you typed. Next time you open the same form (a new blank copy of it), click "Load answers" and pick that file: every matching field fills itself in. Handy for forms you complete again and again, like monthly reports.',
     },
     {
       q: 'The field labels look like gibberish. Is that normal?',
@@ -87,7 +81,7 @@ const lede = 'Type into a PDF form without printing it. Text fields, checkboxes,
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF form to fill in">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
       <div class="dz-title">Drop a PDF form here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <p id="size-note" class="hint" hidden></p>
@@ -99,28 +93,18 @@ const lede = 'Type into a PDF form without printing it. Text fields, checkboxes,
     </p>
 
     <p id="file-info" class="hint" hidden></p>
-    <p id="no-fields" class="empty-state" hidden>This PDF has no fillable form fields. Scanned pages need the OCR PDF tool first; on flat pages, the Sign PDF tool can place typed text as a workaround.</p>
+    <p id="no-fields" class="empty-state" hidden>No form fields yet. Add a PDF form above.</p>
 
     <div id="form-wrap" hidden>
-      <p id="fill-progress" class="hint" aria-live="polite"></p>
       <div id="fields-list" class="form-fields"></div>
-      <div class="field">
-        <div class="checkline">
-          <input type="checkbox" id="opt-flatten" />
-          <label for="opt-flatten">Lock the fields after filling (answers cannot be changed later)</label>
-        </div>
+      <div class="checkline" style="margin-top:1rem;">
+        <input type="checkbox" id="opt-flatten" />
+        <label for="opt-flatten">Lock the fields after filling (answers cannot be changed later)</label>
       </div>
       <div class="btn-row">
         <button id="save-btn" class="btn">Save and download</button>
-        <button id="save-anyway-btn" class="btn btn-secondary" type="button" hidden>Save anyway</button>
         <span id="count-label" class="count-label"></span>
       </div>
-      <div class="btn-row answers-row">
-        <button id="answers-save" class="btn btn-secondary" type="button">Save my answers</button>
-        <button id="answers-load" class="btn btn-secondary" type="button">Load answers</button>
-        <input type="file" id="answers-input" accept="application/json,.json" hidden />
-      </div>
-      <p class="hint">Save your answers to reuse them next time: load the file here and every matching field fills itself in.</p>
     </div>
 
     <div id="result" class="result" hidden>
@@ -133,23 +117,4 @@ const lede = 'Type into a PDF form without printing it. Text fields, checkboxes,
     import { initFillPdfForm } from '../tools/fill-pdf-form';
     initFillPdfForm();
   </script>
-  <style>
-    /* Page-local styles for the required-field tag and answers row. */
-    :global(.required-tag) {
-      display: inline-block;
-      margin-left: 0.5rem;
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--accent);
-      border: 1px solid var(--accent);
-      border-radius: 999px;
-      padding: 0.05rem 0.5rem;
-      vertical-align: middle;
-    }
-    :global(.answers-row) {
-      margin-top: 0.6rem;
-    }
-  </style>
 </ToolPage>

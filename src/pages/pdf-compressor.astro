@@ -21,10 +21,10 @@ const lede = 'Make a PDF smaller by shrinking its images. Text stays sharp and s
     'Everything happens on your device. The images are shrunk locally, the smaller PDF is built locally, and nothing is uploaded anywhere. Your original file is never modified; the download is a separate new file, so you can compare the two and keep whichever you prefer.',
   ]}
   steps={[
-    'Drop your PDF onto the box above, or click it to browse. One file at a time.',
-    'Choose a level: Best detail for printing, For email and sharing for everyday use, or Smallest file for strict limits — or switch to "Hit a file size" and type the size you need.',
-    'Click "Compress PDF". Each large image is shrunk, with a progress bar.',
-    'Compare the original and compressed sizes shown in the result, then download the smaller file.',
+    'Drop your PDF onto the box above, or tap it to browse. One file at a time.',
+    'Choose how much to shrink: Light (barely noticeable), Medium (best for email), or Heavy (smallest files). Or pick "Hit a file size" and type the size you need.',
+    'Tap "Compress PDF". Each large image is shrunk, with a progress bar.',
+    'Compare the original and compressed sizes, then download the smaller file.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
@@ -35,14 +35,13 @@ const lede = 'Make a PDF smaller by shrinking its images. Text stays sharp and s
     ['Text selection', 'Preserved. Selectable, searchable, copyable.'],
     ['Best for', 'PDFs with large photos, scans, or screenshots'],
     ['Less useful for', 'Text-only PDFs, which are usually already small'],
-    ['Quality levels', 'Best detail, For email and sharing, or Smallest file — or aim at an exact file size'],
-    ['Target size mode', 'Type a size like 2 MB, or tap a preset (1, 2, 5, or 10 MB); the tool searches for settings that land under it'],
+    ['Quality levels', 'Light (barely noticeable), Medium (best for email), or Heavy (smallest files)'],
     ['Output filename', 'Your original name with "-compressed" added'],
   ]}
   faqs={[
     {
       q: 'Will compressing make my PDF blurry?',
-      a: 'Text and vector graphics are never touched, so they stay perfectly sharp at any zoom. Only embedded images are shrunk: Best detail is barely noticeable, For email and sharing is the sweet spot for screen reading and email, and Smallest file trades some visible softness on close zoom for the tiniest files.',
+      a: 'Text and vector graphics are never touched, so they stay perfectly sharp at any zoom. Only embedded images are shrunk: Light (2400px) is barely noticeable, Medium (1600px) is the sweet spot for screen reading and email, and Heavy (1000px) trades some visible softness on close zoom for the smallest files.',
     },
     {
       q: 'Is the text still selectable after compression?',
@@ -54,7 +53,7 @@ const lede = 'Make a PDF smaller by shrinking its images. Text stays sharp and s
     },
     {
       q: 'Which level should I choose?',
-      a: 'Start with For email and sharing: it is the right choice for emailing, uploading to a form, or reading on screen. Pick Best detail if the PDF still needs to look its best when printed or zoomed in, and Smallest file when you are fighting a strict upload limit and every kilobyte counts. Your original file is never touched, so you can try all three and compare.',
+      a: 'Medium is the right starting point for emailing, uploading to a form, or reading on screen. Pick Light if the PDF still needs to look its best when printed or zoomed in, and Heavy when you are fighting a strict upload limit and every kilobyte counts. Your original file is never touched, so you can try all three and compare.',
     },
     {
       q: 'Can I compress several PDFs at once?',
@@ -74,7 +73,7 @@ const lede = 'Make a PDF smaller by shrinking its images. Text stays sharp and s
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to compress">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
       <div class="dz-title">Drop a PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <div id="error-box" class="error-box" hidden></div>
@@ -97,13 +96,7 @@ const lede = 'Make a PDF smaller by shrinking its images. Text stays sharp and s
     <div class="field" id="target-size-field" hidden>
       <label for="target-mb">Target size (MB)</label>
       <input type="number" id="target-mb" min="0.1" step="0.1" value="2" style="max-width: 160px" />
-      <div class="btn-row btn-row-tight" id="target-chips">
-        <button type="button" class="btn btn-secondary" data-mb="1">Under 1 MB</button>
-        <button type="button" class="btn btn-secondary" data-mb="2">Under 2 MB</button>
-        <button type="button" class="btn btn-secondary" data-mb="5">Under 5 MB</button>
-        <button type="button" class="btn btn-secondary" data-mb="10">Under 10 MB</button>
-      </div>
-      <p class="hint">We try lighter settings first and go stronger until the file fits. If it cannot fit, we tell you the smallest we managed. Many email servers cap attachments around 10 MB.</p>
+      <p class="hint">We try lighter settings first and go stronger until the file fits. If it cannot fit, we tell you the smallest we managed.</p>
     </div>
 
     <div class="field" id="quality-field">
@@ -111,15 +104,15 @@ const lede = 'Make a PDF smaller by shrinking its images. Text stays sharp and s
       <div class="radio-cards" role="radiogroup" aria-label="Compression level">
         <label class="radio-card">
           <input type="radio" name="level" value="light" />
-          <span><strong>Best detail</strong><small>For printing or zooming in. Images stay at their best.</small></span>
+          <span><strong>Light</strong><small>Images up to 2400px. Barely noticeable.</small></span>
         </label>
         <label class="radio-card">
           <input type="radio" name="level" value="medium" checked />
-          <span><strong>For email and sharing</strong><small>The usual choice. Good on screen, much smaller.</small></span>
+          <span><strong>Medium</strong><small>Images up to 1600px. Best for email and uploads.</small></span>
         </label>
         <label class="radio-card">
           <input type="radio" name="level" value="heavy" />
-          <span><strong>Smallest file</strong><small>For strict upload limits. Images get noticeably softer.</small></span>
+          <span><strong>Heavy</strong><small>Images up to 1000px. Smallest files.</small></span>
         </label>
       </div>
     </div>

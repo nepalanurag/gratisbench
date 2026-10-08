@@ -22,8 +22,8 @@ const lede =
     'Now the honest part, stated plainly: this tool extracts text and images into an editable Word document. Complex layouts, tables, and multi-column designs will not be preserved. What you get is a clean single-column document with your words, your headings, and your images, not a pixel-perfect replica of the original page. If you need every table cell and text box exactly where it was, use desktop software. If you need the words editable, this is the fast free route.',
   ]}
   steps={[
-    'Drop your PDF onto the box above, or click it to browse. The file never leaves your device.',
-    'Choose your options: keep "Include images" ticked to carry photos across, and tick "Read text from scanned pages" if the PDF is a scan. Then click "Convert to Word" — the PDF is read page by page in your browser.',
+    'Drop your PDF onto the box above, or tap it to browse. The file never leaves your device.',
+    'Tap "Convert to Word". The PDF is read page by page in your browser; headings and images are picked up as it goes.',
     'When the conversion finishes, the results list how many paragraphs, headings, and images were extracted.',
     'Download the .docx file. It opens in Microsoft Word, Google Docs, or LibreOffice.',
     'Give the document a quick read. Headings use real Word styles, so the navigation pane and table of contents work; fix any heading the size heuristic missed.',
@@ -35,8 +35,8 @@ const lede =
     ['What is preserved', 'Text content, paragraph breaks, heading structure, embedded images'],
     ['What is NOT preserved', 'Complex layouts, tables, multi-column designs, exact fonts and spacing'],
     ['Headings', 'Detected by font-size heuristics and saved as real Word heading styles'],
-    ['Images', 'Embedded images are included inline; tiny decorative icons are skipped. Untick "Include images" for a text-only document.'],
-    ['Scanned PDFs', 'Pages that are only images have no text to extract. Tick "Read text from scanned pages" before converting to have the text read automatically.'],
+    ['Images', 'Embedded images are included inline; tiny decorative icons are skipped'],
+    ['Scanned PDFs', 'Pages that are only images have no text to extract; the results say which pages those were'],
     ['Page limit', 'The first 200 pages are converted'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Works offline', 'Yes, once the page has loaded'],
@@ -60,7 +60,7 @@ const lede =
     },
     {
       q: 'What happens with a scanned PDF?',
-      a: 'A scanned PDF is pictures of pages, not text, so there is no text layer to extract. Tick "Read text from scanned pages" before converting and the tool reads those pages with an on-device text reader, inserting the recognized words into the Word document. It is slower (the reading engine downloads the first time you use it), and handwriting or very blurry scans will come out imperfect — the results say how many pages were read this way. Without the tick, the converter still embeds any images it finds but tells you plainly how many pages had no extractable text.',
+      a: 'A scanned PDF is pictures of pages, not text, so there is no text layer to extract. The converter still runs and embeds any images it finds, but the results will tell you plainly how many pages had no extractable text. For scans, read the text first with the Image OCR tool on this site, then work with the recognized text directly.'
     },
     {
       q: 'How are headings detected?',
@@ -98,23 +98,11 @@ const lede =
     <div id="pdf2word-dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose a PDF file to convert">
       <div class="dz-icon"><Icon name="file" size={30} /></div>
       <div class="dz-title">Drop a PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="pdf2word-input" accept="application/pdf,.pdf" hidden />
     <div id="pdf2word-error" class="error-box" hidden></div>
     <p id="pdf2word-file" class="count-label" hidden></p>
-    <div class="field">
-      <div class="checkline">
-        <input type="checkbox" id="pdf2word-include-images" checked />
-        <label for="pdf2word-include-images">Include images</label>
-      </div>
-      <p class="hint">Photos and figures from the PDF are placed in the Word document.</p>
-      <div class="checkline">
-        <input type="checkbox" id="pdf2word-ocr-scans" />
-        <label for="pdf2word-ocr-scans">Read text from scanned pages</label>
-      </div>
-      <p class="hint">Slower. For PDFs that are photos of pages, the text is read automatically. The reading engine downloads the first time you use it, so you need to be online once.</p>
-    </div>
     <div class="btn-row">
       <button id="pdf2word-convert" class="btn" disabled>Convert to Word</button>
     </div>

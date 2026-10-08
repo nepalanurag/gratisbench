@@ -17,13 +17,13 @@ const lede = 'Get the plain text out of a PDF. Read it right on the page, copy i
   toolName="TruePDF Extract Text"
   intro={[
     'Sometimes you do not want the document. You want the words: to quote in an email, to paste into notes, to feed into a translator, to search through quickly. This tool reads every page of a PDF and hands you the text as plain text, editable right on the page before you copy or download it.',
-    'What comes out is the text in reading order, page by page. Fonts and images are dropped: this is for the words, not the design. Pick "Simple text" for one clean flow, or "Keep page layout" to preserve columns and spacing the way they look on the page. If the PDF is a scan with no text inside, the tool says so plainly, and the OCR PDF tool is the fix for that.',
+    'What comes out is the text in reading order, page by page. Layouts, fonts, and images are dropped: this is for the words, not the design. If the PDF is a scan with no text inside, the tool says so plainly, and the OCR PDF tool is the fix for that.',
   ]}
   steps={[
-    'Drop your PDF onto the box above, or click it to browse.',
+    'Drop your PDF onto the box above, or tap it to browse.',
     'The tool reads every page. The text appears in the box below, editable if you want to fix anything.',
-    'Switch between Simple text and Keep page layout to get the version you need.',
-    'Click "Copy" to copy it to your clipboard, or "Download .txt" to save it as a text file.',
+    'Tap "Copy" to copy it to your clipboard, or "Download .txt" to save it as a text file.',
+    'For scanned PDFs with no text, use the OCR PDF tool first, then extract the text here.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
@@ -31,10 +31,8 @@ const lede = 'Get the plain text out of a PDF. Read it right on the page, copy i
     ['Watermark', 'None.'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Output', 'Plain text: copy to clipboard or download as .txt'],
-    ['Text styles', 'Simple text (clean flow) or Keep page layout (columns and spacing)'],
-    ['Page markers', 'Optional "--- Page 2 of 5 ---" lines between pages'],
     ['Order', 'Pages in order, text in reading order'],
-    ['What is dropped', 'Fonts, images, and formatting'],
+    ['What is dropped', 'Layouts, fonts, images, and formatting'],
     ['Scanned PDFs', 'No text to extract. Run OCR PDF first.'],
     ['Password-protected PDFs', 'Not supported. Remove the password first, then extract.'],
   ]}
@@ -46,10 +44,6 @@ const lede = 'Get the plain text out of a PDF. Read it right on the page, copy i
     {
       q: 'Why does the text look jumbled in places?',
       a: 'PDFs store text as positioned fragments, not paragraphs. Multi-column layouts, tables, and footnotes can come out in the wrong order. The text box is editable, so you can fix the order before copying.',
-    },
-    {
-      q: 'What does "Keep page layout" do differently?',
-      a: 'Simple text joins everything into one reading flow, which is best for quoting and pasting. Keep page layout rebuilds the text from each fragment\u2019s position on the page, so two-column articles, tables, and spaced-out headings come out looking like they do in the PDF.',
     },
     {
       q: 'Can I get the text with its formatting?',
@@ -83,7 +77,7 @@ const lede = 'Get the plain text out of a PDF. Read it right on the page, copy i
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to extract text from">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
       <div class="dz-title">Drop a PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <p id="size-note" class="hint" hidden></p>
@@ -95,18 +89,6 @@ const lede = 'Get the plain text out of a PDF. Read it right on the page, copy i
     </p>
 
     <p id="text-empty" class="empty-state">No text yet. Add a PDF above to read its text.</p>
-
-    <div id="text-options" class="text-options" hidden>
-      <fieldset class="format-picker">
-        <legend>Text style</legend>
-        <label><input type="radio" name="text-mode" value="simple" checked /> Simple text <span class="opt-note">one clean flow, easiest to read</span></label>
-        <label><input type="radio" name="text-mode" value="layout" /> Keep page layout <span class="opt-note">columns and spacing preserved</span></label>
-      </fieldset>
-      <div class="checkline">
-        <input type="checkbox" id="page-markers" />
-        <label for="page-markers">Mark where each page ends</label>
-      </div>
-    </div>
     <textarea id="text-output" class="ocr-output" aria-label="Extracted text — you can edit it before copying" hidden></textarea>
 
     <div id="progress-wrap" class="progress-wrap" hidden>
@@ -117,7 +99,7 @@ const lede = 'Get the plain text out of a PDF. Read it right on the page, copy i
     <div id="result" class="result" hidden>
       <h3>Text extracted</h3>
       <p id="count-label" class="count-label"></p>
-      <div class="btn-row btn-row-none">
+      <div class="btn-row" style="margin-top:0;">
         <button id="copy-btn" class="btn btn-secondary" disabled>Copy</button>
         <button id="txt-btn" class="btn" disabled>Download .txt</button>
       </div>
@@ -127,42 +109,4 @@ const lede = 'Get the plain text out of a PDF. Read it right on the page, copy i
     import { initExtractText } from '../tools/extract-text';
     initExtractText();
   </script>
-  <style>
-    /* Page-local styles for the text-style picker. */
-    :global(.text-options) {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 0.8rem 1rem;
-      margin: 1rem 0;
-      background: var(--paper);
-      display: grid;
-      gap: 0.7rem;
-    }
-    :global(.format-picker) {
-      border: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem 1.2rem;
-      align-items: center;
-    }
-    :global(.format-picker legend) {
-      font-weight: 600;
-      font-size: 0.9rem;
-      padding: 0;
-      margin-right: 0.4rem;
-    }
-    :global(.format-picker label) {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: 0.92rem;
-      cursor: pointer;
-    }
-    :global(.opt-note) {
-      color: var(--muted);
-      font-size: 0.82rem;
-    }
-  </style>
 </ToolPage>

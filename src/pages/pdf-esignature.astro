@@ -8,10 +8,6 @@ const description =
 const h1 = 'Sign PDF';
 const lede = 'Draw or type your signature, click where it goes, download the signed PDF. Free, no account, no watermark.';
 ---
-<style>
-  .check-row { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; cursor: pointer; }
-  .check-row input { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
-</style>
 <ToolPage
   title={title}
   description={description}
@@ -21,15 +17,15 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
   toolName="TruePDF Sign PDF"
   intro={[
     'Signing a PDF usually means one of two annoyances: printing it, signing with a pen, and scanning it back in, or creating an account with a signature service that wants your email before it will let you draw three letters. For everyday documents, a consent form, a freelance contract, a school permission slip, that is a lot of ceremony for a squiggle.',
-    'This tool keeps it simple. Draw your signature with a mouse, trackpad, or finger on the pad, or type your name and get a script-style rendering of it. Then click on any page of your PDF to place it exactly where you want. If a second person needs to sign, add their signature too — each person\'s placements are tracked separately. The signatures are flattened into the document as part of the page, so the downloaded file looks signed everywhere it is opened, with no special software needed to view it.',
+    'This tool keeps it simple. Draw your signature with a mouse, trackpad, or finger on the pad, or type your name and get a script-style rendering of it. Then click on any page of your PDF to place it exactly where you want. The signature is flattened into the document as part of the page, so the downloaded file looks signed everywhere it is opened, with no special software needed to view it.',
     'One honest note: this is a simple drawn or typed mark on the document, the digital equivalent of signing with a pen. It is not a cryptographic digital signature with a certificate, which is a different thing used for high-assurance legal workflows. For everyday agreements it is exactly what people mean by "sign this PDF". Everything runs in your browser, so the document you are signing never leaves your device.',
   ]}
   steps={[
-    'Make your signature: draw it on the pad and click "Use this signature"; or switch to the Type tab for a script-style rendering; or use the Photo tab to snap your ink signature on paper and have the background removed automatically. Need a second person to sign? Click "+ Add another" and make theirs too.',
-    'Drop your PDF onto the box, or click it to browse. A preview of every page appears.',
-    'Pick whose signature to place, then click on a page where it should go. It lands centered on your click.',
-    'Tick "Add today\'s date" if you want the date stamped under each signature. Adjust the size slider if a signature needs to be bigger or smaller. Drag a placed signature to nudge it; click again on a page to add another one.',
-    'Click "Sign and download" to get the signed copy. Place every needed signature first if the document needs more than one.',
+    'Make your signature: draw it on the pad and click "Use this signature"; or switch to the Type tab for a script-style rendering; or use the Photo tab to snap your ink signature on paper and have the background removed automatically.',
+    'Drop your PDF onto the box, or tap it to browse. A preview of every page appears.',
+    'Click on a page where the signature should go. It lands centered on your click.',
+    'Adjust the size slider if the signature needs to be bigger or smaller. Drag a placed signature to nudge it; click again on a page to add another one.',
+    'Tap "Sign and download" to get the signed copy. Place it on several pages first if the document needs more than one signature.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
@@ -37,8 +33,6 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
     ['Watermark', 'None. The output is your document with your signature, nothing added.'],
     ['Where files are processed', 'In your browser, on your device'],
     ['Signature styles', 'Draw freehand, type your name for a script rendering, or upload a photo of your ink signature (background lifted automatically)'],
-    ['Multiple signers', 'Add a second (or third) signature; each person\'s placements are tracked separately'],
-    ['Date', 'Optional automatic date stamp under each signature, in three date styles'],
     ['Placement', 'Click to place on any page, several per page; drag to reposition; size slider'],
     ['How it is stored', 'Flattened into the page as an image; visible in any PDF reader'],
     ['Signature type', 'A drawn or typed mark, not a certificate-based digital signature'],
@@ -53,14 +47,6 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
     {
       q: 'What is the difference between this and a digital signature?',
       a: 'This tool places a visible mark, like signing with a pen. A certificate-based digital signature is invisible cryptography that proves who signed and detects later changes. They solve different problems. If someone asks you to "digitally sign" with a certificate from an authority, you need dedicated software; if they just need your signature on the page, this tool does it.',
-    },
-    {
-      q: 'Can two people sign the same document?',
-      a: 'Yes. Click "+ Add another" under the signature preview, then draw or type the second person\'s signature. Pick whose signature is active before clicking each page, and the placements list shows which signature went where. Each person\'s marks are flattened into the PDF in one download.',
-    },
-    {
-      q: 'Can it add the date next to my signature automatically?',
-      a: 'Yes. Tick "Add today\'s date under each signature" and pick a date style. The current date is stamped under every placed signature when the file is built, so you do not have to write it by hand on each page.',
     },
     {
       q: 'Can I sign multiple pages?',
@@ -142,32 +128,11 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
       <p id="sig-status" class="engine-status">No signature yet.</p>
     </div>
 
-    <div class="field">
-      <label id="signer-label">Whose signature is this?</label>
-      <div id="signer-bar" class="tab-bar" role="group" aria-labelledby="signer-label"></div>
-      <p class="hint">Two people signing? Add another signature above, draw or type it, then click the pages where it goes. Each person's marks are listed separately below.</p>
-    </div>
-
-    <div class="field">
-      <label class="check-row">
-        <input type="checkbox" id="sig-date" />
-        <span>Add today's date under each signature</span>
-      </label>
-      <div class="field">
-        <label for="sig-date-format">Date style</label>
-        <select id="sig-date-format" class="select-input">
-          <option value="words">Oct 8, 2026</option>
-          <option value="numeric">10/08/2026</option>
-          <option value="iso">2026-10-08</option>
-        </select>
-      </div>
-    </div>
-
     <h3 class="tool-step">2. Add your PDF and place the signature</h3>
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to sign">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
       <div class="dz-title">Drop a PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <div id="error-box" class="error-box" hidden></div>

@@ -20,9 +20,9 @@ const lede = 'Change the title, author, subject, and keywords stored inside a PD
     'Drop the file, edit the fields, save. The pages, text, and images are copied through byte-identical; only the description changes. It is also the honest way to strip personal info from a file before sharing it: clear the author field instead of hoping nobody looks.',
   ]}
   steps={[
-    'Drop your PDF onto the box above, or click it to browse. Its current details appear in the form.',
-    'Edit the fields. A preview below the form shows exactly what will change before you save.',
-    'Click "Save and download".',
+    'Drop your PDF onto the box above, or tap it to browse. Its current details appear in the form.',
+    'Edit the title, author, subject, keywords, or creator. Use "Clear all" to wipe every field.',
+    'Tap "Save and download".',
     'Check the result in your PDF reader\u2019s document properties to confirm the new details.',
   ]}
   specs={[
@@ -30,8 +30,7 @@ const lede = 'Change the title, author, subject, and keywords stored inside a PD
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None.'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['Editable fields', 'Title, author, subject, keywords, creator, producer'],
-    ['Change preview', 'Every edit is shown as old \u2192 new before you save'],
+    ['Editable fields', 'Title, author, subject, keywords, creator'],
     ['What changes', 'Only the description. Pages, text, and images are untouched.'],
     ['Output filename', 'Your original name with "-metadata" added'],
     ['Password-protected PDFs', 'Not supported. Remove the password first, then edit.'],
@@ -47,11 +46,7 @@ const lede = 'Change the title, author, subject, and keywords stored inside a PD
     },
     {
       q: 'Can I remove my name from a PDF before sharing it?',
-      a: 'Yes. Click "Remove personal info" to clear the author, creator, and producer fields in one go, then save. That removes the obvious personal info. For a deeper clean (hidden edit history, embedded comments), that data lives in the page content and needs a different tool.',
-    },
-    {
-      q: 'What is the producer field?',
-      a: 'The software that generated the PDF, often with a version number, like "Microsoft Word" or a print driver name. It is set automatically when the file is created and many people never notice it is there.',
+      a: 'Yes. Clear the author and creator fields and save. That removes the obvious personal info. For a deeper clean (hidden edit history, embedded comments), that data lives in the page content and needs a different tool.',
     },
     {
       q: 'What are keywords for?',
@@ -81,7 +76,7 @@ const lede = 'Change the title, author, subject, and keywords stored inside a PD
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to edit its metadata">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
       <div class="dz-title">Drop a PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <p id="size-note" class="hint" hidden></p>
@@ -92,7 +87,7 @@ const lede = 'Change the title, author, subject, and keywords stored inside a PD
       The pages, text, and images are copied through untouched.
     </p>
 
-    <p id="file-info" class="count-label" hidden></p>
+    <p id="file-info" class="empty-state" hidden></p>
 
     <div id="meta-form-wrap" hidden>
       <p id="meta-empty-note" class="hint" hidden>This PDF has no description filled in yet. Add one below.</p>
@@ -121,16 +116,9 @@ const lede = 'Change the title, author, subject, and keywords stored inside a PD
           <input type="text" id="meta-creator" placeholder="e.g. Acme Corp" autocomplete="off" />
           <span class="field-note">The app or company that made the file.</span>
         </div>
-        <div class="field-row">
-          <label for="meta-producer">Producer</label>
-          <input type="text" id="meta-producer" placeholder="e.g. Microsoft Word" autocomplete="off" />
-          <span class="field-note">The software that produced the PDF. Often reveals the exact app and version.</span>
-        </div>
       </div>
-      <div id="change-preview" class="change-preview" aria-live="polite"></div>
       <div class="btn-row">
         <button id="save-btn" class="btn">Save and download</button>
-        <button id="scrub-btn" class="btn btn-secondary" type="button">Remove personal info</button>
         <button id="clear-btn" class="btn btn-secondary" type="button">Clear all</button>
       </div>
     </div>
@@ -145,38 +133,4 @@ const lede = 'Change the title, author, subject, and keywords stored inside a PD
     import { initEditPdfMetadata } from '../tools/edit-pdf-metadata';
     initEditPdfMetadata();
   </script>
-  <style>
-    /* Page-local styles for the "what will change" preview. :global is needed
-       because the list rows are created dynamically by the tool script. */
-    :global(.change-preview) {
-      margin: 1rem 0;
-      border: 1px dashed var(--line);
-      border-radius: var(--radius);
-      padding: 0.8rem 1rem;
-      background: var(--paper);
-    }
-    :global(.change-preview .hint) {
-      margin: 0 0 0.4rem;
-    }
-    :global(.change-list) {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: grid;
-      gap: 0.35rem;
-      font-size: 0.92rem;
-    }
-    :global(.change-from) {
-      color: var(--muted);
-      text-decoration: line-through;
-    }
-    :global(.change-arrow) {
-      color: var(--accent);
-      font-weight: 700;
-      margin: 0 0.25rem;
-    }
-    :global(.change-to) {
-      font-weight: 600;
-    }
-  </style>
 </ToolPage>

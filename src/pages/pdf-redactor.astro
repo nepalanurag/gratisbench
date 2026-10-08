@@ -4,7 +4,7 @@ import Icon from '../components/Icon.astro';
 
 const title = 'Redact PDF Free — Permanent Redaction, No Signup, No Upload';
 const description =
-  'Black out sensitive text in a PDF for free, in your browser. Draw boxes over what to hide, or auto-mark emails, phone numbers, ID and card numbers; marked areas are permanently destroyed. No signup, no watermark.';
+  'Black out sensitive text in a PDF for free, in your browser. Draw boxes over what to hide; marked areas are permanently destroyed. No signup, no watermark.';
 const h1 = 'Redact PDF';
 const lede = 'Draw boxes over the parts to hide. Marked areas are permanently painted over; unmarked pages stay untouched. Free, no account.';
 ---
@@ -21,10 +21,10 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
     'Because redaction is destructive by design, double-check your marks before downloading: zoom into the preview, make sure every box fully covers its text including descenders and edges, and keep your original file safe. The whole process runs locally in your browser, which also means the sensitive document you are redacting never travels over the network.',
   ]}
   steps={[
-    'Drop your PDF onto the box above, or click it to browse. A preview of every page appears.',
-    'Mark what to hide: click and drag on a preview to draw a black box over anything, or use the automatic search to mark every email address, phone number, ID number, card number, or any text you type.',
-    'Double-click a box to remove it if you misplace one, or use "Clear marks" to start a page over. Review every marked page: automatic search can miss things.',
-    'When every sensitive spot is covered, click "Redact and download".',
+    'Drop your PDF onto the box above, or tap it to browse. A preview of every page appears.',
+    'Click and drag on a preview to draw a black box over anything to hide. Make each box slightly larger than the text.',
+    'Double-click a box to remove it if you misplace one, or use "Clear marks" to start a page over.',
+    'When every sensitive spot is covered, tap "Redact and download".',
     'Check the downloaded PDF before sharing it: open it, try selecting text under the black areas, and confirm nothing is recoverable.',
   ]}
   specs={[
@@ -35,7 +35,7 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
     ['How marked pages are handled', 'Turned into images; marked areas are painted over permanently'],
     ['How unmarked pages are handled', 'Copied as-is; text stays selectable'],
     ['Is the hidden text recoverable?', 'No. Marked regions have no text layer underneath.'],
-    ['How to mark', 'Draw boxes by hand on the page preview (double-click a box to remove it), or auto-mark emails, phone numbers, ID numbers, card numbers, or any text you type'],
+    ['How to mark', 'Click and drag on the page preview; double-click a box to remove it'],
     ['Output filename', 'Your original name with "-redacted" added'],
     ['Password-protected PDFs', 'Not supported. Remove the password first, then redact.'],
   ]}
@@ -58,7 +58,7 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
     },
     {
       q: 'Does this tool search for text automatically?',
-      a: 'Yes. Above the page previews there are buttons for email addresses, phone numbers, ID numbers, and card numbers, plus a box where you can type any text to find. Every match gets a black box automatically. Two honest limits: it only finds text the PDF actually contains (scanned pages are images with no readable text, so box those by hand), and pattern matching cannot know which occurrences are sensitive — always review every page before downloading.',
+      a: 'No. You mark areas by hand on the page previews. Automatic text search sounds convenient but it misses things: scanned pages have no text to search, and pattern matching cannot know which occurrences are sensitive. For a document you are about to share, eyeballing every page is the reliable approach.',
     },
     {
       q: 'Can I undo a redaction after downloading?',
@@ -92,7 +92,7 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
     <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add a PDF file to redact">
       <div class="dz-icon"><Icon name="upload" size={30} /></div>
       <div class="dz-title">Drop a PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+      <div class="dz-sub">or tap to choose a file &middot; it stays on your device</div>
     </div>
     <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
     <div id="error-box" class="error-box" hidden></div>
@@ -102,17 +102,6 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
       marked areas permanently painted over; unmarked pages are untouched.
       Draw each box a little larger than the text it covers.
     </p>
-
-    <div class="field" id="find-panel" hidden>
-      <label>Or find sensitive text automatically</label>
-      <div class="btn-row" id="find-bar"></div>
-      <div class="field-row">
-        <input type="text" id="find-custom-input" placeholder="Or type text to find, e.g. a name" maxlength="80" />
-        <button type="button" id="find-custom-btn" class="btn btn-secondary">Mark all matches</button>
-      </div>
-      <p id="find-status" class="hint" role="status" aria-live="polite"></p>
-      <p class="hint">Automatic search only finds text the PDF actually contains. Scanned pages are images with no readable text, so draw boxes on those by hand — and always review every marked page before downloading.</p>
-    </div>
 
     <p id="pages-empty" class="empty-state">No pages yet. Add a PDF above to start marking areas to hide.</p>
     <div id="pages-wrap"></div>
