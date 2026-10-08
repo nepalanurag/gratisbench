@@ -105,13 +105,18 @@ function renderPlacements(): void {
     li.className = 'file-row';
     const name = document.createElement('span');
     name.className = 'file-name';
-    name.textContent = `Page ${p.pageIndex + 1}`;
+    // Number placements on the same page: "Page 2", "Page 2 (2)", …
+    const samePage = placements.slice(0, i + 1).filter((q) => q.pageIndex === p.pageIndex).length;
+    name.textContent = samePage > 1 ? `Page ${p.pageIndex + 1} (${samePage})` : `Page ${p.pageIndex + 1}`;
+    const hint = document.createElement('span');
+    hint.className = 'file-meta';
+    hint.textContent = 'drag on the page to move';
     const actions = document.createElement('span');
     actions.className = 'file-actions';
     const rm = document.createElement('button');
     rm.type = 'button';
     rm.className = 'icon-btn';
-    rm.setAttribute('aria-label', `Remove signature from page ${p.pageIndex + 1}`);
+    rm.setAttribute('aria-label', `Remove signature ${i + 1} from page ${p.pageIndex + 1}`);
     rm.innerHTML =
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>';
     rm.addEventListener('click', () => {
@@ -121,7 +126,7 @@ function renderPlacements(): void {
       refreshSignButton();
     });
     actions.appendChild(rm);
-    li.append(name, actions);
+    li.append(name, hint, actions);
     list.appendChild(li);
   });
 }
@@ -136,15 +141,90 @@ function paintOverlays(): void {
         const img = document.createElement('img');
         img.className = 'sig-placed';
         img.src = el<HTMLImageElement>('sig-preview').src;
+        img.alt = '';
         // Percentages: the stage is sized in CSS px, the canvas may be CSS-scaled.
         img.style.left = `${(p.x / pv.canvas.width) * 100}%`;
         img.style.top = `${(p.y / pv.canvas.height) * 100}%`;
         img.style.width = `${(p.width / pv.canvas.width) * 100}%`;
         img.style.height = `${(p.height / pv.canvas.height) * 100}%`;
+        img.style.cursor = 'grab';
+        img.style.touchAction = 'none';
+        // Keyboard: focus a placement and nudge it with the arrow keys.
+        img.tabIndex = 0;
+        img.setAttribute(
+          'aria-label',
+          `Signature on page ${p.pageIndex + 1}. Arrow keys move it, Delete removes it.`
+        );
+        img.addEventListener('keydown', (e) => {
+          const step = e.shiftKey ? 20 : 4;
+          let dx = 0;
+          let dy = 0;
+          if (e.key === 'ArrowLeft') dx = -step;
+          else if (e.key === 'ArrowRight') dx = step;
+          else if (e.key === 'ArrowUp') dy = -step;
+          else if (e.key === 'ArrowDown') dy = step;
+          else if (e.key === 'Delete' || e.key === 'Backspace') {
+            const idx = placements.indexOf(p);
+            if (idx >= 0) {
+              placements.splice(idx, 1);
+              paintOverlays();
+              renderPlacements();
+              refreshSignButton();
+            }
+            e.preventDefault();
+            return;
+          } else return;
+          e.preventDefault();
+          p.x = Math.min(Math.max(0, p.x + dx), pv.canvas.width - p.width);
+          p.y = Math.min(Math.max(0, p.y + dy), pv.canvas.height - p.height);
+          img.style.left = `${(p.x / pv.canvas.width) * 100}%`;
+          img.style.top = `${(p.y / pv.canvas.height) * 100}%`;
+        });
+        // Pointer drag to reposition.
+        img.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          img.setPointerCapture(e.pointerId);
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const origX = p.x;
+          const origY = p.y;
+          const rect = pv.canvas.getBoundingClientRect();
+          const sx = pv.canvas.width / Math.max(1, rect.width);
+          const sy = pv.canvas.height / Math.max(1, rect.height);
+          img.style.cursor = 'grabbing';
+          const move = (ev: PointerEvent) => {
+            p.x = Math.min(
+              Math.max(0, origX + (ev.clientX - startX) * sx),
+              pv.canvas.width - p.width
+            );
+            p.y = Math.min(
+              Math.max(0, origY + (ev.clientY - startY) * sy),
+              pv.canvas.height - p.height
+            );
+            img.style.left = `${(p.x / pv.canvas.width) * 100}%`;
+            img.style.top = `${(p.y / pv.canvas.height) * 100}%`;
+          };
+          const up = () => {
+            img.removeEventListener('pointermove', move);
+            img.removeEventListener('pointerup', up);
+            img.removeEventListener('pointercancel', up);
+            img.style.cursor = 'grab';
+            // A drag ends in a click on the stage; do not treat it as a
+            // request to place another signature.
+            lastDragEnd = Date.now();
+          };
+          img.addEventListener('pointermove', move);
+          img.addEventListener('pointerup', up);
+          img.addEventListener('pointercancel', up);
+        });
         pv.stage.appendChild(img);
       });
   }
 }
+
+/** Timestamp of the last overlay drag end; stage clicks right after are ignored. */
+let lastDragEnd = 0;
 
 function signatureSizeFor(pv: PageView): { width: number; height: number } {
   const scale = Number(el<HTMLInputElement>('sig-scale').value) / 100;
@@ -199,19 +279,78 @@ export function initPdfEsignature(): void {
   });
   el('sig-use-drawn').addEventListener('click', () => void useSignature(pad));
 
-  // ---- tabs: draw vs type ----
+  // ---- tabs: draw vs type vs photo ----
   const tabDraw = el('sig-tab-draw');
   const tabType = el('sig-tab-type');
-  function showTab(draw: boolean): void {
-    el('sig-panel-draw').hidden = !draw;
-    el('sig-panel-type').hidden = draw;
-    tabDraw.classList.toggle('tab-active', draw);
-    tabType.classList.toggle('tab-active', !draw);
-    tabDraw.setAttribute('aria-selected', String(draw));
-    tabType.setAttribute('aria-selected', String(!draw));
+  const tabPhoto = el('sig-tab-photo');
+  const tabs = [
+    { btn: tabDraw, panel: 'sig-panel-draw' },
+    { btn: tabType, panel: 'sig-panel-type' },
+    { btn: tabPhoto, panel: 'sig-panel-photo' },
+  ];
+  function showTab(active: number): void {
+    tabs.forEach((t, i) => {
+      el(t.panel).hidden = i !== active;
+      t.btn.classList.toggle('tab-active', i === active);
+      t.btn.setAttribute('aria-selected', String(i === active));
+    });
   }
-  tabDraw.addEventListener('click', () => showTab(true));
-  tabType.addEventListener('click', () => showTab(false));
+  tabs.forEach((t, i) => t.btn.addEventListener('click', () => showTab(i)));
+
+  // ---- photo signature: lift ink off paper with background removal ----
+  let photoFile: File | null = null;
+  const photoInput = el<HTMLInputElement>('sig-photo-input');
+  const photoBtn = el<HTMLButtonElement>('sig-use-photo');
+  const photoStatus = el('sig-photo-status');
+  photoInput.addEventListener('change', () => {
+    photoFile = photoInput.files?.[0] ?? null;
+    photoBtn.disabled = !photoFile;
+    photoStatus.textContent = photoFile ? `${photoFile.name} selected.` : '';
+  });
+  photoBtn.addEventListener('click', async () => {
+    if (!photoFile) return;
+    hideError('error-box');
+    photoStatus.textContent = 'Lifting the signature off the background…';
+    photoBtn.disabled = true;
+    setBusy('sig-use-photo', true, 'Working…');
+    try {
+      const { loadBackgroundRemoval, bgEngineLoadErrorMessage } = await import('./bgremove-loader.ts');
+      let blob: Blob;
+      try {
+        const { removeBackground } = await loadBackgroundRemoval();
+        blob = await removeBackground(photoFile, {
+          output: { format: 'image/png', quality: 1 },
+        });
+      } catch (err) {
+        throw new Error(bgEngineLoadErrorMessage(err));
+      }
+      const url = URL.createObjectURL(blob);
+      try {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const im = new Image();
+          im.onload = () => resolve(im);
+          im.onerror = () => reject(new Error('Could not read the processed photo.'));
+          im.src = url;
+        });
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        if (!ctx) throw new Error('Your browser could not create a drawing surface.');
+        ctx.drawImage(img, 0, 0);
+        photoStatus.textContent = '';
+        await useSignature(c);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      photoStatus.textContent = '';
+      showError('error-box', err instanceof Error ? err.message : 'Could not process that photo.');
+    } finally {
+      photoBtn.disabled = !photoFile;
+      setBusy('sig-use-photo', false);
+    }
+  });
 
   el('sig-create').addEventListener('click', () => {
     const name = el<HTMLInputElement>('sig-name').value.trim();
@@ -234,6 +373,21 @@ export function initPdfEsignature(): void {
 
   el('sig-scale').addEventListener('input', (e) => {
     el('sig-scale-value').textContent = `${(e.target as HTMLInputElement).value}%`;
+    // Re-scale every already-placed signature to the new size, keeping each
+    // one's center fixed on the page (sizes are per-page, canvas widths differ).
+    if (placements.length === 0) return;
+    for (const p of placements) {
+      const pv = pageViews[p.pageIndex];
+      if (!pv) continue;
+      const cx = p.x + p.width / 2;
+      const cy = p.y + p.height / 2;
+      const { width, height } = signatureSizeFor(pv);
+      p.width = width;
+      p.height = height;
+      p.x = Math.min(Math.max(0, cx - width / 2), Math.max(0, pv.canvas.width - width));
+      p.y = Math.min(Math.max(0, cy - height / 2), Math.max(0, pv.canvas.height - height));
+    }
+    paintOverlays();
   });
 
   // ---- document ----
@@ -274,6 +428,10 @@ export function initPdfEsignature(): void {
         const pv: PageView = { canvas, stage, widthPt: pt.width, heightPt: pt.height, pageIndex: i };
         pageViews.push(pv);
         stage.addEventListener('click', (e) => {
+          // Ignore the click that a signature drag ends with, and clicks
+          // that land on an existing placed signature (bubbles up from it).
+          if (Date.now() - lastDragEnd < 200) return;
+          if ((e.target as HTMLElement).closest('.sig-placed')) return;
           if (!sigPng) {
             showError('error-box', 'Create your signature first (draw or type it above).');
             return;
@@ -285,10 +443,8 @@ export function initPdfEsignature(): void {
           const { width, height } = signatureSizeFor(pv);
           const x = Math.min(Math.max(0, cx - width / 2), canvas.width - width);
           const y = Math.min(Math.max(0, cy - height / 2), canvas.height - height);
-          const existing = placements.findIndex((p) => p.pageIndex === i);
-          const placed: PlacedSig = { pageIndex: i, x, y, width, height };
-          if (existing >= 0) placements[existing] = placed;
-          else placements.push(placed);
+          // Multiple signatures per page are allowed; each click adds one.
+          placements.push({ pageIndex: i, x, y, width, height });
           paintOverlays();
           renderPlacements();
           refreshSignButton();
@@ -323,7 +479,9 @@ export function initPdfEsignature(): void {
       });
       const out = await signPdf(sourceBytes, sigPng, list);
       const stem = fileName.replace(/\.[^.]+$/, '');
-      el('result-info').textContent = `${formatBytes(out.length)} · signed on ${list.length} page${list.length === 1 ? '' : 's'}`;
+      const pageCount = new Set(list.map((l) => l.pageIndex)).size;
+      el('result-info').textContent =
+        `${formatBytes(out.length)} · ${list.length} signature${list.length === 1 ? '' : 's'} on ${pageCount} page${pageCount === 1 ? '' : 's'}`;
       el('result').hidden = false;
       el<HTMLButtonElement>('download-btn').onclick = () =>
         downloadBytes(`${stem}-signed.pdf`, out, 'application/pdf');
@@ -335,6 +493,6 @@ export function initPdfEsignature(): void {
     }
   });
 
-  showTab(true);
+  showTab(0);
   refreshSignButton();
 }
