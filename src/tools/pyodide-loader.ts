@@ -28,6 +28,22 @@ writer.write(buf)
 pdf_data_out = buf.getvalue()
 `;
 
+const ENCRYPT_PYTHON = `
+from pypdf import PdfReader, PdfWriter
+import io
+
+reader = PdfReader(io.BytesIO(bytes(pdf_data_in)))
+if reader.is_encrypted:
+    raise ValueError("already-encrypted")
+writer = PdfWriter()
+for page in reader.pages:
+    writer.add_page(page)
+writer.encrypt(pdf_password)
+buf = io.BytesIO()
+writer.write(buf)
+pdf_data_out = buf.getvalue()
+`;
+
 interface Pyodide {
   globals: {
     set(name: string, value: unknown): void;
@@ -40,22 +56,25 @@ interface Pyodide {
 
 let enginePromise: Promise<Pyodide> | null = null;
 
-function timeoutError(): Error {
+function timeoutError(engineLabel: string): Error {
   return new Error(
-    'The unlock engine took too long to download. Check your connection and try again.'
+    `The ${engineLabel} engine took too long to download. Check your connection and try again.`
   );
 }
 
 /** Load the engine, reporting progress. Cached after the first call. */
-export function loadUnlockEngine(onProgress?: (msg: string) => void): Promise<Pyodide> {
+export function loadUnlockEngine(
+  onProgress?: (msg: string) => void,
+  engineLabel = 'unlock'
+): Promise<Pyodide> {
   if (!enginePromise) {
     enginePromise = (async (): Promise<Pyodide> => {
-      onProgress?.('Downloading the unlock engine (one-time)…');
+      onProgress?.(`Downloading the ${engineLabel} engine (one-time)…`);
       const { loadPyodide } = (await import(/* @vite-ignore */ PYODIDE_URL)) as {
         loadPyodide: () => Promise<Pyodide>;
       };
       const pyodide = await loadPyodide();
-      onProgress?.('Preparing the unlock engine…');
+      onProgress?.(`Preparing the ${engineLabel} engine…`);
       await pyodide.loadPackage('micropip');
       await pyodide.pyimport('micropip').install(PYPDF_PIN);
       return pyodide;
@@ -66,7 +85,7 @@ export function loadUnlockEngine(onProgress?: (msg: string) => void): Promise<Py
   }
   const load = enginePromise;
   const timeout = new Promise<Pyodide>((_, reject) => {
-    const t = setTimeout(() => reject(timeoutError()), ENGINE_TIMEOUT_MS);
+    const t = setTimeout(() => reject(timeoutError(engineLabel)), ENGINE_TIMEOUT_MS);
     load.then(
       (v) => {
         clearTimeout(t);
@@ -105,5 +124,68 @@ export async function unlockPdfBytes(
     return out.toJs();
   } finally {
     out.destroy();
+  }
+}
+
+/**
+ * Add password protection to a PDF (AES encryption, pypdf).
+ * Returns the protected PDF bytes. Throws ALREADY_ENCRYPTED when the
+ * input is already password-protected.
+ */
+export async function encryptPdfBytes(
+  data: Uint8Array,
+  password: string,
+  onProgress?: (msg: string) => void,
+  engineLabel = 'protect'
+): Promise<Uint8Array> {
+  if (!password) {
+    throw new Error('Choose a password first.');
+  }
+  const pyodide = await loadUnlockEngine(onProgress, engineLabel);
+  pyodide.globals.set('pdf_data_in', data);
+  pyodide.globals.set('pdf_password', password);
+  try {
+    pyodide.runPython(ENCRYPT_PYTHON);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('already-encrypted')) {
+      throw new Error('ALREADY_ENCRYPTED');
+    }
+    throw err;
+  }
+  const out = pyodide.globals.get('pdf_data_out');
+  try {
+    return out.toJs();
+  } finally {
+    out.destroy();
+  }
+}
+
+/**
+ * Verify that encrypted bytes really require the password: load them with
+ * pypdf and report the page count. pdf-lib cannot open encrypted files,
+ * so the check goes through the same engine.
+ */
+export async function verifyEncryptedBytes(
+  data: Uint8Array,
+  password: string
+): Promise<number> {
+  const pyodide = await loadUnlockEngine();
+  pyodide.globals.set('pdf_check_in', data);
+  pyodide.globals.set('pdf_password', password);
+  pyodide.runPython(`
+from pypdf import PdfReader
+import io
+reader = PdfReader(io.BytesIO(bytes(pdf_check_in)))
+if reader.is_encrypted:
+    ok = reader.decrypt(pdf_password)
+    if not ok:
+        raise ValueError("verify-failed")
+check_page_count = len(reader.pages)
+`);
+  const pages = pyodide.globals.get('check_page_count');
+  try {
+    return Number(pages.toJs());
+  } finally {
+    pages.destroy();
   }
 }
