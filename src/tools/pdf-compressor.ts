@@ -1,7 +1,13 @@
-// Compress PDF tool: DOM glue. Rebuild logic lives in ../lib/pdf-compress.ts
-import { rebuildImagePdf, jpegQualityFromSlider, type RenderedPage } from '../lib/pdf-compress.ts';
+// Compress PDF tool: DOM glue. Image-downsampling logic lives in ../lib/pdf-compress.ts
+import {
+  compressPdfImages,
+  COMPRESSION_LEVELS,
+  type CompressionLevelName,
+  type ImageCodec,
+  type RawImage,
+} from '../lib/pdf-compress.ts';
 import { getPageCount } from '../lib/pdf-core.ts';
-import { loadPdfjs, renderPageToCanvas, canvasToBytes, pdfJsLoadErrorMessage, renderPdfThumb, showPdfPreview } from './pdf-render.ts';
+import { renderPdfThumb, showPdfPreview, pdfJsLoadErrorMessage } from './pdf-render.ts';
 import {
   el,
   formatBytes,
@@ -15,18 +21,51 @@ import {
 let fileBytes: Uint8Array | null = null;
 let fileName = '';
 let originalSize = 0;
-let pageCount = 0;
 
-function qualityDpi(): number {
-  const checked = document.querySelector<HTMLInputElement>('input[name="quality"]:checked');
-  return checked ? Number(checked.value) : 110;
+/** Canvas-backed JPEG codec: decode with createImageBitmap, encode with toBlob. */
+const browserCodec: ImageCodec = {
+  async decodeJpeg(bytes: Uint8Array): Promise<RawImage> {
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) throw new Error('Could not get a 2D canvas context.');
+      ctx.drawImage(bitmap, 0, 0);
+      const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      return { width: bitmap.width, height: bitmap.height, data: data.data };
+    } finally {
+      bitmap.close();
+    }
+  },
+  async encodeJpeg(img: RawImage, quality: number): Promise<Uint8Array> {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get a 2D canvas context.');
+    ctx.putImageData(new ImageData(img.data, img.width, img.height), 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', quality),
+    );
+    if (!blob) throw new Error('JPEG encoding failed.');
+    return new Uint8Array(await blob.arrayBuffer());
+  },
+};
+
+function levelName(): CompressionLevelName {
+  const checked = document.querySelector<HTMLInputElement>('input[name="level"]:checked');
+  const value = checked ? checked.value : 'medium';
+  return value in COMPRESSION_LEVELS ? (value as CompressionLevelName) : 'medium';
 }
 
 function setProgress(done: number, total: number): void {
   const wrap = el('progress-wrap');
   wrap.hidden = false;
-  el('progress-bar').style.width = `${Math.round((done / total) * 100)}%`;
-  el('progress-label').textContent = `Rendering page ${done} of ${total}…`;
+  el('progress-bar').style.width = total > 0 ? `${Math.round((done / total) * 100)}%` : '100%';
+  el('progress-label').textContent =
+    total > 0 ? `Optimizing image ${done} of ${total}…` : 'Reading PDF…';
 }
 
 export function initPdfCompressor(): void {
@@ -38,6 +77,8 @@ export function initPdfCompressor(): void {
     const file = files[0];
     if (!file) return;
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+      fileBytes = null;
+      compressBtn.disabled = true;
       showError('error-box', `"${file.name}" is not a PDF.`);
       return;
     }
@@ -47,7 +88,6 @@ export function initPdfCompressor(): void {
       fileBytes = bytes;
       fileName = file.name;
       originalSize = file.size;
-      pageCount = pages;
       el('file-info').textContent = `${file.name} · ${pages} page${pages === 1 ? '' : 's'} · ${formatBytes(file.size)}`;
       const thumb = await renderPdfThumb(bytes);
       if (thumb) {
@@ -64,12 +104,10 @@ export function initPdfCompressor(): void {
       }
       compressBtn.disabled = false;
     } catch (err) {
+      fileBytes = null;
+      compressBtn.disabled = true;
       showError('error-box', `"${file.name}": ${pdfJsLoadErrorMessage(err)}`);
     }
-  });
-
-  el('quality-slider').addEventListener('input', (e) => {
-    el('quality-value').textContent = `${(e.target as HTMLInputElement).value}%`;
   });
 
   compressBtn.addEventListener('click', async () => {
@@ -77,29 +115,24 @@ export function initPdfCompressor(): void {
     hideError('error-box');
     el('result').hidden = true;
     setBusy('compress-btn', true, 'Compressing…');
+    setProgress(0, 0);
     try {
-      const dpi = qualityDpi();
-      const quality = jpegQualityFromSlider(Number(el<HTMLInputElement>('quality-slider').value));
-      const pdfjs = await loadPdfjs();
-      const doc = await pdfjs.getDocument({ data: fileBytes.slice() }).promise;
-      const pages: RenderedPage[] = [];
-      for (let i = 0; i < doc.numPages; i++) {
-        setProgress(i + 1, doc.numPages);
-        // Yield so the progress bar paints between pages.
-        await new Promise((r) => setTimeout(r, 0));
-        const page = await doc.getPage(i + 1);
-        const canvas = await renderPageToCanvas(page, dpi);
-        const data = await canvasToBytes(canvas, 'image/jpeg', quality);
-        pages.push({ data, mime: 'image/jpeg', widthPx: canvas.width, heightPx: canvas.height });
-        page.cleanup();
-      }
-      const out = await rebuildImagePdf(pages, dpi);
+      const level = levelName();
+      const { data: out, stats } = await compressPdfImages(fileBytes, level, browserCodec, (done, total) => {
+        setProgress(done, total);
+      });
 
       const saved = originalSize - out.length;
       const pct = originalSize > 0 ? Math.round((saved / originalSize) * 100) : 0;
+      const imageNote =
+        stats.imagesReplaced > 0
+          ? ` · ${stats.imagesReplaced} image${stats.imagesReplaced === 1 ? '' : 's'} downsampled`
+          : stats.imagesFound > 0
+            ? ' · images already compact'
+            : ' · no images to shrink';
       el('result-info').textContent =
-        saved >= 0
-          ? `${formatBytes(originalSize)} → ${formatBytes(out.length)} · ${pct}% smaller`
+        saved > 0
+          ? `${formatBytes(originalSize)} → ${formatBytes(out.length)} · ${pct}% smaller${imageNote}`
           : `${formatBytes(originalSize)} → ${formatBytes(out.length)} · no saving this time (this PDF was already compact)`;
       el('result').hidden = false;
       const stem = fileName.replace(/\.[^.]+$/, '');
