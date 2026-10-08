@@ -30,6 +30,9 @@ export function initUnlockPdf(): void {
   setupDropzone('dropzone', 'file-input', (files) => {
     const f = files.find((x) => x.type === 'application/pdf' || x.name.toLowerCase().endsWith('.pdf'));
     if (!f) {
+      file = null;
+      el('file-label').textContent = '';
+      refresh();
       showError('error-box', 'That is not a PDF file.');
       return;
     }
@@ -39,6 +42,13 @@ export function initUnlockPdf(): void {
   });
 
   passInput.addEventListener('input', refresh);
+  // Enter in the password field submits, like a form would.
+  passInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !unlockBtn.disabled) {
+      e.preventDefault();
+      unlockBtn.click();
+    }
+  });
 
   unlockBtn.addEventListener('click', async () => {
     if (!file) return;
