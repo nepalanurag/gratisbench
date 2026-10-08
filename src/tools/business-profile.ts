@@ -107,6 +107,20 @@ export function initBusinessProfile(): void {
     saveTimer = setTimeout(persist, 400);
   }
 
+  /** Write immediately, dropping any pending debounced save. */
+  function flushSave(): void {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    persist();
+  }
+
+  // The 400 ms debounce can lose the tail of what was typed if the tab closes
+  // inside the window. Flush on both events. persist() is idempotent.
+  window.addEventListener('pagehide', flushSave);
+  window.addEventListener('beforeunload', flushSave);
+
   function handleInput(): void {
     hideError('bp-error');
     profile = readForm();
