@@ -96,7 +96,7 @@ export function setupDropzone(
     }
   });
   input.addEventListener('change', () => {
-    onFiles([...input.files]);
+    onFiles(Array.from(input.files ?? []));
     input.value = '';
   });
   for (const evt of ['dragenter', 'dragover']) {
