@@ -1,5 +1,5 @@
 // Split PDF tool: DOM glue. Core logic lives in ../lib/pdf-core.ts
-import { splitPdf, getPageCount, extractPages } from '../lib/pdf-core.ts';
+import { splitPdf, splitEveryPage, splitEveryNPages, getPageCount, extractPages, type SplitPart } from '../lib/pdf-core.ts';
 import { loadPdfjs, renderPageToCanvas, renderPdfThumb } from './pdf-render.ts';
 import {
   el,
@@ -28,12 +28,63 @@ export function initSplitPdf(): void {
   const rangeInput = el<HTMLInputElement>('range-input');
   const result = el('result');
   const resultList = el('result-list');
+  const zipBtn = el<HTMLButtonElement>('zip-btn');
+  const everyPageBtn = el<HTMLButtonElement>('every-page-btn');
+  const chunkBtn = el<HTMLButtonElement>('chunk-btn');
+  const chunkSize = el<HTMLInputElement>('chunk-size');
   const pickerWrap = el('picker-wrap');
   const pageGrid = el('page-grid');
   const pickCount = el('pick-count');
   const pickAllBtn = el<HTMLButtonElement>('pick-all');
   const pickNoneBtn = el<HTMLButtonElement>('pick-none');
   const extractBtn = el<HTMLButtonElement>('extract-btn');
+
+  /** The parts from the most recent split run, for the download-all ZIP. */
+  let lastParts: { name: string; data: Uint8Array }[] = [];
+
+  /** Friendly name: re-stem core names ("split-part-2.pdf") onto the source file. */
+  function displayName(coreName: string): string {
+    const stem = pdfName || 'split';
+    return coreName.replace(/^split/, stem);
+  }
+
+  function refreshZip(): void {
+    zipBtn.hidden = lastParts.length < 2;
+    zipBtn.textContent =
+      lastParts.length < 2 ? 'Download all as ZIP' : `Download all ${lastParts.length} as ZIP`;
+  }
+
+  function showParts(parts: { name: string; data: Uint8Array; meta?: string }[]): void {
+    lastParts = parts.map((p) => ({ name: displayName(p.name), data: p.data }));
+    resultList.innerHTML = '';
+    lastParts.forEach((part, i) => {
+      addResultRow(part.name, part.data, parts[i].meta ?? formatBytes(part.data.length));
+    });
+    refreshZip();
+    result.hidden = false;
+    result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  zipBtn.addEventListener('click', async () => {
+    if (lastParts.length === 0) return;
+    hideError('error-box');
+    setBusy('zip-btn', true, 'Zipping…');
+    try {
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      for (const part of lastParts) zip.file(part.name, part.data);
+      const blob = await zip.generateAsync({ type: 'blob' });
+      downloadBytes(
+        `${pdfName || 'split'}-parts.zip`,
+        new Uint8Array(await blob.arrayBuffer()),
+        'application/zip'
+      );
+    } catch (err) {
+      showError('error-box', err instanceof Error ? err.message : 'Could not build the ZIP file.');
+    } finally {
+      setBusy('zip-btn', false);
+    }
+  });
 
   function refreshExtract(): void {
     const n = picked.size;
@@ -154,6 +205,8 @@ export function initSplitPdf(): void {
     hideError('error-box');
     result.hidden = true;
     resultList.innerHTML = '';
+    lastParts = [];
+    refreshZip();
     pickerWrap.hidden = true;
     pageGrid.innerHTML = '';
     picked.clear();
@@ -171,12 +224,19 @@ export function initSplitPdf(): void {
       fileInfo.textContent = `${file.name} · ${pageCount} page${pageCount === 1 ? '' : 's'} · ${formatBytes(file.size)}`;
       rangeInput.placeholder = `e.g. 1-3, 5 (this PDF has ${pageCount} pages)`;
       splitBtn.disabled = false;
+      everyPageBtn.disabled = false;
+      chunkBtn.disabled = false;
+      chunkSize.disabled = false;
+      everyPageBtn.textContent = `Split every page (${pageCount} file${pageCount === 1 ? '' : 's'})`;
       void renderPicker(pdfBytes);
     } catch (err) {
       pdfBytes = null;
       fileInfo.hidden = true;
       pickerWrap.hidden = true;
       splitBtn.disabled = true;
+      everyPageBtn.disabled = true;
+      chunkBtn.disabled = true;
+      chunkSize.disabled = true;
       showError('error-box', pdfLoadErrorMessage(err));
     }
   });
@@ -189,20 +249,48 @@ export function initSplitPdf(): void {
     try {
       await new Promise((r) => setTimeout(r, 30));
       const parts = await splitPdf(pdfBytes, rangeInput.value);
-      resultList.innerHTML = '';
-      for (const part of parts) {
-        addResultRow(
-          part.name.replace(/^split/, pdfName || 'split'),
-          part.data,
-          formatBytes(part.data.length)
-        );
-      }
-      result.hidden = false;
-      result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      showParts(parts);
     } catch (err) {
       showError('error-box', err instanceof Error ? err.message : 'Splitting failed.');
     } finally {
       setBusy('split-btn', false);
+    }
+  });
+
+  everyPageBtn.addEventListener('click', async () => {
+    if (!pdfBytes) return;
+    hideError('error-box');
+    result.hidden = true;
+    setBusy('every-page-btn', true, 'Splitting…');
+    try {
+      await new Promise((r) => setTimeout(r, 30));
+      const parts = await splitEveryPage(pdfBytes);
+      showParts(parts);
+    } catch (err) {
+      showError('error-box', err instanceof Error ? err.message : 'Splitting failed.');
+    } finally {
+      setBusy('every-page-btn', false);
+    }
+  });
+
+  chunkBtn.addEventListener('click', async () => {
+    if (!pdfBytes) return;
+    hideError('error-box');
+    result.hidden = true;
+    const n = Math.floor(Number(chunkSize.value));
+    if (!Number.isInteger(n) || n < 1) {
+      showError('error-box', 'Enter how many pages go in each file, for example 5.');
+      return;
+    }
+    setBusy('chunk-btn', true, 'Splitting…');
+    try {
+      await new Promise((r) => setTimeout(r, 30));
+      const parts = await splitEveryNPages(pdfBytes, n);
+      showParts(parts);
+    } catch (err) {
+      showError('error-box', err instanceof Error ? err.message : 'Splitting failed.');
+    } finally {
+      setBusy('chunk-btn', false);
     }
   });
 
@@ -215,14 +303,13 @@ export function initSplitPdf(): void {
       await new Promise((r) => setTimeout(r, 30));
       const pages = [...picked].sort((a, b) => a - b);
       const data = await extractPages(pdfBytes, pages);
-      resultList.innerHTML = '';
-      addResultRow(
-        `${pdfName || 'split'}-pages.pdf`,
-        data,
-        `${formatBytes(data.length)} · ${pages.length} page${pages.length === 1 ? '' : 's'}`
-      );
-      result.hidden = false;
-      result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      showParts([
+        {
+          name: `${pdfName || 'split'}-pages.pdf`,
+          data,
+          meta: `${formatBytes(data.length)} · ${pages.length} page${pages.length === 1 ? '' : 's'}`,
+        },
+      ]);
     } catch (err) {
       showError('error-box', err instanceof Error ? err.message : 'Extraction failed.');
     } finally {
