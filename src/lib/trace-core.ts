@@ -4,9 +4,9 @@
 // exercised in Node with canned pixel data (see scripts/verify-tools.mjs).
 // The browser glue only feeds it real image pixels.
 
-export type TraceMode = 'color' | 'mono';
+export type TraceMode = 'color' | 'mono' | 'photo';
 
-export const TRACE_MODES: readonly TraceMode[] = ['color', 'mono'];
+export const TRACE_MODES: readonly TraceMode[] = ['color', 'mono', 'photo'];
 
 /** Detail slider range exposed in the UI. */
 export const TRACE_DETAIL_MIN = 1;
@@ -24,11 +24,13 @@ export interface TraceOptions {
 /** Honest engine note shown next to the file picker. */
 export const TRACE_ENGINE_NOTE =
   'Tracing runs entirely in your browser — no upload. ' +
-  'Logos, icons, and high-contrast art trace beautifully; photos do not.';
+  'Logos and icons: use Color or Mono. Photos of people: use Photo mode, which smooths ' +
+  'skin tones and simplifies the background for a cleaner vector look.';
 
 /** Validate raw option values from the DOM into a safe TraceOptions object. */
 export function validateTraceOptions(raw: { mode?: unknown; detail?: unknown }): TraceOptions {
-  const mode: TraceMode = raw.mode === 'mono' ? 'mono' : 'color';
+  const rawMode = raw.mode;
+  const mode: TraceMode = rawMode === 'mono' ? 'mono' : rawMode === 'photo' ? 'photo' : 'color';
   let detail = Number(raw.detail);
   if (!Number.isFinite(detail)) detail = TRACE_DETAIL_DEFAULT;
   detail = Math.round(detail);
@@ -43,9 +45,36 @@ export function validateTraceOptions(raw: { mode?: unknown; detail?: unknown }):
  *   higher detail keeps more colors and smaller paths.
  * - ltres/qtres stay at 1: tighter values explode path counts on noisy
  *   photos without visibly better logos.
+ * - photo mode uses blur + fewer colors + higher pathomit to smooth skin
+ *   tones and simplify busy backgrounds, giving cleaner vector portraits.
  */
 export function resolveImageTracerOptions(opts: TraceOptions): Record<string, number | boolean | string> {
   const t = (opts.detail - TRACE_DETAIL_MIN) / (TRACE_DETAIL_MAX - TRACE_DETAIL_MIN); // 0..1
+
+  if (opts.mode === 'photo') {
+    // Photo mode: optimized for human subjects and real-world photos.
+    // Fewer colors, blur to reduce noise, higher pathomit to drop speckles.
+    const numberofcolors = 6 + Math.round(t * 6); // 6..12
+    const pathomit = Math.round(64 - t * 40); // 64 (smooth) .. 24 (detailed)
+    return {
+      ltres: 1,
+      qtres: 1,
+      pathomit,
+      rightangleenhance: false, // photos have curves, not right angles
+      colorsampling: 2,
+      numberofcolors,
+      mincolorratio: 0.02, // ignore tiny color regions (noise)
+      colorquantcycles: 4, // more cycles for better photo palette
+      strokewidth: 1,
+      linefilter: false,
+      roundcoords: 1,
+      viewbox: false,
+      desc: true,
+      blurradius: 2, // smooth skin texture and noise
+      blurdelta: 32, // higher threshold = less sensitive to small variations
+    };
+  }
+
   const numberofcolors = opts.mode === 'mono' ? 2 : 2 + Math.round(t * 14); // 2..16
   const pathomit = Math.round(48 - t * 44); // 48 (smooth) .. 4 (detailed)
   return {

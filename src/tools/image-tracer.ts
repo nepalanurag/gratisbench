@@ -42,71 +42,15 @@ function readOptions(): TraceOptions {
   });
 }
 
-/** Extra finishing options read straight from the DOM (not part of TraceOptions). */
-function readFinishing(): { colors: number; soften: boolean; dropWhite: boolean } {
-  let colors = Math.round(Number(el<HTMLInputElement>('colors-range').value));
-  if (!Number.isFinite(colors)) colors = 8;
-  colors = Math.max(2, Math.min(16, colors));
-  return {
-    colors,
-    soften: el<HTMLInputElement>('opt-soften').checked,
-    dropWhite: el<HTMLInputElement>('opt-dropwhite').checked,
-  };
-}
-
 function refreshDetailLabel(): void {
   const v = Number(el<HTMLInputElement>('detail-range').value);
   el('detail-val').textContent = String(v);
   el('detail-hint').textContent =
     v <= 3
-      ? 'Low: ignores tiny specks and fine texture. Smoothest, simplest paths.'
+      ? 'Low: smooth, simple shapes. Best for icons and logos with flat colors.'
       : v <= 7
         ? 'Medium: a good balance of detail and clean paths.'
         : 'High: keeps fine detail, but produces more paths and a larger file.';
-}
-
-function refreshColorsUi(): void {
-  const checked = document.querySelector('input[name="trace-mode"]:checked') as HTMLInputElement | null;
-  const isColor = checked?.value !== 'mono';
-  el('colors-field').hidden = !isColor;
-  const v = Number(el<HTMLInputElement>('colors-range').value);
-  el('colors-val').textContent = String(v);
-}
-
-/**
- * Remove a solid white background shape from a traced SVG. The heuristic:
- * a path filled pure white whose bounding box covers ~the whole canvas is
- * the backdrop, not the art. Returns the SVG unchanged when no such path
- * exists, so art is never eaten by mistake.
- */
-function removeWhiteBackground(svg: string, width: number, height: number): { svg: string; removed: boolean } {
-  let removed = false;
-  const out = svg.replace(/<path\b[^>]*>/g, (tag) => {
-    if (removed) return tag;
-    if (!/\bfill="(?:#fff(?:fff)?|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))"/i.test(tag)) return tag;
-    const d = /\bd="([^"]+)"/.exec(tag)?.[1];
-    if (!d) return tag;
-    const nums = d.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-    if (nums.length < 4) return tag;
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (let i = 0; i + 1 < nums.length; i += 2) {
-      const x = nums[i];
-      const y = nums[i + 1];
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-    }
-    if ((maxX - minX) / width > 0.95 && (maxY - minY) / height > 0.95) {
-      removed = true;
-      return '';
-    }
-    return tag;
-  });
-  return { svg: out, removed };
 }
 
 /** Render the traced SVG to a PNG blob at a preview width. */
@@ -152,6 +96,49 @@ async function onFiles(files: File[]): Promise<void> {
   el<HTMLButtonElement>('trace-btn').disabled = false;
 }
 
+/**
+ * Preprocess image data for photo tracing: apply a 3x3 box blur to reduce
+ * noise, then boost contrast slightly. This gives cleaner vector shapes
+ * for human subjects and real-world photos instead of speckled blobs.
+ */
+function preprocessForPhoto(imageData: ImageData): ImageData {
+  const { width, height, data } = imageData;
+  const src = new Uint8ClampedArray(data);
+  const out = new Uint8ClampedArray(data.length);
+
+  // 3x3 box blur
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r = 0, g = 0, b = 0, count = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+            const i = (ny * width + nx) * 4;
+            r += src[i]; g += src[i + 1]; b += src[i + 2];
+            count++;
+          }
+        }
+      }
+      const i = (y * width + x) * 4;
+      out[i] = r / count;
+      out[i + 1] = g / count;
+      out[i + 2] = b / count;
+      out[i + 3] = src[i + 3];
+    }
+  }
+
+  // Contrast boost: stretch around midpoint
+  const contrast = 1.15;
+  for (let i = 0; i < out.length; i += 4) {
+    out[i] = Math.min(255, Math.max(0, (out[i] - 128) * contrast + 128));
+    out[i + 1] = Math.min(255, Math.max(0, (out[i + 1] - 128) * contrast + 128));
+    out[i + 2] = Math.min(255, Math.max(0, (out[i + 2] - 128) * contrast + 128));
+  }
+
+  return new ImageData(out, width, height);
+}
+
 async function onTrace(): Promise<void> {
   if (busy || !file || !objectUrl) return;
   busy = true;
@@ -160,7 +147,6 @@ async function onTrace(): Promise<void> {
   const currentFile = file;
   try {
     const opts = readOptions();
-    const finishing = readFinishing();
     const tracer = await loadImageTracer();
     const img = await loadImage(objectUrl);
     const { width, height } = scaleForTrace(img.naturalWidth, img.naturalHeight);
@@ -173,26 +159,22 @@ async function onTrace(): Promise<void> {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
     ctx.drawImage(img, 0, 0, width, height);
-    const imageData = ctx.getImageData(0, 0, width, height);
+
+    let imageData = ctx.getImageData(0, 0, width, height);
+
+    // Photo mode preprocessing: reduce noise and boost contrast so human
+    // subjects trace as clean shapes instead of speckled blobs.
+    if (opts.mode === 'photo') {
+      imageData = preprocessForPhoto(imageData);
+      ctx.putImageData(imageData, 0, 0);
+      imageData = ctx.getImageData(0, 0, width, height);
+    }
+
     // Let the UI paint "Tracing…" before the synchronous trace blocks.
     await new Promise((resolve) => setTimeout(resolve, 30));
     // Minification-proof marker for this tool's bundled chunk: the method
     // name `imagedataToSVG` survives esbuild minification.
-    const traceOpts = resolveImageTracerOptions(opts);
-    if (opts.mode === 'color') traceOpts.numberofcolors = finishing.colors;
-    if (finishing.soften) traceOpts.blurradius = 5;
-    const rawSvg: string = tracer.imagedataToSVG(imageData, traceOpts);
-    let svg = rawSvg;
-    let bgNote = '';
-    if (finishing.dropWhite) {
-      const r = removeWhiteBackground(rawSvg, width, height);
-      if (r.removed) {
-        svg = r.svg;
-        bgNote = ' · white background removed';
-      } else {
-        bgNote = ' · no solid white background found to remove';
-      }
-    }
+    const svg: string = tracer.imagedataToSVG(imageData, resolveImageTracerOptions(opts));
     const check = validateSvg(svg);
     if (!check.ok) throw new Error(check.reason);
     svgText = svg;
@@ -204,7 +186,7 @@ async function onTrace(): Promise<void> {
     const svgBytes = new TextEncoder().encode(svg).length;
     el('result-info').textContent =
       `${paths} vector paths · SVG ${formatBytes(svgBytes)} (original ${formatBytes(currentFile.size)}) · ` +
-      `${width}×${height} trace resolution${bgNote}`;
+      `${width}×${height} trace resolution`;
   } catch (err) {
     showError('error-box', traceErrorMessage(err));
   } finally {
@@ -215,28 +197,7 @@ async function onTrace(): Promise<void> {
 
 export function initImageTracer(): void {
   refreshDetailLabel();
-  refreshColorsUi();
   el('detail-range').addEventListener('input', refreshDetailLabel);
-  el('colors-range').addEventListener('input', refreshColorsUi);
-  document.querySelectorAll('input[name="trace-mode"]').forEach((radio) => {
-    radio.addEventListener('change', () => {
-      refreshColorsUi();
-      retraceSoon();
-    });
-  });
-
-  // Once a trace exists, changing any setting re-traces automatically
-  // (debounced), so the preview behaves like a live control.
-  let retraceTimer: number | null = null;
-  function retraceSoon(): void {
-    if (!svgText || busy) return;
-    if (retraceTimer) window.clearTimeout(retraceTimer);
-    retraceTimer = window.setTimeout(() => void onTrace(), 700);
-  }
-  el('detail-range').addEventListener('input', retraceSoon);
-  el('colors-range').addEventListener('input', retraceSoon);
-  el('opt-soften').addEventListener('change', retraceSoon);
-  el('opt-dropwhite').addEventListener('change', retraceSoon);
   setupDropzone('dropzone', 'file-input', (files) => void onFiles(files));
   setupPasteHandler((files) => void onFiles(files), (f) => f.type.startsWith('image/'));
   el('trace-btn').addEventListener('click', () => void onTrace());
