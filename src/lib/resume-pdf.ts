@@ -1,39 +1,37 @@
 // Direct PDF generation for the resume builder.
-// Generates a clean, professional, ATS-friendly PDF with clickable links
-// (email, website, LinkedIn, project demo links) — no print dialog needed.
+// Matches the classic ATS-friendly tech resume style: single column,
+// standard headings, clickable links, no graphics.
 import { PDFDocument, PDFFont, PDFPage, PDFName, PDFString, StandardFonts, rgb } from 'pdf-lib';
 import type { ResumeData } from './resume-core.ts';
 import { defaultSectionVisibility, asSectionOrder, type SectionKey } from './resume-core.ts';
 
-const MARGIN = 50;
+const MARGIN = 54; // ~0.75 inch
 const PAGE_W = 595.28; // A4
 const PAGE_H = 841.89;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
-const BLACK = rgb(0.15, 0.15, 0.15);
-const GRAY = rgb(0.45, 0.45, 0.45);
-const ACCENT = rgb(0.7, 0.14, 0.17); // PDF red
-const LINK_BLUE = rgb(0.1, 0.35, 0.7);
+const BLACK = rgb(0, 0, 0);
+const DARK = rgb(0.2, 0.2, 0.2);
+const LINK_BLUE = rgb(0.05, 0.3, 0.65);
 
 interface Ctx {
   doc: PDFDocument;
   font: PDFFont;
   fontBold: PDFFont;
-  fontItalic: PDFFont;
   page: PDFPage;
   y: number;
 }
 
-/** Normalize a URL: add https:// if missing. */
 function normUrl(u: string): string {
   const t = u.trim();
   if (!t) return '';
   if (/^https?:\/\//i.test(t)) return t;
+  if (/^mailto:/i.test(t)) return t;
   return 'https://' + t;
 }
 
-/** Add a clickable link annotation to the current page. */
-function addLinkAnnot(ctx: Ctx, x1: number, y1: number, x2: number, y2: number, url: string): void {
+/** Add a clickable link annotation. */
+function addLink(ctx: Ctx, x1: number, y1: number, x2: number, y2: number, url: string): void {
   const annot = ctx.doc.context.obj({
     Type: PDFName.of('Annot'),
     Subtype: PDFName.of('Link'),
@@ -46,12 +44,12 @@ function addLinkAnnot(ctx: Ctx, x1: number, y1: number, x2: number, y2: number, 
     },
   });
   const ref = ctx.doc.context.register(annot);
-  const pageDict = ctx.page.node;
-  const existing = pageDict.lookupMaybe('Annots');
+  const node = ctx.page.node;
+  const existing = node.lookupMaybe('Annots');
   if (existing) {
     (existing as any).push(ref);
   } else {
-    pageDict.set(PDFName.of('Annots'), ctx.doc.context.obj([ref]));
+    node.set(PDFName.of('Annots'), ctx.doc.context.obj([ref]));
   }
 }
 
@@ -60,280 +58,340 @@ function newPage(ctx: Ctx): void {
   ctx.y = PAGE_H - MARGIN;
 }
 
-function ensureSpace(ctx: Ctx, needed: number): void {
-  if (ctx.y - needed < MARGIN) {
-    newPage(ctx);
-  }
+function ensure(ctx: Ctx, need: number): void {
+  if (ctx.y - need < MARGIN) newPage(ctx);
 }
 
-function drawText(
+/** Draw wrapped text, return height used. Supports inline links via segments. */
+function para(
   ctx: Ctx,
-  text: string,
-  opts: {
-    size?: number;
-    bold?: boolean;
-    italic?: boolean;
-    color?: ReturnType<typeof rgb>;
-    x?: number;
-    align?: 'left' | 'center';
-    link?: string;
-    maxWidth?: number;
-  } = {}
-): number {
-  const size = opts.size ?? 10;
-  const font = opts.bold ? ctx.fontBold : opts.italic ? ctx.fontItalic : ctx.font;
-  const color = opts.color ?? BLACK;
-  const x = opts.x ?? MARGIN;
-  const maxWidth = opts.maxWidth ?? CONTENT_W;
+  segments: { t: string; bold?: boolean; link?: string; color?: ReturnType<typeof rgb> }[],
+  size = 10,
+  opts: { x?: number; align?: 'left' | 'center'; spacing?: number } = {}
+): void {
+  const x0 = opts.x ?? MARGIN;
+  const align = opts.align ?? 'left';
+  const lineH = size * 1.4;
 
-  // Simple word wrap
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let cur = '';
-  for (const w of words) {
-    const test = cur ? cur + ' ' + w : w;
-    if (font.widthOfTextAtSize(test, size) > maxWidth && cur) {
-      lines.push(cur);
-      cur = w;
-    } else {
-      cur = test;
+  // Flatten to words with attributes
+  type W = { w: string; bold: boolean; link?: string; color: ReturnType<typeof rgb> };
+  const words: W[] = [];
+  for (const s of segments) {
+    for (const w of s.t.split(/(\s+)/)) {
+      if (!w) continue;
+      if (/^\s+$/.test(w)) {
+        words.push({ w: ' ', bold: false, color: BLACK });
+      } else {
+        words.push({ w, bold: !!s.bold, link: s.link, color: s.color ?? BLACK });
+      }
     }
   }
-  if (cur) lines.push(cur);
 
-  const lineH = size * 1.35;
-  for (const line of lines) {
-    ensureSpace(ctx, lineH);
-    let lx = x;
-    if (opts.align === 'center') {
-      const w = font.widthOfTextAtSize(line, size);
-      lx = MARGIN + (CONTENT_W - w) / 2;
+  // Greedy line breaking
+  const lines: W[][] = [];
+  let cur: W[] = [];
+  let curW = 0;
+  const spaceW = ctx.font.widthOfTextAtSize(' ', size);
+  for (const wd of words) {
+    const f = wd.bold ? ctx.fontBold : ctx.font;
+    const ww = wd.w === ' ' ? spaceW : f.widthOfTextAtSize(wd.w, size);
+    if (curW + ww > CONTENT_W && cur.length > 0 && wd.w !== ' ') {
+      lines.push(cur);
+      cur = [];
+      curW = 0;
     }
-    ctx.page.drawText(line, { x: lx, y: ctx.y - size, size, font, color });
+    cur.push(wd);
+    curW += ww;
+  }
+  if (cur.length > 0) lines.push(cur);
 
-    // Add clickable link annotation
-    if (opts.link) {
-      const w = font.widthOfTextAtSize(line, size);
-      addLinkAnnot(ctx, lx, ctx.y - size - 2, lx + w, ctx.y + 2, opts.link);
+  for (const line of lines) {
+    ensure(ctx, lineH);
+    // Compute total width for centering
+    let total = 0;
+    for (const wd of line) {
+      const f = wd.bold ? ctx.fontBold : ctx.font;
+      total += wd.w === ' ' ? spaceW : f.widthOfTextAtSize(wd.w, size);
+    }
+    let lx = x0;
+    if (align === 'center') lx = MARGIN + (CONTENT_W - total) / 2;
+
+    for (const wd of line) {
+      const f = wd.bold ? ctx.fontBold : ctx.font;
+      const ww = wd.w === ' ' ? spaceW : f.widthOfTextAtSize(wd.w, size);
+      if (wd.w !== ' ') {
+        ctx.page.drawText(wd.w, { x: lx, y: ctx.y - size, size, font: f, color: wd.color });
+        if (wd.link) addLink(ctx, lx, ctx.y - size - 2, lx + ww, ctx.y + 3, wd.link);
+      }
+      lx += ww;
     }
     ctx.y -= lineH;
   }
-  return lines.length * lineH;
+  if (opts.spacing) ctx.y -= opts.spacing;
 }
 
-function sectionTitle(ctx: Ctx, title: string): void {
-  ctx.y -= 6;
-  ensureSpace(ctx, 24);
-  drawText(ctx, title.toUpperCase(), { size: 11, bold: true, color: ACCENT });
-  // Rule line
-  ctx.page.drawLine({
-    start: { x: MARGIN, y: ctx.y + 2 },
-    end: { x: PAGE_W - MARGIN, y: ctx.y + 2 },
-    thickness: 0.75,
-    color: rgb(0.8, 0.8, 0.8),
-  });
+function heading(ctx: Ctx, text: string): void {
   ctx.y -= 8;
+  ensure(ctx, 22);
+  para(ctx, [{ t: text.toUpperCase(), bold: true }], 11, { spacing: 2 });
+  // Thin rule
+  ctx.page.drawLine({
+    start: { x: MARGIN, y: ctx.y + 4 },
+    end: { x: PAGE_W - MARGIN, y: ctx.y + 4 },
+    thickness: 0.5,
+    color: rgb(0.6, 0.6, 0.6),
+  });
+  ctx.y -= 6;
 }
 
-function bullet(ctx: Ctx, text: string): void {
-  ensureSpace(ctx, 16);
-  const size = 10;
-  const bulletX = MARGIN + 8;
-  ctx.page.drawText('•', { x: MARGIN, y: ctx.y - size, size, font: ctx.font, color: BLACK });
-  drawText(ctx, text, { size, x: bulletX, maxWidth: CONTENT_W - 12 });
-  ctx.y -= 2;
+function bullet(ctx: Ctx, segments: { t: string; bold?: boolean; link?: string; color?: ReturnType<typeof rgb> }[], size = 10): void {
+  ensure(ctx, 18);
+  const by = ctx.y - size;
+  ctx.page.drawText('\u2022', { x: MARGIN, y: by, size, font: ctx.font, color: BLACK });
+  const saveY = ctx.y;
+  // Temporarily shift: draw para at indented x
+  const x0 = MARGIN + 14;
+  // Inline para with custom x
+  const lineH = size * 1.4;
+  type W = { w: string; bold: boolean; link?: string; color: ReturnType<typeof rgb> };
+  const words: W[] = [];
+  for (const s of segments) {
+    for (const w of s.t.split(/(\s+)/)) {
+      if (!w) continue;
+      words.push(/^\s+$/.test(w)
+        ? { w: ' ', bold: false, color: BLACK }
+        : { w, bold: !!s.bold, link: s.link, color: s.color ?? BLACK });
+    }
+  }
+  const maxW = CONTENT_W - 14;
+  const spaceW = ctx.font.widthOfTextAtSize(' ', size);
+  const lines: W[][] = [];
+  let cur: W[] = [];
+  let curW = 0;
+  for (const wd of words) {
+    const f = wd.bold ? ctx.fontBold : ctx.font;
+    const ww = wd.w === ' ' ? spaceW : f.widthOfTextAtSize(wd.w, size);
+    if (curW + ww > maxW && cur.length > 0 && wd.w !== ' ') {
+      lines.push(cur); cur = []; curW = 0;
+    }
+    cur.push(wd); curW += ww;
+  }
+  if (cur.length > 0) lines.push(cur);
+
+  for (const line of lines) {
+    ensure(ctx, lineH);
+    // Redraw bullet on continuation lines? No, just first line has bullet already.
+    let lx = x0;
+    for (const wd of line) {
+      const f = wd.bold ? ctx.fontBold : ctx.font;
+      const ww = wd.w === ' ' ? spaceW : f.widthOfTextAtSize(wd.w, size);
+      if (wd.w !== ' ') {
+        ctx.page.drawText(wd.w, { x: lx, y: ctx.y - size, size, font: f, color: wd.color });
+        if (wd.link) addLink(ctx, lx, ctx.y - size - 2, lx + ww, ctx.y + 3, wd.link);
+      }
+      lx += ww;
+    }
+    ctx.y -= lineH;
+  }
+  ctx.y -= 1;
+  void saveY;
 }
 
-/** Generate a PDF from resume data. Returns the PDF bytes. */
+/** Two-part line: left text and right-aligned text on the same row. */
+function splitLine(ctx: Ctx, left: string, right: string, size = 10, boldLeft = true): void {
+  ensure(ctx, size * 1.5);
+  const fL = boldLeft ? ctx.fontBold : ctx.font;
+  ctx.page.drawText(left, { x: MARGIN, y: ctx.y - size, size, font: fL, color: BLACK });
+  if (right) {
+    const rw = ctx.font.widthOfTextAtSize(right, size);
+    ctx.page.drawText(right, { x: PAGE_W - MARGIN - rw, y: ctx.y - size, size, font: ctx.font, color: DARK });
+  }
+  ctx.y -= size * 1.45;
+}
+
 export async function generateResumePdf(resume: ResumeData): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const fontItalic = await doc.embedFont(StandardFonts.HelveticaOblique);
-
-  const ctx: Ctx = { doc, font, fontBold, fontItalic, page: null as any, y: 0 };
+  const ctx: Ctx = { doc, font, fontBold, page: null as any, y: 0 };
   newPage(ctx);
 
   const visibility = resume.sectionVisibility ?? defaultSectionVisibility();
   const order = asSectionOrder(resume.sectionOrder);
   const visible = (k: SectionKey) => visibility[k] !== false;
-
   const c = resume.contact;
 
-  // Header: name
+  // Name — large, centered
   if (c.fullName.trim()) {
-    drawText(ctx, c.fullName.trim(), { size: 22, bold: true, align: 'center' });
-    ctx.y -= 2;
-  }
-  if (c.title.trim()) {
-    drawText(ctx, c.title.trim(), { size: 12, color: GRAY, align: 'center' });
-    ctx.y -= 2;
+    para(ctx, [{ t: c.fullName.trim(), bold: true }], 20, { align: 'center', spacing: 0 });
   }
 
-  // Contact line with clickable links
+  // Contact line: email | phone | location | GitHub | LinkedIn | Portfolio
   if (visible('contact')) {
-    const parts: { text: string; link?: string }[] = [];
-    if (c.email.trim()) parts.push({ text: c.email.trim(), link: `mailto:${c.email.trim()}` });
-    if (c.phone.trim()) parts.push({ text: c.phone.trim() });
-    if (c.location.trim()) parts.push({ text: c.location.trim() });
-    if (c.website.trim()) parts.push({ text: c.website.trim(), link: normUrl(c.website) });
-    if (c.linkedin.trim()) parts.push({ text: 'LinkedIn', link: normUrl(c.linkedin) });
-
-    if (parts.length > 0) {
-      // Draw as a single centered line with separators, links clickable
-      const sep = '  |  ';
-      let line = '';
-      const linkRanges: { start: number; end: number; link: string }[] = [];
-      for (const p of parts) {
-        const s = line.length;
-        line += (line ? sep : '') + p.text;
-        if (p.link) linkRanges.push({ start: s + (line ? sep.length : 0), end: line.length, link: p.link });
-      }
-      // Simple approach: draw whole line centered, then overlay link annots
-      const size = 9;
-      const w = font.widthOfTextAtSize(line, size);
-      const lx = MARGIN + (CONTENT_W - w) / 2;
-      ensureSpace(ctx, 16);
-      ctx.page.drawText(line, { x: lx, y: ctx.y - size, size, font, color: GRAY });
-      for (const r of linkRanges) {
-        const before = line.slice(0, r.start);
-        const linkText = line.slice(r.start, r.end);
-        const bx = lx + font.widthOfTextAtSize(before, size);
-        const bw = font.widthOfTextAtSize(linkText, size);
-        addLinkAnnot(ctx, bx, ctx.y - size - 2, bx + bw, ctx.y + 2, r.link);
-      }
-      ctx.y -= size * 1.35;
-      ctx.y -= 4;
+    const segs: { t: string; link?: string; color?: ReturnType<typeof rgb> }[] = [];
+    const push = (t: string, link?: string) => {
+      if (segs.length > 0) segs.push({ t: ' | ' });
+      segs.push(link ? { t, link, color: LINK_BLUE } : { t });
+    };
+    if (c.email.trim()) push(c.email.trim(), `mailto:${c.email.trim()}`);
+    if (c.phone.trim()) push(c.phone.trim());
+    if (c.location.trim()) push(c.location.trim());
+    if (c.website.trim()) {
+      // Show as "Portfolio" like the reference resume
+      push('Portfolio', normUrl(c.website));
+    }
+    if (c.linkedin.trim()) push('LinkedIn', normUrl(c.linkedin));
+    if (segs.length > 0) {
+      para(ctx, segs, 9.5, { align: 'center', spacing: 2 });
     }
   }
-
-  // Summary
-  if (resume.summary.trim() && visible('summary' as SectionKey)) {
-    sectionTitle(ctx, 'Summary');
-    drawText(ctx, resume.summary.trim(), { size: 10 });
-    ctx.y -= 4;
+  if (c.title.trim()) {
+    para(ctx, [{ t: c.title.trim() }], 11, { align: 'center', spacing: 4 });
   }
 
-  // Body sections in order
+  if (resume.summary.trim()) {
+    heading(ctx, 'Professional Summary');
+    para(ctx, [{ t: resume.summary.trim() }], 10, { spacing: 2 });
+  }
+
   for (const key of order) {
     if (key === 'contact' || !visible(key)) continue;
 
     if (key === 'experience' && resume.experience.length > 0) {
-      sectionTitle(ctx, 'Experience');
+      heading(ctx, 'Work Experience');
       for (const e of resume.experience) {
-        ensureSpace(ctx, 40);
-        if (e.title.trim()) drawText(ctx, e.title.trim(), { size: 11, bold: true });
-        const org = [e.company.trim(), e.location.trim()].filter(Boolean).join(', ');
-        const dates = [e.start.trim(), e.current ? 'Present' : e.end.trim()].filter(Boolean).join(' - ');
-        const sub = [org, dates].filter(Boolean).join('  |  ');
-        if (sub) drawText(ctx, sub, { size: 9, color: GRAY });
-        ctx.y -= 2;
-        for (const b of e.bullets) {
-          if (b.trim()) bullet(ctx, b.trim());
+        const dates = [e.start.trim(), e.current ? 'Present' : e.end.trim()].filter(Boolean).join(' \u2013 ');
+        splitLine(ctx, e.company.trim() || e.title.trim(), dates, 10.5, true);
+        if (e.company.trim() && e.title.trim()) {
+          para(ctx, [{ t: e.title.trim(), bold: true }], 10.5, { spacing: 1 });
         }
-        ctx.y -= 4;
+        if (e.location.trim()) {
+          para(ctx, [{ t: e.location.trim(), color: DARK }], 9.5, { spacing: 1 });
+        }
+        for (const b of e.bullets) {
+          if (b.trim()) bullet(ctx, [{ t: b.trim() }]);
+        }
+        ctx.y -= 5;
       }
     }
 
     if (key === 'education' && resume.education.length > 0) {
-      sectionTitle(ctx, 'Education');
+      heading(ctx, 'Education');
       for (const e of resume.education) {
-        ensureSpace(ctx, 32);
-        if (e.degree.trim()) drawText(ctx, e.degree.trim(), { size: 11, bold: true });
-        const sub = [e.school.trim(), e.location.trim()].filter(Boolean).join(', ');
-        const dates = [e.start.trim(), e.end.trim()].filter(Boolean).join(' - ');
-        const line = [sub, dates].filter(Boolean).join('  |  ');
-        if (line) drawText(ctx, line, { size: 9, color: GRAY });
-        if (e.detail.trim()) drawText(ctx, e.detail.trim(), { size: 10, italic: true });
-        ctx.y -= 4;
+        const dates = [e.start.trim(), e.end.trim()].filter(Boolean).join(' \u2013 ');
+        splitLine(ctx, e.school.trim(), dates, 10.5, true);
+        const degLoc = [e.degree.trim(), e.location.trim()].filter(Boolean).join('  ');
+        if (degLoc) para(ctx, [{ t: degLoc }], 10, { spacing: 1 });
+        if (e.detail.trim()) {
+          // Detail may contain multiple lines; split and bullet each
+          for (const line of e.detail.split('\n')) {
+            if (line.trim()) bullet(ctx, [{ t: line.trim().replace(/^[*\-\u2022]\s*/, '') }], 10);
+          }
+        }
+        ctx.y -= 5;
+      }
+    }
+
+    if (key === 'projects' && resume.projects.length > 0) {
+      heading(ctx, 'Projects');
+      for (const p of resume.projects) {
+        if (!p.name.trim()) continue;
+        ensure(ctx, 20);
+        // "Project Name  Live Demo" — Live Demo is a clickable link
+        const segs: { t: string; bold?: boolean; link?: string; color?: ReturnType<typeof rgb> }[] = [
+          { t: p.name.trim(), bold: true },
+        ];
+        if (p.link.trim()) {
+          segs.push({ t: '  ' });
+          segs.push({ t: 'Live Demo', link: normUrl(p.link), color: LINK_BLUE });
+        }
+        para(ctx, segs, 10.5, { spacing: 1 });
+        if (p.detail.trim()) para(ctx, [{ t: p.detail.trim() }], 10, { spacing: 1 });
+        for (const b of p.bullets) {
+          if (b.trim()) bullet(ctx, [{ t: b.trim() }]);
+        }
+        ctx.y -= 5;
       }
     }
 
     if (key === 'skills' && resume.skills.length > 0) {
-      sectionTitle(ctx, 'Skills');
+      heading(ctx, 'Skills');
       for (const s of resume.skills) {
         const label = s.label.trim();
         const items = s.items.trim();
         if (!label && !items) continue;
-        ensureSpace(ctx, 16);
         if (label) {
-          drawText(ctx, `${label}: ${items}`, { size: 10 });
+          bullet(ctx, [{ t: `${label}: `, bold: true }, { t: items }], 10);
         } else {
-          drawText(ctx, items, { size: 10 });
+          bullet(ctx, [{ t: items }], 10);
         }
       }
-      ctx.y -= 4;
-    }
-
-    if (key === 'projects' && resume.projects.length > 0) {
-      sectionTitle(ctx, 'Projects');
-      for (const p of resume.projects) {
-        ensureSpace(ctx, 36);
-        // Project name with clickable demo link
-        if (p.name.trim()) {
-          const link = p.link.trim() ? normUrl(p.link) : undefined;
-          drawText(ctx, p.name.trim(), {
-            size: 11,
-            bold: true,
-            color: link ? LINK_BLUE : BLACK,
-            link,
-          });
-        }
-        if (p.detail.trim()) drawText(ctx, p.detail.trim(), { size: 10, italic: true });
-        for (const b of p.bullets) {
-          if (b.trim()) bullet(ctx, b.trim());
-        }
-        // "Live demo" link if present and not already linked via name
-        if (p.link.trim()) {
-          drawText(ctx, 'Live demo', { size: 9, color: LINK_BLUE, link: normUrl(p.link) });
-        }
-        ctx.y -= 4;
-      }
+      ctx.y -= 2;
     }
 
     if (key === 'certifications' && resume.certifications.length > 0) {
-      sectionTitle(ctx, 'Certifications');
+      heading(ctx, 'Certifications');
       for (const ce of resume.certifications) {
         const parts = [ce.name.trim(), ce.issuer.trim(), ce.year.trim()].filter(Boolean);
-        if (parts.length > 0) bullet(ctx, parts.join(' — '));
+        if (parts.length > 0) bullet(ctx, [{ t: parts.join(' — ') }], 10);
       }
-      ctx.y -= 4;
+      ctx.y -= 2;
     }
 
     if (key === 'languages' && resume.languages.length > 0) {
-      sectionTitle(ctx, 'Languages');
+      heading(ctx, 'Languages');
       const langs = resume.languages
-        .map((l) => [l.name?.trim(), (l as any).level?.trim()].filter(Boolean).join(' (') + ((l as any).level?.trim() ? ')' : ''))
+        .map((l: any) => [l.name?.trim(), l.level?.trim()].filter(Boolean).join(' — '))
         .filter(Boolean);
-      if (langs.length > 0) drawText(ctx, langs.join('  |  '), { size: 10 });
-      ctx.y -= 4;
-    }
-
-    if (key === 'awards' && (resume as any).awards?.length > 0) {
-      sectionTitle(ctx, 'Awards');
-      for (const a of (resume as any).awards) {
-        const parts = [a.name?.trim(), a.issuer?.trim(), a.year?.trim()].filter(Boolean);
-        if (parts.length > 0) bullet(ctx, parts.join(' — '));
+      if (langs.length > 0) {
+        bullet(ctx, [{ t: langs.join('; ') }], 10);
       }
-      ctx.y -= 4;
+      ctx.y -= 2;
     }
 
     if (key === 'volunteer' && resume.volunteer.length > 0) {
-      sectionTitle(ctx, 'Volunteer Experience');
+      heading(ctx, 'Volunteer Experience');
       for (const e of resume.volunteer) {
-        ensureSpace(ctx, 40);
-        if (e.title.trim()) drawText(ctx, e.title.trim(), { size: 11, bold: true });
-        const org = [e.company.trim(), e.location.trim()].filter(Boolean).join(', ');
-        if (org) drawText(ctx, org, { size: 9, color: GRAY });
-        for (const b of e.bullets) {
-          if (b.trim()) bullet(ctx, b.trim());
+        const dates = [e.start.trim(), e.current ? 'Present' : e.end.trim()].filter(Boolean).join(' \u2013 ');
+        splitLine(ctx, e.company.trim() || e.title.trim(), dates, 10.5, true);
+        if (e.company.trim() && e.title.trim()) {
+          para(ctx, [{ t: e.title.trim(), bold: true }], 10.5, { spacing: 1 });
         }
-        ctx.y -= 4;
+        for (const b of e.bullets) {
+          if (b.trim()) bullet(ctx, [{ t: b.trim() }]);
+        }
+        ctx.y -= 5;
       }
+    }
+
+    if (key === 'awards' && (resume as any).awards?.length > 0) {
+      heading(ctx, 'Awards');
+      for (const a of (resume as any).awards) {
+        const parts = [a.name?.trim(), a.issuer?.trim(), a.year?.trim()].filter(Boolean);
+        if (parts.length > 0) bullet(ctx, [{ t: parts.join(' — ') }], 10);
+      }
+      ctx.y -= 2;
+    }
+
+    if (key === 'publications' && (resume as any).publications?.length > 0) {
+      heading(ctx, 'Publications');
+      for (const p of (resume as any).publications) {
+        const parts = [p.title?.trim(), p.publisher?.trim(), p.year?.trim()].filter(Boolean);
+        if (parts.length > 0) bullet(ctx, [{ t: parts.join(' — ') }], 10);
+      }
+      ctx.y -= 2;
+    }
+
+    if (key === 'courses' && (resume as any).courses?.length > 0) {
+      heading(ctx, 'Courses');
+      for (const co of (resume as any).courses) {
+        const parts = [co.name?.trim(), co.provider?.trim(), co.year?.trim()].filter(Boolean);
+        if (parts.length > 0) bullet(ctx, [{ t: parts.join(' — ') }], 10);
+      }
+      ctx.y -= 2;
     }
   }
 
-  // Metadata
   const name = c.fullName.trim() || 'Resume';
   doc.setTitle(`${name} - Resume`);
   doc.setAuthor(name);
@@ -342,7 +400,6 @@ export async function generateResumePdf(resume: ResumeData): Promise<Uint8Array>
   return await doc.save();
 }
 
-/** Download filename for the resume PDF. */
 export function resumePdfFileName(fullName: string): string {
   const clean = fullName.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'resume';
   return `${clean}-resume.pdf`;
