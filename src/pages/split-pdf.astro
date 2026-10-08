@@ -1,12 +1,11 @@
 ---
 import ToolPage from '../layouts/ToolPage.astro';
-import Icon from '../components/Icon.astro';
 
 const title = 'Split PDF Free — Extract Pages, No Signup, No Watermark';
 const description =
   'Extract pages from a PDF into new documents for free. Split by page ranges like 1-3, 5. No signup, no watermark. Your files never leave your browser.';
 const h1 = 'Split PDF';
-const lede = 'Pull pages out of a PDF by page number, split every page into its own file, chunk into fixed sizes, or split by chapters and words. Free, no account, no watermark.';
+const lede = 'This tool is now part of the PDF Editor, which splits PDFs and handles every other PDF job in one workspace.';
 ---
 <ToolPage
   title={title}
@@ -16,165 +15,17 @@ const lede = 'Pull pages out of a PDF by page number, split every page into its 
   crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Split PDF', href: '/split-pdf' }]}
   toolName="TruePDF Split PDF"
   intro={[
-    'Splitting a PDF usually means one of two things: you want a few pages out of a long document, or you want to break a document into pieces. Maybe it is the first three pages of a report for a client, or chapters of a scanned book saved as separate files. Either way, the job is small and the usual tools make it annoying: upload limits, queues, watermarks, or a subscription for something you will do twice a year.',
-    'This splitter works with page ranges. Tell it which pages you want, and it builds new PDFs containing exactly those pages. Separate groups with a semicolon and each group becomes its own file, so "1-3; 4-6" gives you two documents in one go. Two shortcuts skip the typing entirely: "Split every page" puts each page in its own file, and the N-pages control chunks the document into fixed-size pieces. Like every TruePDF tool, everything happens in your browser. The PDF is never uploaded anywhere.',
-    'Pages are extracted as-is, so the output keeps the original quality, selectable text, and links. Splitting does not touch the content of the pages; it just decides which ones go into each new file.',
+    'Splitting PDFs now happens inside the PDF Editor. Drop your file there, select the pages you want, and save them as a new PDF. The same workspace also lets you reorder, rotate, delete, edit text, add watermarks and page numbers, or protect the file with a password.',
   ]}
-  steps={[
-    'Drop your PDF onto the box above, or click it to browse. The page count appears once it is read.',
-    'Type the pages you want using numbers and ranges. Use commas inside one file ("1-3, 5") and semicolons to make separate files ("1-3; 4-6").',
-    'Or use a shortcut: "Split every page" makes one file per page; the N-pages control chunks the document into fixed-size pieces; "Smart split" below breaks it by chapters or by a word on the page.',
-    'Click "Split PDF". Each output file is built on your device.',
-    'Download the files one by one from the results list, or grab them all as a ZIP.',
-  ]}
-  specs={[
-    ['Cost', 'Free, no limits'],
-    ['Signup', 'None. No account, no email.'],
-    ['Watermark', 'None'],
-    ['Where files are processed', 'In your browser, on your device'],
-    ['Range format', 'Numbers and ranges, e.g. "1-3, 5". Semicolons separate output files, e.g. "1-3; 4-6".'],
-    ['One-click modes', '"Split every page" and "every N pages" need no range typing'],
-    ['Split by bookmarks', 'Each top-level bookmark becomes its own file, named after the chapter'],
-    ['Split by words', 'Type words; every page containing them starts a new file'],
-    ['Output files', 'Up to 50 per run'],
-    ['Download', 'Individual files or all at once as a ZIP'],
-    ['Quality', 'Pages are copied as-is, no quality loss'],
-    ['Password-protected PDFs', 'Not supported. Remove the password first, then split.'],
-    ['Works offline', 'Yes, once the page has loaded'],
-  ]}
-  faqs={[
-    {
-      q: 'How do I write the page ranges?',
-      a: 'Use plain numbers and dashes. "5" means page 5. "1-3" means pages 1, 2 and 3. "1-3, 5" puts all of those pages into one file. If you want separate files, split the groups with a semicolon: "1-3; 4-6" produces two PDFs. Pages are numbered starting at 1, and reversed ranges like "5-3" are read as "3-5".',
-    },
-    {
-      q: 'Can I split a PDF into many files at once?',
-      a: 'Yes. Each semicolon-separated group becomes its own download, up to 50 groups per run. So "1-2; 3-4; 5-6; 7-8" gives you four files in a single pass. Each file is named split-part-1.pdf, split-part-2.pdf, and so on.',
-    },
-    {
-      q: 'Is this PDF splitter really free?',
-      a: 'Yes, completely. No daily limits, no watermarks, no locked features. Splitting is a local operation on your device, so it costs nothing to provide and there is nothing to upsell.',
-    },
-    {
-      q: 'Are my PDFs uploaded to a server?',
-      a: 'No. The file is read and split by code running in your browser. Nothing leaves your device, which makes this safe to use for contracts, statements, and other documents you would rather not upload.',
-    },
-    {
-      q: 'Will splitting change the quality of the pages?',
-      a: 'No. Pages are copied directly from the original into the new documents. Text stays selectable, links keep working, and images keep their original resolution.',
-    },
-    {
-      q: 'What if I enter a page number that does not exist?',
-      a: 'The tool checks every number against the actual page count and tells you exactly which entry is wrong, for example that page 40 does not exist in a 32-page document. Fix the range and try again.',
-    },
-    {
-      q: 'Why will my PDF not split?',
-      a: 'The most common reason is password protection: encrypted PDFs cannot be opened without the password. Remove the password in your PDF reader first. Damaged or non-standard files can also fail to load.',
-    },
-    {
-      q: 'Can I split one PDF into many files in a single run?',
-      a: 'Yes. Enter several ranges at once and each one downloads as its own file, so a 50-page scan can become five tidy documents in one pass.',
-    },
-    {
-      q: 'Can I split a PDF by chapters?',
-      a: 'Yes, when the PDF has a table of contents (bookmarks). After you drop the file, the Smart split section lists the chapters it found — one click turns each chapter into its own file, named after the chapter. If the PDF has no bookmarks, the tool says so plainly; use page ranges instead.',
-    },
-    {
-      q: 'How do I split one PDF per invoice or statement?',
-      a: 'Use the "By words on the page" box in Smart split. Type the words every new document starts with — for example "Invoice" — and each page containing those words starts a new file. One run turns a 50-page invoice pack into 50 one-page files.',
-    },
-    {
-      q: 'How do I split a PDF into one file per page?',
-      a: 'Click "Split every page" after dropping your PDF. Each page becomes its own file, named after the source document. For very long documents this mode is capped at 50 files per run; the "every N pages" control chunks bigger PDFs into fixed-size pieces instead.',
-    },
-    {
-      q: 'Can I download all the split files at once?',
-      a: 'Yes. Whenever a run produces more than one file, a "Download all as ZIP" button appears under the results list and bundles every part into one ZIP download.',
-    },
-  ]}
-  usecases={[
-    {
-      h: 'Pulling chapters from a book or report',
-      p: 'Extract a single chapter from a scanned textbook, or separate a long report into the sections you actually need to send on.',
-    },
-    {
-      h: 'One range per invoice',
-      p: 'Bank statements and invoice packs often arrive as one giant PDF. Split them into one file per month so each lands in the right folder.',
-    },
-    {
-      h: 'Prepping pages for merging',
-      p: 'Combine split with the Merge PDF tool: extract exactly the pages you need from several documents, then merge the results into one new file.',
-    },
-  ]}
+  steps={[]}
+  specs={[]}
+  faqs={[]}
 >
-  <section class="tool-card" slot="tool" aria-label="Split PDF tool">
-    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose a PDF file to split">
-      <div class="dz-icon"><Icon name="upload" size={30} /></div>
-      <div class="dz-title">Drop a PDF here</div>
-      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
-    </div>
-    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
-    <div id="error-box" class="error-box" hidden></div>
-    <p id="file-info" class="count-label" hidden></p>
-    <div id="picker-wrap" hidden>
-      <p class="mono-label">Pick pages</p>
-      <p class="hint hint-flush">Tick the pages you want, or type ranges below. Both ways work.</p>
-      <div class="btn-row picker-tools">
-        <button id="pick-all" class="btn btn-secondary" type="button">Select all</button>
-        <button id="pick-none" class="btn btn-secondary" type="button">Clear</button>
-        <span id="pick-count" class="count-label" role="status"></span>
-      </div>
-      <div id="page-grid" class="page-grid" role="group" aria-label="Page previews"></div>
-      <div class="btn-row">
-        <button id="extract-btn" class="btn" type="button" disabled>Extract selected pages</button>
-      </div>
-    </div>
-    <div class="field">
-      <label for="range-input">Pages to extract</label>
-      <input type="text" id="range-input" placeholder='e.g. 1-3, 5, or 1-3; 4-6 for separate files' autocomplete="off" />
-      <p class="hint">Commas group pages into one file. Semicolons make separate files. Example: <code>1-3; 5; 9-12</code> gives three PDFs.</p>
-    </div>
-    <div class="btn-row">
-      <button id="split-btn" class="btn" disabled>Split PDF</button>
-      <button id="every-page-btn" class="btn btn-secondary" type="button" disabled>Split every page</button>
-    </div>
-    <div class="field">
-      <label for="chunk-size">Or split into fixed chunks</label>
-      <div class="btn-row">
-        <input type="number" id="chunk-size" min="1" max="50" value="5" disabled style="max-width:6rem" />
-        <button id="chunk-btn" class="btn btn-secondary" type="button" disabled>Split every N pages</button>
-      </div>
-      <p class="hint">With 5, a 12-page PDF becomes three files: pages 1-5, 6-10, and 11-12.</p>
-    </div>
-    <div id="smart-split" hidden>
-      <p class="mono-label">Smart split</p>
-      <div class="field">
-        <label>By chapter (bookmarks)</label>
-        <p class="hint hint-flush" id="bookmark-status">Checking this PDF for bookmarks…</p>
-        <div id="chapter-list" hidden></div>
-        <div class="btn-row">
-          <button id="bookmarks-btn" class="btn btn-secondary" type="button" disabled>Split by bookmarks</button>
-        </div>
-      </div>
-      <div class="field">
-        <label for="text-split-input">By words on the page</label>
-        <div class="btn-row">
-          <input type="text" id="text-split-input" placeholder="e.g. Invoice" autocomplete="off" style="max-width:12rem" disabled />
-          <button id="text-split-btn" class="btn btn-secondary" type="button" disabled>Split where found</button>
-        </div>
-        <p class="hint">Every page containing those words starts a new file. Handy for invoice packs and statement bundles where each document starts with the same heading.</p>
-      </div>
-    </div>
-    <div id="result" class="result" hidden>
-      <h3>Done</h3>
-      <ul id="result-list" class="file-list"></ul>
-      <div class="btn-row">
-        <button id="zip-btn" class="btn btn-secondary" type="button" hidden>Download all as ZIP</button>
-      </div>
-    </div>
-  </section>
+  <div style="text-align: center; padding: 40px 20px;">
+    <p style="font-size: 18px; margin-bottom: 20px;">This tool has moved into the PDF Editor.</p>
+    <a href="/pdf-editor" style="display: inline-block; padding: 12px 24px; background: var(--accent); color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">Open the PDF Editor</a>
+  </div>
   <script>
-    import { initSplitPdf } from '../tools/split-pdf';
-    initSplitPdf();
+    setTimeout(() => { window.location.replace('/pdf-editor'); }, 2500);
   </script>
 </ToolPage>

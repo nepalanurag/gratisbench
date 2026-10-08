@@ -2,6 +2,7 @@
 // ../lib/bgremove-core.ts; the @imgly/background-removal engine is
 // lazy-loaded from ./bgremove-loader.ts only after the user picks an image.
 import {
+  validateBgChoice,
   bgFillColor,
   bgOutputFileName,
   bgProgressLabel,
@@ -20,30 +21,45 @@ import {
   setupDropzone,
   setupPasteHandler,
   loadImage,
-  EtaTracker,
 } from './common.ts';
 
-/** Background choices incl. the two this tool adds on top of bgremove-core. */
-type BgChoiceExt = BgChoice | 'custom' | 'blur';
-
-function selectedChoiceExt(): BgChoiceExt {
-  const v = (document.querySelector('input[name="bg-choice"]:checked') as HTMLInputElement | null)?.value;
-  return v === 'white' || v === 'black' || v === 'custom' || v === 'blur' ? v : 'transparent';
-}
+/** Longest edge of the working mask canvas (px). Keeps brush/edge ops fast. */
+const MASK_MAX = 1200;
 
 let file: File | null = null;
 let objectUrl: string | null = null;
+/** Object URL for the loaded original image (revoked when a new file is picked). */
+let originalUrl: string | null = null;
 /** Raw transparent cut-out from the engine; kept so the background choice can be re-rendered. */
 let cutoutBlob: Blob | null = null;
-/** Cut-out after edge touch-up; recomputed only when the touch-up settings change. */
+/** Cut-out after mask touch-ups; recomputed only when the mask settings change. */
 let refinedBlob: Blob | null = null;
-let refinedKey = '';
 /** Currently displayed (possibly composited) result, for download. */
 let resultBlob: Blob | null = null;
 let resultUrl: string | null = null;
 let busy = false;
-/** Guards overlapping re-renders when the user drags a slider. */
-let renderSeq = 0;
+
+/* ---- Mask touch-up state ---- */
+/** Original image at natural resolution; the edited mask is applied to this,
+ *  never to the AI cut-out, so "Restore" painting can genuinely bring back
+ *  pixels the AI deleted (they are gone from the cut-out's alpha). */
+let originalImg: HTMLImageElement | null = null;
+/** Grayscale working mask (white = keep, black = remove): AI alpha + user strokes. */
+let baseMask: HTMLCanvasElement | null = null;
+/** Shrink (-5) / grow (+5) applied to the base mask, in mask pixels. */
+let edgeDelta = 0;
+type BrushMode = 'restore' | 'remove';
+let brushMode: BrushMode = 'restore';
+let brushSize = 48;
+let editorOpen = false;
+let painting = false;
+let lastPt: { x: number; y: number } | null = null;
+let rebuildTimer: number | null = null;
+
+function selectedChoice(): BgChoice {
+  const checked = document.querySelector('input[name="bg-choice"]:checked') as HTMLInputElement | null;
+  return validateBgChoice(checked?.value);
+}
 
 /** Show one preview image at a time (before/after toggle). */
 function showPreview(which: 'original' | 'result'): void {
@@ -53,13 +69,10 @@ function showPreview(which: 'original' | 'result'): void {
   el<HTMLButtonElement>('view-result-btn').classList.toggle('active', which === 'result');
 }
 
-const etaTracker = new EtaTracker();
-
 function setProgress(percent: number, label: string): void {
   el('progress-wrap').hidden = false;
   el('progress-bar').style.width = `${Math.max(0, Math.min(100, percent))}%`;
-  const eta = etaTracker.eta(percent / 100);
-  el('progress-label').textContent = eta ? `${label} — ${eta}` : label;
+  el('progress-label').textContent = label;
 }
 
 function clearProgress(): void {
@@ -76,6 +89,12 @@ function revokeResult(): void {
   resultBlob = null;
 }
 
+function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not encode the result image.'))), 'image/png');
+  });
+}
+
 /** Composite the transparent cut-out over a solid fill; returns PNG bytes. */
 async function compositeOverFill(cutout: Blob, fill: string): Promise<Blob> {
   const url = URL.createObjectURL(cutout);
@@ -89,179 +108,321 @@ async function compositeOverFill(cutout: Blob, fill: string): Promise<Blob> {
     ctx.fillStyle = fill;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
-    const out = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!out) throw new Error('Could not encode the result image.');
-    return out;
+    return canvasToPng(canvas);
   } finally {
     URL.revokeObjectURL(url);
   }
 }
 
-/**
- * Composite the cut-out over the original photo, blurred. The background is
- * drawn tiny and upscaled, which blurs it for free without canvas filters.
- */
-async function compositeOverBlur(originalUrl: string, cutout: Blob): Promise<Blob> {
-  const cutoutUrl = URL.createObjectURL(cutout);
-  try {
-    const [bgImg, cutImg] = await Promise.all([loadImage(originalUrl), loadImage(cutoutUrl)]);
-    const W = cutImg.naturalWidth;
-    const H = cutImg.naturalHeight;
-    const canvas = document.createElement('canvas');
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Your browser could not create a drawing surface.');
-    // Cover-fit the original into a tiny canvas, then upscale: smooth blur.
-    const tiny = document.createElement('canvas');
-    tiny.width = 48;
-    tiny.height = Math.max(1, Math.round((48 * H) / W));
-    const tctx = tiny.getContext('2d');
-    if (!tctx) throw new Error('Your browser could not create a drawing surface.');
-    const scale = Math.max(tiny.width / bgImg.naturalWidth, tiny.height / bgImg.naturalHeight);
-    const dw = bgImg.naturalWidth * scale;
-    const dh = bgImg.naturalHeight * scale;
-    tctx.drawImage(bgImg, (tiny.width - dw) / 2, (tiny.height - dh) / 2, dw, dh);
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(tiny, 0, 0, W, H);
-    // Dim slightly so the subject stands out.
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(0, 0, W, H);
-    ctx.drawImage(cutImg, 0, 0);
-    const out = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!out) throw new Error('Could not encode the result image.');
-    return out;
-  } finally {
-    URL.revokeObjectURL(cutoutUrl);
-  }
-}
-
-/** Separable box blur of a single-channel float plane, in place. */
-function boxBlurPlane(a: Float32Array, w: number, h: number, r: number): void {
-  const tmp = new Float32Array(a.length);
-  const n = 2 * r + 1;
-  for (let y = 0; y < h; y++) {
-    const row = y * w;
-    let acc = 0;
-    for (let x = -r; x <= r; x++) acc += a[row + Math.min(w - 1, Math.max(0, x))];
-    for (let x = 0; x < w; x++) {
-      tmp[row + x] = acc / n;
-      acc += a[row + Math.min(w - 1, Math.max(0, x + r + 1))] - a[row + Math.min(w - 1, Math.max(0, x - r))];
-    }
-  }
-  for (let x = 0; x < w; x++) {
-    let acc = 0;
-    for (let y = -r; y <= r; y++) acc += tmp[Math.min(h - 1, Math.max(0, y)) * w + x];
-    for (let y = 0; y < h; y++) {
-      a[y * w + x] = acc / n;
-      acc +=
-        tmp[Math.min(h - 1, Math.max(0, y + r + 1)) * w + x] -
-        tmp[Math.min(h - 1, Math.max(0, y - r)) * w + x];
-    }
-  }
-}
-
-/**
- * Edge touch-up for the AI cut-out. Works on a downscaled alpha mask (cheap,
- * and the upscaled blur feathers the edge naturally), then applies it with
- * destination-in at full size.
- * - soften (0-3): feather the edge so the subject blends into the background.
- * - tighten: threshold the blurred mask to trim the faint glow AI cut-outs
- *   sometimes leave around hair and edges.
- */
-async function refineEdges(cutout: Blob, soften: number, tighten: boolean): Promise<Blob> {
-  if (soften <= 0 && !tighten) return cutout;
-  const url = URL.createObjectURL(cutout);
-  try {
-    const img = await loadImage(url);
-    const W = img.naturalWidth;
-    const H = img.naturalHeight;
-    const k = Math.min(1, 320 / Math.max(W, H));
-    const sw = Math.max(1, Math.round(W * k));
-    const sh = Math.max(1, Math.round(H * k));
-    const small = document.createElement('canvas');
-    small.width = sw;
-    small.height = sh;
-    const sctx = small.getContext('2d', { willReadFrequently: true });
-    if (!sctx) return cutout;
-    sctx.drawImage(img, 0, 0, sw, sh);
-    const id = sctx.getImageData(0, 0, sw, sh);
-    const d = id.data;
-    const alpha = new Float32Array(sw * sh);
-    for (let i = 0; i < alpha.length; i++) alpha[i] = d[i * 4 + 3];
-    const radius = soften > 0 ? soften + 1 : 1;
-    boxBlurPlane(alpha, sw, sh, radius);
-    for (let i = 0; i < alpha.length; i++) {
-      let v = alpha[i];
-      if (tighten) v = v >= 128 ? 255 : 0;
-      d[i * 4 + 3] = Math.max(0, Math.min(255, Math.round(v)));
-    }
-    sctx.putImageData(id, 0, 0);
-    // Apply the touched-up mask at full size.
-    const full = document.createElement('canvas');
-    full.width = W;
-    full.height = H;
-    const fctx = full.getContext('2d');
-    if (!fctx) return cutout;
-    fctx.drawImage(img, 0, 0);
-    const mask = document.createElement('canvas');
-    mask.width = W;
-    mask.height = H;
-    const mctx = mask.getContext('2d');
-    if (!mctx) return cutout;
-    mctx.imageSmoothingEnabled = true;
-    mctx.drawImage(small, 0, 0, W, H);
-    fctx.globalCompositeOperation = 'destination-in';
-    fctx.drawImage(mask, 0, 0);
-    fctx.globalCompositeOperation = 'source-over';
-    const out = await new Promise<Blob | null>((resolve) => full.toBlob(resolve, 'image/png'));
-    return out ?? cutout;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-function edgeSettings(): { soften: number; tighten: boolean; key: string } {
-  const soften = Math.max(0, Math.min(3, Number(el<HTMLInputElement>('edge-soften').value) || 0));
-  const tighten = el<HTMLInputElement>('edge-tighten').checked;
-  return { soften, tighten, key: `${soften}:${tighten ? 1 : 0}` };
-}
-
-/** Render the cached cut-out with the current background + edge choices. */
+/** Render the cached (possibly refined) cut-out with the current background choice. */
 async function renderResult(): Promise<void> {
-  if (!cutoutBlob || !file) return;
-  const seq = ++renderSeq;
-  const choice = selectedChoiceExt();
-  const { soften, tighten, key } = edgeSettings();
-  if (!refinedBlob || refinedKey !== key) {
-    refinedBlob = await refineEdges(cutoutBlob, soften, tighten);
-    refinedKey = key;
-  }
-  if (seq !== renderSeq) return; // a newer render started; drop this one.
+  const cutout = refinedBlob ?? cutoutBlob;
+  if (!cutout || !file) return;
+  const choice = selectedChoice();
+  const fill = bgFillColor(choice);
   revokeResult();
-  let bgLabel: string;
-  let checker = false;
-  if (choice === 'transparent') {
-    resultBlob = refinedBlob;
-    bgLabel = 'transparent PNG';
-    checker = true;
-  } else if (choice === 'blur') {
-    if (!objectUrl) throw new Error('The original image is no longer available.');
-    resultBlob = await compositeOverBlur(objectUrl, refinedBlob);
-    bgLabel = 'blurred-photo background';
-  } else {
-    const fill = choice === 'custom' ? el<HTMLInputElement>('bg-color').value : bgFillColor(choice);
-    if (!fill) throw new Error('Unknown background choice.');
-    resultBlob = await compositeOverFill(refinedBlob, fill);
-    bgLabel = choice === 'custom' ? `on ${fill} background` : `on ${choice} background`;
-  }
-  if (seq !== renderSeq) return;
+  resultBlob = fill ? await compositeOverFill(cutout, fill) : cutout;
   resultUrl = URL.createObjectURL(resultBlob);
   const resImg = el<HTMLImageElement>('result-preview');
   resImg.src = resultUrl;
-  resImg.classList.toggle('checker', checker);
+  resImg.classList.toggle('checker', !fill);
   el('result-info').textContent =
-    `${bgOutputFileName(file.name)} · ${formatBytes(resultBlob.size)} · ${bgLabel}`;
+    `${bgOutputFileName(file.name)} · ${formatBytes(resultBlob.size)} · ` +
+    (fill ? `on ${choice} background` : 'transparent PNG');
+}
+
+/* ---------------- Mask helpers ---------------- */
+
+/** Fit natural dimensions into MASK_MAX on the long edge. */
+function maskDims(w: number, h: number): { w: number; h: number } {
+  const s = Math.min(1, MASK_MAX / Math.max(w, h));
+  return { w: Math.max(1, Math.round(w * s)), h: Math.max(1, Math.round(h * s)) };
+}
+
+/** Extract the AI cut-out's alpha channel into a grayscale working mask. */
+async function extractMask(cutout: Blob, imgW: number, imgH: number): Promise<HTMLCanvasElement> {
+  const url = URL.createObjectURL(cutout);
+  try {
+    const img = await loadImage(url);
+    const { w, h } = maskDims(imgW, imgH);
+    const src = document.createElement('canvas');
+    src.width = w;
+    src.height = h;
+    const sctx = src.getContext('2d');
+    if (!sctx) throw new Error('Your browser could not create a drawing surface.');
+    sctx.drawImage(img, 0, 0, w, h);
+    const data = sctx.getImageData(0, 0, w, h);
+    const mask = document.createElement('canvas');
+    mask.width = w;
+    mask.height = h;
+    const mctx = mask.getContext('2d');
+    if (!mctx) throw new Error('Your browser could not create a drawing surface.');
+    const out = mctx.createImageData(w, h);
+    for (let i = 0; i < data.data.length; i += 4) {
+      const a = data.data[i + 3];
+      out.data[i] = a;
+      out.data[i + 1] = a;
+      out.data[i + 2] = a;
+      out.data[i + 3] = 255;
+    }
+    mctx.putImageData(out, 0, 0);
+    return mask;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * Approximate a morphological shrink/grow on a grayscale mask by repeatedly
+ * drawing it shifted 1px in the 8 neighbor directions: 'darken' takes the
+ * local minimum (erode/shrink), 'lighten' the local maximum (dilate/grow).
+ */
+function adjustEdges(base: HTMLCanvasElement, delta: number): HTMLCanvasElement {
+  const out = document.createElement('canvas');
+  out.width = base.width;
+  out.height = base.height;
+  const ctx = out.getContext('2d');
+  if (!ctx) return base;
+  ctx.drawImage(base, 0, 0);
+  const mode = delta > 0 ? 'lighten' : 'darken';
+  const steps = Math.min(5, Math.abs(Math.round(delta)));
+  for (let s = 0; s < steps; s++) {
+    ctx.globalCompositeOperation = mode;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        ctx.drawImage(out, dx, dy);
+      }
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  return out;
+}
+
+/**
+ * Rebuild the cut-out from the ORIGINAL image and the edited mask.
+ * This is what makes "Restore" work: the AI cut-out has already lost the
+ * wrongly-removed pixels, but the original still has them.
+ */
+async function rebuildFromMask(): Promise<void> {
+  if (!originalImg || !baseMask || !file) return;
+  const adjusted = edgeDelta !== 0 ? adjustEdges(baseMask, edgeDelta) : baseMask;
+  const canvas = document.createElement('canvas');
+  canvas.width = originalImg.naturalWidth;
+  canvas.height = originalImg.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.drawImage(originalImg, 0, 0);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(adjusted, 0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = 'source-over';
+  refinedBlob = await canvasToPng(canvas);
+  if (editorOpen) paintEditorPreview(canvas);
+  await renderResult();
+}
+
+function scheduleRebuild(): void {
+  if (rebuildTimer !== null) window.clearTimeout(rebuildTimer);
+  rebuildTimer = window.setTimeout(() => {
+    rebuildTimer = null;
+    void rebuildFromMask().catch((err) => showError('error-box', bgRemoveErrorMessage(err)));
+  }, 160);
+}
+
+/* ---------------- Touch-up editor ---------------- */
+
+function maskCoords(e: PointerEvent): { x: number; y: number } | null {
+  if (!baseMask) return null;
+  const canvas = el<HTMLCanvasElement>('mask-editor');
+  const rect = canvas.getBoundingClientRect();
+  const fx = (e.clientX - rect.left) / rect.width;
+  const fy = (e.clientY - rect.top) / rect.height;
+  if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return null;
+  return { x: fx * baseMask.width, y: fy * baseMask.height };
+}
+
+function paintStamp(x: number, y: number): void {
+  if (!baseMask) return;
+  const ctx = baseMask.getContext('2d');
+  if (!ctx) return;
+  const r = brushSize / 2;
+  const c = brushMode === 'restore' ? '255,255,255' : '0,0,0';
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${c},1)`);
+  g.addColorStop(0.7, `rgba(${c},0.85)`);
+  g.addColorStop(1, `rgba(${c},0)`);
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function paintStroke(to: { x: number; y: number }): void {
+  const from = lastPt ?? to;
+  const dist = Math.hypot(to.x - from.x, to.y - from.y);
+  const step = Math.max(brushSize / 4, 2);
+  const n = Math.max(1, Math.ceil(dist / step));
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    paintStamp(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
+  }
+  lastPt = to;
+  scheduleRebuild();
+}
+
+/** Draw the rebuilt full-res canvas into the editor preview canvas. */
+function paintEditorPreview(full: HTMLCanvasElement): void {
+  const canvas = el<HTMLCanvasElement>('mask-editor');
+  const { w, h } = maskDims(full.width, full.height);
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  // Checkerboard underlay for transparency, then the current result.
+  ctx.fillStyle = '#f4f1ea';
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#d8d2c4';
+  const sq = Math.max(8, Math.round(w / 40));
+  for (let y = 0; y < h; y += sq) {
+    for (let x = 0; x < w; x += sq) {
+      if (((x / sq) | 0) % 2 === ((y / sq) | 0) % 2) ctx.fillRect(x, y, sq, sq);
+    }
+  }
+  ctx.drawImage(full, 0, 0, w, h);
+}
+
+function positionCursor(e: PointerEvent): void {
+  const canvas = el<HTMLCanvasElement>('mask-editor');
+  const cursor = el('brush-cursor');
+  const rect = canvas.getBoundingClientRect();
+  const wrapRect = el('mask-editor-wrap').getBoundingClientRect();
+  const dia = (brushSize / (baseMask?.width ?? 1)) * rect.width;
+  cursor.style.width = `${dia}px`;
+  cursor.style.height = `${dia}px`;
+  cursor.style.left = `${e.clientX - wrapRect.left - dia / 2}px`;
+  cursor.style.top = `${e.clientY - wrapRect.top - dia / 2}px`;
+  cursor.classList.toggle('remove', brushMode === 'remove');
+}
+
+async function openTouchup(): Promise<void> {
+  if (!baseMask || !originalImg || editorOpen) return;
+  editorOpen = true;
+  el('touchup-panel').hidden = false;
+  el<HTMLButtonElement>('touchup-btn').hidden = true;
+  // Prime the preview from the current refined result.
+  try {
+    await rebuildFromMask();
+  } catch (err) {
+    showError('error-box', bgRemoveErrorMessage(err));
+  }
+  el('mask-editor-wrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeTouchup(): void {
+  editorOpen = false;
+  painting = false;
+  lastPt = null;
+  el('touchup-panel').hidden = true;
+  el<HTMLButtonElement>('touchup-btn').hidden = false;
+}
+
+async function resetTouchups(): Promise<void> {
+  if (!cutoutBlob || !originalImg || busy) return;
+  try {
+    baseMask = await extractMask(cutoutBlob, originalImg.naturalWidth, originalImg.naturalHeight);
+    edgeDelta = 0;
+    el<HTMLInputElement>('edge-delta').value = '0';
+    el('edge-val').textContent = '0';
+    await rebuildFromMask();
+  } catch (err) {
+    showError('error-box', bgRemoveErrorMessage(err));
+  }
+}
+
+function setupTouchup(): void {
+  const canvas = el<HTMLCanvasElement>('mask-editor');
+  const cursor = el('brush-cursor');
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (!editorOpen || busy || !baseMask) return;
+    painting = true;
+    canvas.setPointerCapture(e.pointerId);
+    const pt = maskCoords(e);
+    if (pt) paintStroke(pt);
+    positionCursor(e);
+    cursor.hidden = false;
+    e.preventDefault();
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!editorOpen) return;
+    positionCursor(e);
+    cursor.hidden = false;
+    if (painting) {
+      const pt = maskCoords(e);
+      if (pt) paintStroke(pt);
+    }
+  });
+  const stopPaint = () => {
+    painting = false;
+    lastPt = null;
+    cursor.hidden = true;
+  };
+  canvas.addEventListener('pointerup', stopPaint);
+  canvas.addEventListener('pointercancel', stopPaint);
+  canvas.addEventListener('pointerleave', () => {
+    if (!painting) cursor.hidden = true;
+  });
+
+  document.querySelectorAll('input[name="brush-mode"]').forEach((radio) => {
+    radio.addEventListener('change', (e) => {
+      const v = (e.target as HTMLInputElement).value;
+      brushMode = v === 'remove' ? 'remove' : 'restore';
+    });
+  });
+
+  const sizeInput = el<HTMLInputElement>('brush-size');
+  sizeInput.addEventListener('input', () => {
+    brushSize = Math.max(8, Math.min(160, Number(sizeInput.value) || 48));
+    el('brush-size-val').textContent = `${brushSize}px`;
+  });
+
+  const edgeInput = el<HTMLInputElement>('edge-delta');
+  edgeInput.addEventListener('input', () => {
+    edgeDelta = Math.max(-5, Math.min(5, Number(edgeInput.value) || 0));
+    el('edge-val').textContent = `${edgeDelta > 0 ? '+' : ''}${edgeDelta}`;
+    scheduleRebuild();
+  });
+
+  el('touchup-reset-btn').addEventListener('click', () => void resetTouchups());
+  el('touchup-done-btn').addEventListener('click', closeTouchup);
+  el('touchup-btn').addEventListener('click', () => void openTouchup());
+}
+
+function resetTouchupState(): void {
+  closeTouchupSilent();
+  originalImg = null;
+  baseMask = null;
+  refinedBlob = null;
+  edgeDelta = 0;
+  brushMode = 'restore';
+  brushSize = 48;
+  if (rebuildTimer !== null) {
+    window.clearTimeout(rebuildTimer);
+    rebuildTimer = null;
+  }
+}
+
+function closeTouchupSilent(): void {
+  editorOpen = false;
+  painting = false;
+  lastPt = null;
+  const panel = document.getElementById('touchup-panel');
+  if (panel) panel.hidden = true;
+  const btn = document.getElementById('touchup-btn') as HTMLButtonElement | null;
+  if (btn) btn.hidden = true;
 }
 
 async function onFiles(files: File[]): Promise<void> {
@@ -274,10 +435,11 @@ async function onFiles(files: File[]): Promise<void> {
   hideError('error-box');
   file = picked;
   if (objectUrl) URL.revokeObjectURL(objectUrl);
+  if (originalUrl) URL.revokeObjectURL(originalUrl);
+  originalUrl = null;
   revokeResult();
   cutoutBlob = null;
-  refinedBlob = null;
-  refinedKey = '';
+  resetTouchupState();
   objectUrl = URL.createObjectURL(picked);
   el<HTMLImageElement>('original-preview').src = objectUrl;
   el('preview-block').hidden = false;
@@ -311,10 +473,17 @@ async function onRemove(): Promise<void> {
         }
       },
     });
+    setProgress(85, 'Preparing touch-up tools…');
+    // Keep the original image so the edited mask can be applied to it later.
+    originalUrl = URL.createObjectURL(currentFile);
+    originalImg = await loadImage(originalUrl);
+    baseMask = await extractMask(cutoutBlob, originalImg.naturalWidth, originalImg.naturalHeight);
+    edgeDelta = 0;
     setProgress(92, 'Preparing your download…');
-    await renderResult();
+    await rebuildFromMask();
     el('result-block').hidden = false;
     el<HTMLButtonElement>('view-result-btn').disabled = false;
+    el<HTMLButtonElement>('touchup-btn').hidden = false;
     showPreview('result');
   } catch (err) {
     const msg = String(err).includes('Could not download the background-removal engine')
@@ -336,46 +505,14 @@ export function initBackgroundRemover(): void {
   el('view-result-btn').addEventListener('click', () => {
     if (resultUrl) showPreview('result');
   });
-
-  const syncColorRow = () => {
-    el('custom-color-row').hidden = selectedChoiceExt() !== 'custom';
-  };
-  const rerender = () => {
-    syncColorRow();
-    if (cutoutBlob && !busy) {
-      void renderResult().catch((err) => showError('error-box', bgRemoveErrorMessage(err)));
-    }
-  };
   document.querySelectorAll('input[name="bg-choice"]').forEach((radio) => {
-    radio.addEventListener('change', rerender);
+    radio.addEventListener('change', () => {
+      if ((refinedBlob ?? cutoutBlob) && !busy) {
+        void renderResult().catch((err) => showError('error-box', bgRemoveErrorMessage(err)));
+      }
+    });
   });
-
-  // Debounce slider/color drags so we don't re-render on every pixel moved.
-  let rerenderTimer: number | null = null;
-  const rerenderSoon = () => {
-    if (rerenderTimer) window.clearTimeout(rerenderTimer);
-    rerenderTimer = window.setTimeout(rerender, 250);
-  };
-  const softenRange = el<HTMLInputElement>('edge-soften');
-  const syncSoftenLabel = () => {
-    el('edge-soften-val').textContent = softenRange.value;
-  };
-  softenRange.addEventListener('input', () => {
-    syncSoftenLabel();
-    rerenderSoon();
-  });
-  syncSoftenLabel();
-  el('edge-tighten').addEventListener('change', rerender);
-  const bgColor = el<HTMLInputElement>('bg-color');
-  const syncColorLabel = () => {
-    el('bg-color-val').textContent = bgColor.value;
-  };
-  bgColor.addEventListener('input', () => {
-    syncColorLabel();
-    rerenderSoon();
-  });
-  syncColorLabel();
-
+  setupTouchup();
   el('download-btn').addEventListener('click', () => {
     if (resultBlob && file) {
       const blob = resultBlob;

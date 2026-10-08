@@ -9,6 +9,45 @@ const description =
 const h1 = 'Remove image backgrounds';
 const lede = 'AI background removal that runs on your device. Full-resolution transparent PNG, free, no account, no watermark.';
 ---
+<style>
+  #touchup-panel {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+  }
+  #touchup-panel .field {
+    margin: 1rem 0;
+  }
+  #touchup-panel input[type="range"] {
+    width: 100%;
+  }
+  .mask-editor-wrap {
+    position: relative;
+    margin: 1rem 0;
+    max-width: 640px;
+  }
+  #mask-editor {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    touch-action: none;
+    cursor: none;
+  }
+  #brush-cursor {
+    position: absolute;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    pointer-events: none;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.15);
+  }
+  #brush-cursor.remove {
+    border-color: #1a1a1a;
+    background: rgba(0, 0, 0, 0.15);
+  }
+</style>
 <ToolPage
   title={title}
   description={description}
@@ -23,21 +62,22 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
   ]}
   steps={[
     'Drop an image onto the box above, or click it to browse. PNG, JPG, and WebP all work.',
-    'Pick your background: transparent (a real PNG with alpha), white, black, any color you pick, or the original photo blurred behind the subject.',
-    'Tune the edges if you like: soften the cut-out edge, and trim the faint glow AI cut-outs sometimes leave.',
+    'Pick your background: transparent (a real PNG with alpha), white, or black.',
     'Click "Remove background". The first run downloads the AI model (about 40 MB, once per browser); afterwards it starts instantly.',
     'Compare the before and after with the toggle, then download the full-resolution PNG.',
+    'If the AI cut too much or too little, click "Touch up the mask": paint with Restore to bring back wrongly removed parts, or Remove to cut away missed background, and use the shrink/grow slider to clean up rough edges.',
   ]}
   specs={[
     ['Cost', 'Free, no limits'],
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None.'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['Output', 'Full-resolution PNG: transparent, white, black, a custom color, or blurred-photo background'],
+    ['Output', 'Full-resolution PNG, transparent or on white/black'],
     ['AI model', 'Downloads once (~40 MB), then cached in your browser'],
     ['Works offline', 'Yes, once the model has downloaded'],
     ['Best subjects', 'People, pets, products with a clear subject'],
     ['Honest limits', 'Fine hair, fur edges, glass, and busy backgrounds may need touch-ups'],
+    ['Touch-up tools', 'Restore/Remove brushes plus a shrink/grow edge slider, applied to the original image'],
   ]}
   faqs={[
     {
@@ -57,12 +97,12 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
       a: 'Clear subjects against a reasonably distinct background: portraits, pets, product shots, logos photographed on a desk. The model struggles where every background remover struggles: wispy hair, fur, transparent objects like glass, and backgrounds that blend into the subject. Zoom in on the edges before using the result professionally.',
     },
     {
-      q: 'Can I put the cut-out on a colored or blurred background?',
-      a: 'Yes. Besides transparent, white, and black, you can pick any background color with the color picker, or choose the blurred-photo background, which keeps your original photo softly blurred behind the subject — the classic portrait look. Switching backgrounds re-renders instantly from the saved cut-out; the AI only runs once.',
+      q: 'The AI removed something it should not have. Can I fix it?',
+      a: 'Yes. Click "Touch up the mask" after the removal finishes. Paint with the Restore brush over anything the AI wrongly removed — titles, artwork, text — and it comes back, because the fix is applied to your original photo, not to the cut-out. The Remove brush cuts away background the AI missed. A shrink/grow slider tightens or loosens the edges if they look rough.',
     },
     {
-      q: 'What does the edge touch-up do?',
-      a: 'Two small fixes for the most common AI cut-out flaws. "Soften the edge" feathers the outline so the subject blends into its new background instead of looking pasted on. "Trim the light fringe" cuts the faint glow the AI sometimes leaves around hair and edges. Both re-render instantly from the saved cut-out, so you can compare with them on and off.',
+      q: 'Can I get a white or black background instead of transparency?',
+      a: 'Yes. Choose white or black before or after removing the background; the cut-out is composited onto the solid color at full resolution and downloaded as a PNG. Transparency is the default and is what you want for overlays, thumbnails, and design work.',
     },
     {
       q: 'Which browsers are supported?',
@@ -104,23 +144,7 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
         <label class="radio-card"><input type="radio" name="bg-choice" value="transparent" checked /><span><strong>Transparent</strong><small>True PNG with alpha, for overlays and design</small></span></label>
         <label class="radio-card"><input type="radio" name="bg-choice" value="white" /><span><strong>White</strong><small>Clean cut-out on a white background</small></span></label>
         <label class="radio-card"><input type="radio" name="bg-choice" value="black" /><span><strong>Black</strong><small>Cut-out on black, for dark designs</small></span></label>
-        <label class="radio-card"><input type="radio" name="bg-choice" value="custom" /><span><strong>Pick a color</strong><small>Your cut-out on any color you choose</small></span></label>
-        <label class="radio-card"><input type="radio" name="bg-choice" value="blur" /><span><strong>Blurred photo</strong><small>The original photo, blurred, behind the subject</small></span></label>
       </div>
-      <div id="custom-color-row" class="field-row field-narrow" hidden>
-        <input type="color" id="bg-color" value="#3b6fd4" aria-label="Background color" />
-        <span class="hint" id="bg-color-val">#3b6fd4</span>
-      </div>
-    </div>
-
-    <div class="field">
-      <label for="edge-soften">Edge touch-up</label>
-      <div class="range-row">
-        <input type="range" id="edge-soften" min="0" max="3" value="1" />
-        <span id="edge-soften-val" class="range-val">1</span>
-      </div>
-      <p class="hint">Softens the cut-out edge so it blends into the new background. 0 keeps the AI edge exactly as it came out.</p>
-      <label class="checkline"><input type="checkbox" id="edge-tighten" checked /><span>Trim the light fringe<small>AI cut-outs sometimes leave a faint glow around hair and edges. This trims it.</small></span></label>
     </div>
 
     <div id="preview-block" hidden>
@@ -149,6 +173,33 @@ const lede = 'AI background removal that runs on your device. Full-resolution tr
       <h3>Done</h3>
       <p id="result-info"></p>
       <button id="download-btn" class="btn">Download PNG</button>
+      <button id="touchup-btn" class="btn btn-secondary" type="button" hidden>Touch up the mask</button>
+
+      <div id="touchup-panel" hidden>
+        <h3>Touch up the mask</h3>
+        <p class="hint">Paint on the image. <strong>Restore</strong> brings back parts the AI wrongly removed; <strong>Remove</strong> cuts away background the AI missed. Fixes apply to your original photo.</p>
+        <div class="radio-cards" role="radiogroup" aria-label="Brush mode">
+          <label class="radio-card"><input type="radio" name="brush-mode" value="restore" checked /><span><strong>Restore</strong><small>Bring back wrongly removed parts</small></span></label>
+          <label class="radio-card"><input type="radio" name="brush-mode" value="remove" /><span><strong>Remove</strong><small>Cut away missed background</small></span></label>
+        </div>
+        <div class="field">
+          <label for="brush-size">Brush size <span id="brush-size-val" class="count-label">48px</span></label>
+          <input type="range" id="brush-size" min="8" max="160" step="1" value="48" />
+        </div>
+        <div class="field">
+          <label for="edge-delta">Shrink / grow edges <span id="edge-val" class="count-label">0</span></label>
+          <input type="range" id="edge-delta" min="-5" max="5" step="1" value="0" />
+          <p class="hint">Negative shrinks the mask (trims stray background and halos); positive grows it (recovers edge pixels cut too tight).</p>
+        </div>
+        <div id="mask-editor-wrap" class="mask-editor-wrap">
+          <canvas id="mask-editor" aria-label="Mask touch-up canvas: paint to restore or remove parts"></canvas>
+          <div id="brush-cursor" hidden></div>
+        </div>
+        <div class="btn-row">
+          <button id="touchup-reset-btn" class="btn btn-secondary" type="button">Reset touch-ups</button>
+          <button id="touchup-done-btn" class="btn" type="button">Done</button>
+        </div>
+      </div>
     </div>
   </section>
   <script>

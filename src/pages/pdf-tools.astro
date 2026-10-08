@@ -9,8 +9,8 @@ const description =
 
 const toolsRaw = [
   { href: '/pdf-editor', name: 'PDF Editor', desc: 'One workspace: reorder, rotate, delete, edit text, watermark, number pages, crop, protect.' },
-  { href: '/merge-pdf', name: 'Merge PDF', desc: 'Combine multiple PDFs into one document, in whatever order you choose.' },
-  { href: '/split-pdf', name: 'Split PDF', desc: 'Extract pages by number. One range per file, or several files at once.' },
+  { href: '/merge-pdf', name: 'Merge PDF', desc: 'Now part of the PDF Editor. Combine multiple PDFs into one document.' },
+  { href: '/split-pdf', name: 'Split PDF', desc: 'Now part of the PDF Editor. Extract pages by number into new documents.' },
   { href: '/images-to-pdf', name: 'Images to PDF', desc: 'Turn JPG, PNG, and WebP images into a single PDF with page-size control.' },
   { href: '/jpg-to-pdf', name: 'JPG to PDF', desc: 'Convert JPG photos into a single PDF at full quality, in your chosen order.' },
   { href: '/pdf-compressor', name: 'Compress PDF', desc: 'Shrink the images in a PDF to make it smaller. Text stays selectable.' },
@@ -18,7 +18,7 @@ const toolsRaw = [
   { href: '/pdf-redactor', name: 'Redact PDF', desc: 'Black out sensitive areas permanently; unmarked pages stay untouched.' },
   { href: '/pdf-esignature', name: 'Sign PDF', desc: 'Draw or type your signature and place it on any page.' },
   { href: '/unlock-pdf', name: 'Unlock PDF', desc: 'Remove password protection when you know the password.' },
-  { href: '/protect-pdf', name: 'Protect PDF', desc: 'Add password encryption to a PDF. Only people with the password can open it.' },
+  { href: '/protect-pdf', name: 'Protect PDF', desc: 'Now part of the PDF Editor. Add password encryption to a PDF.' },
   { href: '/pdf-to-word', name: 'PDF to Word', desc: 'Extract text and images into an editable Word document. Headings keep their levels; layouts are not preserved.' },
   { href: '/ocr-pdf', name: 'OCR PDF', desc: 'Make scanned PDFs searchable with an invisible text layer; pages with text are left alone.' },
   { href: '/extract-images', name: 'Extract Images', desc: 'Pull embedded pictures out of a PDF at original resolution; download singly or as a ZIP.' },
@@ -48,8 +48,13 @@ const jsonLd = {
         <a href={basePath("/")}>TruePDF</a><span><span class="sep">/</span><a href={basePath("/pdf-tools")}>PDF tools</a></span>
       </nav>
       <h1>PDF tools</h1>
+      <div style="margin: 16px 0 24px; padding: 20px 24px; border: 2px solid var(--accent); border-radius: 10px; background: var(--paper-2);">
+        <p style="margin: 0 0 6px; font-size: 18px; font-weight: 700;">Start with the PDF Editor</p>
+        <p style="margin: 0 0 14px; color: var(--muted);">One workspace for everything you do to PDFs: merge, split, reorder, rotate, delete, edit text, watermark, page numbers, crop, protect.</p>
+        <a href={basePath("/pdf-editor")} style="display: inline-block; padding: 10px 22px; background: var(--accent); color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">Open the PDF Editor</a>
+      </div>
       <p class="lede">
-        Twenty tools for everyday PDF jobs: combining files, extracting pages, turning images
+        Seventeen utilities for everyday PDF jobs: combining files, extracting pages, turning images
         into documents, shrinking files, converting pages to images, redacting sensitive parts,
         signing documents, removing password protection, making scans searchable, pulling out images
         and text, editing metadata, filling and flattening forms, and repairing damaged files.
@@ -103,11 +108,11 @@ const jsonLd = {
       <dl>
         <div class="faq">
           <dt>Are these PDF tools free?</dt>
-          <dd>Yes. All twenty tools are free with no limits, no watermarks, and no account.</dd>
+          <dd>Yes. All seventeen tools are free with no limits, no watermarks, and no account.</dd>
         </div>
         <div class="faq">
           <dt>Do my PDFs get uploaded?</dt>
-          <dd>No. All twenty tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded.</dd>
+          <dd>No. All seventeen tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded.</dd>
         </div>
         <div class="faq">
           <dt>Will the quality of my PDFs change?</dt>
