@@ -1,5 +1,5 @@
 // Resume builder: DOM glue. Pure model logic lives in ../lib/resume-core.ts
-import type { ResumeData, TemplateId } from '../lib/resume-core.ts';
+import type { ResumeData, SectionKey, TemplateId } from '../lib/resume-core.ts';
 import {
   TEMPLATES,
   blankResume,
@@ -10,20 +10,26 @@ import {
   blankProjectEntry,
   blankCertificationEntry,
   blankLanguageEntry,
+  blankAwardEntry,
+  blankPublicationEntry,
+  blankCourseEntry,
   addEntry,
   removeEntry,
   moveEntry,
   validateResume,
   isTemplateId,
+  isSectionKey,
   RESUME_STORAGE_KEY,
+  RESUME_BACKUP_KEY,
   TEMPLATE_STORAGE_KEY,
   serialize,
-  deserialize,
+  deserializeInfo,
+  asSectionOrder,
   renderResume,
 } from '../lib/resume-core.ts';
-import { el, showError, hideError, ICONS } from './common.ts';
+import { el, showError, hideError, downloadText, ICONS } from './common.ts';
 
-type ListKey = 'experience' | 'education' | 'skills' | 'projects' | 'certifications' | 'languages';
+type ListKey = 'experience' | 'education' | 'skills' | 'projects' | 'certifications' | 'languages' | 'awards' | 'publications' | 'volunteer' | 'courses';
 
 interface FieldDef {
   field: string;
@@ -43,6 +49,26 @@ interface SectionDef {
   fields: FieldDef[];
 }
 
+const WORK_FIELDS: FieldDef[] = [
+  { field: 'title', label: 'Job title', kind: 'text', placeholder: 'Senior Product Designer' },
+  { field: 'company', label: 'Company', kind: 'text', placeholder: 'Northwind Mobile' },
+  { field: 'location', label: 'Location', kind: 'text', placeholder: 'San Francisco, CA' },
+  { field: 'start', label: 'Start', kind: 'text', placeholder: 'Mar 2021' },
+  { field: 'end', label: 'End', kind: 'text', placeholder: 'Feb 2024' },
+  { field: 'current', label: 'I currently work here', kind: 'checkbox' },
+  { field: 'bullets', label: 'Bullets (one per line)', kind: 'textarea', span: true, placeholder: 'Led redesign of onboarding; activation rose from 31% to 47%.' },
+];
+
+const VOLUNTEER_FIELDS: FieldDef[] = [
+  { field: 'title', label: 'Role', kind: 'text', placeholder: 'Design Mentor' },
+  { field: 'company', label: 'Organization', kind: 'text', placeholder: 'CodePath' },
+  { field: 'location', label: 'Location', kind: 'text', placeholder: 'Remote' },
+  { field: 'start', label: 'Start', kind: 'text', placeholder: '2020' },
+  { field: 'end', label: 'End', kind: 'text', placeholder: '2024' },
+  { field: 'current', label: 'I currently volunteer here', kind: 'checkbox' },
+  { field: 'bullets', label: 'Bullets (one per line)', kind: 'textarea', span: true, placeholder: 'Mentor one cohort of early-career designers a year.' },
+];
+
 const SECTIONS: SectionDef[] = [
   {
     key: 'experience',
@@ -51,15 +77,7 @@ const SECTIONS: SectionDef[] = [
     singular: 'position',
     blank: blankWorkEntry,
     titleOf: (e) => `${e.title || 'Untitled position'}${e.company ? ` · ${e.company}` : ''}`,
-    fields: [
-      { field: 'title', label: 'Job title', kind: 'text', placeholder: 'Senior Product Designer' },
-      { field: 'company', label: 'Company', kind: 'text', placeholder: 'Northwind Mobile' },
-      { field: 'location', label: 'Location', kind: 'text', placeholder: 'San Francisco, CA' },
-      { field: 'start', label: 'Start', kind: 'text', placeholder: 'Mar 2021' },
-      { field: 'end', label: 'End', kind: 'text', placeholder: 'Feb 2024' },
-      { field: 'current', label: 'I currently work here', kind: 'checkbox' },
-      { field: 'bullets', label: 'Bullets (one per line)', kind: 'textarea', span: true, placeholder: 'Led redesign of onboarding; activation rose from 31% to 47%.' },
-    ],
+    fields: WORK_FIELDS,
   },
   {
     key: 'education',
@@ -128,6 +146,56 @@ const SECTIONS: SectionDef[] = [
       { field: 'level', label: 'Level', kind: 'text', placeholder: 'Professional' },
     ],
   },
+  {
+    key: 'awards',
+    title: 'Awards',
+    hint: 'Optional. Honors and recognitions worth naming.',
+    singular: 'award',
+    blank: blankAwardEntry,
+    titleOf: (e) => `${e.title || 'Untitled award'}${e.issuer ? ` · ${e.issuer}` : ''}`,
+    fields: [
+      { field: 'title', label: 'Title', kind: 'text', placeholder: 'Design Award of the Year' },
+      { field: 'issuer', label: 'Issuer', kind: 'text', placeholder: 'Interaction Awards' },
+      { field: 'year', label: 'Year', kind: 'text', placeholder: '2023' },
+      { field: 'description', label: 'Description', kind: 'textarea', span: true, placeholder: 'What it was for, in one line.' },
+    ],
+  },
+  {
+    key: 'publications',
+    title: 'Publications',
+    hint: 'Optional. Articles, papers, or posts with your name on them.',
+    singular: 'publication',
+    blank: blankPublicationEntry,
+    titleOf: (e) => `${e.title || 'Untitled publication'}`,
+    fields: [
+      { field: 'title', label: 'Title', kind: 'text', placeholder: 'Designing Onboarding People Actually Finish' },
+      { field: 'publisher', label: 'Publisher', kind: 'text', placeholder: 'UX Collective' },
+      { field: 'year', label: 'Year', kind: 'text', placeholder: '2023' },
+      { field: 'link', label: 'Link', kind: 'text', placeholder: 'example.com/article' },
+    ],
+  },
+  {
+    key: 'volunteer',
+    title: 'Volunteer experience',
+    hint: 'Optional. Unpaid work that shows who you are. Most recent first.',
+    singular: 'role',
+    blank: blankWorkEntry,
+    titleOf: (e) => `${e.title || 'Untitled role'}${e.company ? ` · ${e.company}` : ''}`,
+    fields: VOLUNTEER_FIELDS,
+  },
+  {
+    key: 'courses',
+    title: 'Courses',
+    hint: 'Optional. Training and coursework relevant to the roles you want.',
+    singular: 'course',
+    blank: blankCourseEntry,
+    titleOf: (e) => `${e.name || 'Untitled course'}`,
+    fields: [
+      { field: 'name', label: 'Course name', kind: 'text', placeholder: 'Design Systems Masterclass' },
+      { field: 'provider', label: 'Provider', kind: 'text', placeholder: 'SuperHi' },
+      { field: 'year', label: 'Year', kind: 'text', placeholder: '2021' },
+    ],
+  },
 ];
 
 function escapeHtml(s: string): string {
@@ -135,7 +203,8 @@ function escapeHtml(s: string): string {
 }
 
 export function initResumeBuilder(): void {
-  let resume: ResumeData = loadResume();
+  const loaded = loadResume();
+  let resume: ResumeData = loaded.resume;
   let template: TemplateId = loadTemplate();
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -144,11 +213,25 @@ export function initResumeBuilder(): void {
   const workspace = el('rb-workspace');
   const originalTitle = document.title;
 
-  function loadResume(): ResumeData {
+  function loadResume(): { resume: ResumeData; backupRaw: string | null } {
     try {
-      return deserialize(localStorage.getItem(RESUME_STORAGE_KEY));
+      const raw = localStorage.getItem(RESUME_STORAGE_KEY);
+      const info = deserializeInfo(raw);
+      let backupRaw: string | null = null;
+      if (info.wiped && raw) {
+        // The stored blob was unusable (corrupt or a newer schema). Keep a
+        // copy under a separate key before the next save overwrites it, so
+        // the user's draft is never silently wiped.
+        try {
+          localStorage.setItem(RESUME_BACKUP_KEY, raw);
+          backupRaw = raw;
+        } catch {
+          // Backup failing is not fatal; the tool still works for this session.
+        }
+      }
+      return { resume: info.resume, backupRaw };
     } catch {
-      return blankResume(); // storage blocked or unavailable
+      return { resume: blankResume(), backupRaw: null }; // storage blocked or unavailable
     }
   }
 
@@ -173,6 +256,73 @@ export function initResumeBuilder(): void {
   function scheduleSave(): void {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(save, 400);
+  }
+
+  /** Write immediately, dropping any pending debounced save. */
+  function flushSave(): void {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    save();
+  }
+
+  // The 400 ms debounce can lose the tail of what was typed if the tab closes
+  // inside the window. Flush on both events: pagehide covers tab close and
+  // bfcache navigation, beforeunload covers the rest. save() is idempotent.
+  window.addEventListener('pagehide', flushSave);
+  window.addEventListener('beforeunload', flushSave);
+
+  // ---------- corrupt-save backup banner ----------
+
+  // If the stored resume was unreadable on load, a backup was written under
+  // RESUME_BACKUP_KEY. Say so on screen, with a way to restore or download it.
+  function showBackupBanner(backupRaw: string): void {
+    const banner = document.createElement('div');
+    banner.className = 'error-box no-print';
+    banner.setAttribute('role', 'alert');
+    banner.innerHTML =
+      `<p><strong>Your saved resume couldn't be read. Starting blank — your previous data was preserved.</strong></p>` +
+      `<div class="file-actions">` +
+      `<button type="button" class="btn btn-secondary btn-small" id="rb-restore-backup">Try to restore</button>` +
+      `<button type="button" class="btn btn-secondary btn-small" id="rb-download-backup">Download backup</button>` +
+      `<button type="button" class="icon-btn" id="rb-dismiss-backup" aria-label="Dismiss warning">×</button>` +
+      `</div>`;
+    workspace.before(banner);
+
+    el<HTMLButtonElement>('rb-restore-backup').addEventListener('click', () => {
+      hideError('rb-error');
+      let raw: string | null = null;
+      try {
+        raw = localStorage.getItem(RESUME_BACKUP_KEY);
+      } catch {
+        // storage blocked: fall through to the error below
+      }
+      let info: ReturnType<typeof deserializeInfo> | null = null;
+      try {
+        info = deserializeInfo(raw);
+      } catch {
+        info = null;
+      }
+      if (!info || info.wiped || !raw) {
+        showError('rb-error', 'The backup could not be read either. Your downloaded backup file still has the raw data.');
+        el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+      resume = info.resume;
+      save();
+      renderEditor();
+      renderPreview();
+      banner.remove();
+    });
+
+    el<HTMLButtonElement>('rb-download-backup').addEventListener('click', () => {
+      downloadText('resume-backup.json', backupRaw, 'application/json');
+    });
+
+    el<HTMLButtonElement>('rb-dismiss-backup').addEventListener('click', () => {
+      banner.remove();
+    });
   }
 
   // ---------- preview ----------
@@ -220,7 +370,6 @@ export function initResumeBuilder(): void {
       ['phone', 'Phone', '(415) 555-0132'],
       ['location', 'Location', 'San Francisco, CA'],
       ['website', 'Website', 'samrivera.design'],
-      ['portfolio', 'Portfolio', 'samrivera.design/work'],
       ['linkedin', 'LinkedIn', 'linkedin.com/in/samrivera'],
     ];
     return `<div class="rb-grid">${defs
@@ -231,31 +380,75 @@ export function initResumeBuilder(): void {
       .join('')}</div>`;
   }
 
+  function summaryFieldsHtml(): string {
+    return `<label class="rb-field"><span>Professional summary (2-4 sentences)</span><textarea data-sec="summary" rows="4" placeholder="Product designer with 8 years of experience shipping consumer mobile apps.">${escapeHtml(resume.summary)}</textarea></label>`;
+  }
+
+  /** Section header with visibility toggle and up/down reorder arrows. */
+  function sectionHead(key: SectionKey, title: string, index: number, total: number, extra: string): string {
+    const visible = resume.sectionVisibility[key] !== false;
+    return `<div class="rb-section-head"><h3>${title}</h3>
+      <div class="rb-sec-tools">
+        <label class="rb-sec-toggle"><input type="checkbox" data-sec-toggle="${key}" ${visible ? 'checked' : ''} /> Show</label>
+        <button type="button" class="icon-btn" data-act="sec-up" data-sec="${key}" ${index === 0 ? 'disabled' : ''} aria-label="Move section up">${ICONS.up}</button>
+        <button type="button" class="icon-btn" data-act="sec-down" data-sec="${key}" ${index === total - 1 ? 'disabled' : ''} aria-label="Move section down">${ICONS.down}</button>
+        ${extra}
+      </div></div>`;
+  }
+
+  function sectionShell(key: SectionKey, title: string, ariaLabel: string, index: number, total: number, body: string, extra = ''): string {
+    const visible = resume.sectionVisibility[key] !== false;
+    const hiddenCls = visible ? '' : ' rb-section-hidden';
+    const note = visible
+      ? ''
+      : '<p class="hint rb-hidden-note">Hidden from the resume. Turn Show on to include it again.</p>';
+    return `<section class="rb-section${hiddenCls}" aria-label="${ariaLabel}">
+      ${sectionHead(key, title, index, total, extra)}
+      ${note}
+      ${body}
+    </section>`;
+  }
+
   function renderEditor(): void {
-    const contact = `<section class="rb-section" aria-label="Contact details">
-      <div class="rb-section-head"><h3>Contact</h3></div>
-      ${contactHtml()}
-    </section>`;
-    const summary = `<section class="rb-section" aria-label="Professional summary">
-      <div class="rb-section-head"><h3>Summary</h3></div>
-      <label class="rb-field"><span>Professional summary (2-4 sentences)</span><textarea data-sec="summary" rows="4" placeholder="Product designer with 8 years of experience shipping consumer mobile apps.">${escapeHtml(resume.summary)}</textarea></label>
-    </section>`;
-    const lists = SECTIONS.map((sec) => {
-      const entries = (resume[sec.key] as ({ id: string } & Record<string, unknown>)[]);
-      return `<section class="rb-section" aria-label="${sec.title}">
-        <div class="rb-section-head"><h3>${sec.title}</h3><button type="button" class="btn btn-secondary btn-small" data-act="add" data-sec="${sec.key}">Add ${sec.singular}</button></div>
-        <p class="hint">${sec.hint}</p>
-        ${entries.map((e, i) => entryHtml(sec, e, i, entries.length)).join('')}
-      </section>`;
-    }).join('');
-    editor.innerHTML = contact + summary + lists;
+    const order = asSectionOrder(resume.sectionOrder);
+    editor.innerHTML = order
+      .map((key, i) => {
+        if (key === 'contact') {
+          return sectionShell(key, 'Contact', 'Contact details', i, order.length, contactHtml());
+        }
+        if (key === 'summary') {
+          return sectionShell(key, 'Summary', 'Professional summary', i, order.length, summaryFieldsHtml());
+        }
+        const sec = SECTIONS.find((s) => s.key === key);
+        if (!sec) return '';
+        const entries = (resume[sec.key] as unknown as ({ id: string } & Record<string, unknown>)[]);
+        const add = `<button type="button" class="btn btn-secondary btn-small" data-act="add" data-sec="${sec.key}">Add ${sec.singular}</button>`;
+        const body = `<p class="hint">${sec.hint}</p>${entries.map((e, j) => entryHtml(sec, e, j, entries.length)).join('')}`;
+        return sectionShell(key, sec.title, sec.title, i, order.length, body, add);
+      })
+      .join('');
+  }
+
+  /** Move a whole section one step up (-1) or down (+1) in the render order. */
+  function moveSection(key: SectionKey, direction: -1 | 1): void {
+    const order = asSectionOrder(resume.sectionOrder);
+    const i = order.indexOf(key);
+    const j = i + direction;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    const next = [...order];
+    next[i] = order[j];
+    next[j] = order[i];
+    resume.sectionOrder = next;
+    save();
+    renderEditor();
+    renderPreview();
   }
 
   // ---------- model updates ----------
 
   function setValue(sec: string, id: string, field: string, value: string | boolean): void {
     if (sec === 'contact') {
-      (resume.contact as Record<string, string>)[field] = value as string;
+      (resume.contact as unknown as Record<string, string>)[field] = value as string;
       return;
     }
     if (sec === 'summary') {
@@ -264,7 +457,7 @@ export function initResumeBuilder(): void {
     }
     const def = SECTIONS.find((s) => s.key === sec);
     if (!def) return;
-    const list = resume[sec as ListKey] as Record<string, unknown>[];
+    const list = resume[sec as ListKey] as unknown as Record<string, unknown>[];
     const entry = list.find((e) => e.id === id);
     if (!entry) return;
     entry[field] = field === 'bullets' ? (value as string).split('\n') : value;
@@ -289,8 +482,12 @@ export function initResumeBuilder(): void {
     const btn = (e.target as HTMLElement).closest('button[data-act]') as HTMLElement | null;
     if (!btn || btn.hasAttribute('disabled')) return;
     const act = btn.getAttribute('data-act')!;
-    const sec = btn.getAttribute('data-sec') as ListKey;
+    const sec = btn.getAttribute('data-sec') as SectionKey;
     const id = btn.getAttribute('data-id') ?? '';
+    if (act === 'sec-up' || act === 'sec-down') {
+      if (isSectionKey(sec)) moveSection(sec, act === 'sec-up' ? -1 : 1);
+      return;
+    }
     const def = SECTIONS.find((s) => s.key === sec);
     if (!def) return;
     const list = resume[sec] as { id: string }[];
@@ -303,6 +500,18 @@ export function initResumeBuilder(): void {
     } else if (act === 'down') {
       (resume[sec] as unknown[]) = moveEntry(list, id, 1);
     }
+    save();
+    renderEditor();
+    renderPreview();
+  });
+
+  // Section visibility toggles ("Show" checkboxes in each section header).
+  editor.addEventListener('change', (e) => {
+    const box = (e.target as HTMLElement).closest('[data-sec-toggle]') as HTMLInputElement | null;
+    if (!box || box.type !== 'checkbox') return;
+    const key = box.getAttribute('data-sec-toggle') as SectionKey;
+    if (!isSectionKey(key)) return;
+    resume.sectionVisibility[key] = box.checked;
     save();
     renderEditor();
     renderPreview();
@@ -354,6 +563,7 @@ export function initResumeBuilder(): void {
   window.addEventListener('freekit:resume-import', (e) => {
     const data = (e as CustomEvent).detail as ResumeData | null;
     if (!data || typeof data !== 'object' || !data.contact) return;
+    if (!window.confirm('Replace your current resume with the imported details? This cannot be undone.')) return;
     resume = data;
     save();
     renderEditor();
@@ -387,6 +597,8 @@ export function initResumeBuilder(): void {
 
   renderEditor();
   renderPreview();
+
+  if (loaded.backupRaw) showBackupBanner(loaded.backupRaw);
 
   // Template picker is static markup; keep it in sync with the canonical list.
   const known = new Set(TEMPLATES.map((t) => t.id));
