@@ -1,5 +1,6 @@
 // Resume builder: DOM glue. Pure model logic lives in ../lib/resume-core.ts
 import type { ResumeData, SectionKey, TemplateId } from '../lib/resume-core.ts';
+import { generateResumePdf, resumePdfFileName } from '../lib/resume-pdf.ts';
 import {
   TEMPLATES,
   blankResume,
@@ -27,7 +28,7 @@ import {
   asSectionOrder,
   renderResume,
 } from '../lib/resume-core.ts';
-import { el, showError, hideError, downloadText, ICONS, armConfirmButton } from './common.ts';
+import { el, showError, hideError, downloadText, downloadBytes, setBusy, ICONS } from './common.ts';
 
 type ListKey = 'experience' | 'education' | 'skills' | 'projects' | 'certifications' | 'languages' | 'awards' | 'publications' | 'volunteer' | 'courses';
 
@@ -211,7 +212,6 @@ export function initResumeBuilder(): void {
   const editor = el('rb-editor');
   const preview = el('rb-preview');
   const workspace = el('rb-workspace');
-  const originalTitle = document.title;
 
   function loadResume(): { resume: ResumeData; backupRaw: string | null } {
     try {
@@ -475,12 +475,7 @@ export function initResumeBuilder(): void {
 
   function renderEditor(): void {
     const order = asSectionOrder(resume.sectionOrder);
-    const ats = `<section class="rb-section" aria-label="ATS-friendliness check">
-      <div class="rb-section-head"><h3>ATS-friendliness check</h3><button type="button" class="btn btn-secondary btn-small" data-act="ats-check">Check my resume</button></div>
-      <p class="hint">Hiring software parses simple, standard resumes best. This checks yours against the common rules — nothing here changes your resume.</p>
-      <div id="rb-ats-results"></div>
-    </section>`;
-    editor.innerHTML = ats + order
+    editor.innerHTML = order
       .map((key, i) => {
         if (key === 'contact') {
           return sectionShell(key, 'Contact', 'Contact details', i, order.length, contactHtml());
@@ -511,187 +506,6 @@ export function initResumeBuilder(): void {
     save();
     renderEditor();
     renderPreview();
-  }
-
-  // ---------- ATS-friendliness check ----------
-
-  interface AtsCheck {
-    label: string;
-    status: 'pass' | 'warn' | 'info';
-    detail: string;
-  }
-
-  const ACTION_VERBS = new Set(
-    'led built designed developed managed created launched improved increased reduced grew shipped owned drove delivered mentored spearheaded streamlined automated negotiated presented published researched analyzed optimized scaled founded pioneered transformed accelerated achieved coordinated directed established generated implemented initiated orchestrated produced revamped secured advised collaborated contributed crafted defined executed facilitated guided headed introduced partnered piloted shaped steered supervised tested trained wrote authored boosted cut doubled tripled saved won earned'.split(
-      ' '
-    )
-  );
-
-  function wordsOf(s: string): string[] {
-    return s.toLowerCase().split(/[^a-z']+/).filter(Boolean);
-  }
-
-  function runAtsChecklist(r: ResumeData): AtsCheck[] {
-    const out: AtsCheck[] = [];
-    const c = r.contact;
-
-    const missing = [
-      !c.fullName.trim() && 'name',
-      !c.email.trim() && 'email',
-      !c.phone.trim() && 'phone',
-    ].filter(Boolean) as string[];
-    out.push({
-      label: 'Contact details',
-      status: missing.length === 0 ? 'pass' : 'warn',
-      detail:
-        missing.length === 0
-          ? 'Name, email, and phone are all present so recruiters can reach you.'
-          : `Missing: ${missing.join(', ')}.`,
-    });
-
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim());
-    out.push({
-      label: 'Email format',
-      status: !c.email.trim() ? 'warn' : emailOk ? 'pass' : 'warn',
-      detail: !c.email.trim()
-        ? 'No email address entered yet.'
-        : emailOk
-          ? 'The email address looks valid.'
-          : 'That email address does not look right — check for typos.',
-    });
-
-    const sentences = r.summary.trim() ? r.summary.trim().split(/[.!?]+/).filter((s) => s.trim()).length : 0;
-    out.push({
-      label: 'Professional summary',
-      status: sentences >= 2 && sentences <= 4 ? 'pass' : sentences === 0 ? 'warn' : 'info',
-      detail:
-        sentences === 0
-          ? 'No summary yet. Two to four sentences help both humans and parsers.'
-          : sentences >= 2 && sentences <= 4
-            ? `${sentences} sentences — a good length.`
-            : `${sentences} sentences. Two to four reads best.`,
-    });
-
-    const jobs = r.experience.filter((e) => e.title.trim() || e.company.trim());
-    const bullets = [
-      ...r.experience.flatMap((e) => e.bullets),
-      ...r.volunteer.flatMap((e) => e.bullets),
-      ...r.projects.flatMap((e) => e.bullets),
-    ]
-      .map((b) => b.trim())
-      .filter(Boolean);
-    out.push({
-      label: 'Experience bullets',
-      status: bullets.length > 0 ? 'pass' : 'warn',
-      detail:
-        bullets.length > 0
-          ? `${bullets.length} bullet${bullets.length === 1 ? '' : 's'} across experience, projects, and volunteering.`
-          : 'No bullets yet. Bullets carry the measurable results parsers and recruiters look for.',
-    });
-
-    if (bullets.length > 0) {
-      const withVerb = bullets.filter((b) => ACTION_VERBS.has(wordsOf(b)[0] ?? '')).length;
-      const pct = Math.round((withVerb / bullets.length) * 100);
-      out.push({
-        label: 'Strong action verbs',
-        status: pct >= 60 ? 'pass' : 'warn',
-        detail:
-          pct >= 60
-            ? `${pct}% of bullets start with a strong verb (Led, Built, Improved…).`
-            : `Only ${pct}% of bullets start with a strong verb. Start more with verbs like Led, Built, or Improved.`,
-      });
-    }
-
-    const undated = jobs.filter((e) => !e.start.trim() && !e.end.trim()).length;
-    out.push({
-      label: 'Dates on positions',
-      status: jobs.length === 0 ? 'warn' : undated === 0 ? 'pass' : 'warn',
-      detail:
-        jobs.length === 0
-          ? 'No positions added yet.'
-          : undated === 0
-            ? 'Every position has dates, so timelines parse cleanly.'
-            : `${undated} position${undated === 1 ? '' : 's'} ha${undated === 1 ? 's' : 've'} no dates.`,
-    });
-
-    out.push({
-      label: 'Skills section',
-      status: r.skills.some((g) => g.items.trim()) ? 'pass' : 'warn',
-      detail: r.skills.some((g) => g.items.trim())
-        ? 'Skills are listed, which is what keyword matching scans for.'
-        : 'No skills listed yet. This is the section keyword matching leans on most.',
-    });
-
-    const allText = [
-      r.summary,
-      ...r.experience.flatMap((e) => [e.title, e.company, ...e.bullets]),
-      ...r.education.flatMap((e) => [e.degree, e.school, e.detail]),
-      ...r.skills.flatMap((g) => [g.label, g.items]),
-      ...r.projects.flatMap((e) => [e.name, e.detail, ...e.bullets]),
-    ].join(' ');
-    const wordCount = wordsOf(allText).length;
-    const pages = wordCount / 450;
-    out.push({
-      label: 'Length',
-      status: wordCount === 0 ? 'warn' : pages <= 2 ? 'pass' : 'warn',
-      detail:
-        wordCount === 0
-          ? 'Nothing written yet.'
-          : `About ${wordCount} words — roughly ${pages < 1 ? 'under one' : pages.toFixed(1)} page${pages <= 1 ? '' : 's'}. ${
-              pages <= 2 ? 'One to two pages is the safe range.' : 'Over two pages risks getting skimmed or cut off.'
-            }`,
-    });
-
-    out.push({
-      label: 'Clean layout',
-      status: 'pass',
-      detail: 'This template uses plain text and standard headings — no tables, text boxes, or graphics for parsers to choke on.',
-    });
-
-    const stop = new Set(
-      'the and a to of in for with on as at by from or an is are was were be been have has had it its this that these those you your we our they their he she his her will would can could should may might do does did not no yes if then than so such very more most over under between through during each other into out up down about across after before'.split(' ')
-    );
-    const freq = new Map<string, number>();
-    for (const b of bullets) {
-      for (const w of wordsOf(b)) {
-        if (w.length > 3 && !stop.has(w)) freq.set(w, (freq.get(w) ?? 0) + 1);
-      }
-    }
-    const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-    out.push({
-      label: 'Keyword repetition',
-      status: 'info',
-      detail:
-        top.length === 0
-          ? 'Add bullets to see which words repeat most — repetition signals your themes to keyword matching.'
-          : `Most repeated words in your bullets: ${top.map(([w, n]) => `${w} (${n}x)`).join(', ')}.`,
-    });
-
-    return out;
-  }
-
-  function renderAtsResults(): void {
-    const box = document.getElementById('rb-ats-results');
-    if (!box) return;
-    const checks = runAtsChecklist(resume);
-    const passes = checks.filter((x) => x.status === 'pass').length;
-    const dot = (s: AtsCheck['status']): string =>
-      s === 'pass'
-        ? '<span style="color:var(--ok);" aria-hidden="true">●</span>'
-        : s === 'warn'
-          ? '<span style="color:var(--danger);" aria-hidden="true">●</span>'
-          : '<span style="color:var(--muted);" aria-hidden="true">●</span>';
-    box.innerHTML =
-      `<p><strong>${passes} of ${checks.length} checks pass.</strong></p>` +
-      `<ul style="list-style:none;padding:0;margin:0.5rem 0;display:grid;gap:0.45rem;">` +
-      checks
-        .map(
-          (x) =>
-            `<li>${dot(x.status)} <strong>${escapeHtml(x.label)}</strong> <span style="color:var(--muted);">${escapeHtml(x.detail)}</span></li>`
-        )
-        .join('') +
-      `</ul>`;
-    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   // ---------- model updates ----------
@@ -736,10 +550,6 @@ export function initResumeBuilder(): void {
     const id = btn.getAttribute('data-id') ?? '';
     if (act === 'sec-up' || act === 'sec-down') {
       if (isSectionKey(sec)) moveSection(sec, act === 'sec-up' ? -1 : 1);
-      return;
-    }
-    if (act === 'ats-check') {
-      renderAtsResults();
       return;
     }
     const def = SECTIONS.find((s) => s.key === sec);
@@ -792,41 +602,28 @@ export function initResumeBuilder(): void {
       el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       return;
     }
-    // Print only the resume: the print stylesheet hides everything else.
-    const name = resume.contact.fullName.trim();
-    document.title = name ? `${name} - Resume` : 'Resume';
-    document.body.classList.add('resume-print');
-    window.print();
+    // Direct PDF download with clickable links — no print dialog.
+    const btn = el<HTMLButtonElement>('rb-download');
+    setBusy('rb-download', true, 'Generating PDF…');
+    void generateResumePdf(resume)
+      .then((bytes) => {
+        const name = resume.contact.fullName.trim();
+        downloadBytes(resumePdfFileName(name), bytes, 'application/pdf');
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        showError('rb-error', 'Could not generate the PDF: ' + msg);
+      })
+      .finally(() => setBusy('rb-download', false));
   });
 
-  window.addEventListener('afterprint', () => {
-    document.body.classList.remove('resume-print');
-    document.title = originalTitle;
+  el('rb-example').addEventListener('click', () => {
+    if (!window.confirm('Replace your current resume with the example content?')) return;
+    resume = exampleResume();
+    save();
+    renderEditor();
+    renderPreview();
   });
-
-  /** True when the user has entered anything worth protecting from overwrite. */
-  const resumeHasContent = (r: ResumeData): boolean =>
-    !!(
-      r.contact.fullName ||
-      r.contact.email ||
-      r.summary ||
-      r.experience.length ||
-      r.education.length ||
-      r.skills.length ||
-      r.projects.length
-    );
-
-  armConfirmButton(
-    el<HTMLButtonElement>('rb-example'),
-    () => {
-      resume = exampleResume();
-      save();
-      renderEditor();
-      renderPreview();
-    },
-    'Click again to replace',
-    () => resumeHasContent(resume)
-  );
 
   el('rb-export-json').addEventListener('click', () => {
     hideError('rb-error');
@@ -858,30 +655,7 @@ export function initResumeBuilder(): void {
       el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       return;
     }
-    if (resumeHasContent(resume)) {
-      // Importing over existing work: require an explicit second click.
-      const importBtn = el<HTMLButtonElement>('rb-import-json');
-      if (importBtn.dataset.armed !== '1') {
-        importBtn.dataset.armed = '1';
-        importBtn.dataset.origLabel = importBtn.textContent || '';
-        importBtn.textContent = 'Click again to replace resume';
-        importBtn.classList.add('btn-armed');
-        window.setTimeout(() => {
-          if (importBtn.dataset.armed === '1') {
-            delete importBtn.dataset.armed;
-            importBtn.textContent = importBtn.dataset.origLabel || '';
-            importBtn.classList.remove('btn-armed');
-          }
-        }, 8000);
-        showError('rb-error', 'This will replace your current resume. Click "Import JSON" again to confirm.');
-        el('rb-error').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        return;
-      }
-      delete importBtn.dataset.armed;
-      importBtn.textContent = importBtn.dataset.origLabel || '';
-      importBtn.classList.remove('btn-armed');
-    }
-    hideError('rb-error');
+    if (!window.confirm('Replace your current resume with the imported file? This cannot be undone.')) return;
     resume = info.resume;
     save();
     renderEditor();
@@ -895,8 +669,7 @@ export function initResumeBuilder(): void {
   window.addEventListener('freekit:resume-import', (e) => {
     const data = (e as CustomEvent).detail as ResumeData | null;
     if (!data || typeof data !== 'object' || !data.contact) return;
-    // The import panel already asks for confirmation before dispatching;
-    // this is a full replace by design (see comment above).
+    if (!window.confirm('Replace your current resume with the imported details? This cannot be undone.')) return;
     try {
       resume = data;
       save();
@@ -908,17 +681,13 @@ export function initResumeBuilder(): void {
     }
   });
 
-  armConfirmButton(
-    el<HTMLButtonElement>('rb-clear'),
-    () => {
-      resume = blankResume();
-      save();
-      renderEditor();
-      renderPreview();
-    },
-    'Click again to clear',
-    () => resumeHasContent(resume)
-  );
+  el('rb-clear').addEventListener('click', () => {
+    if (!window.confirm('Clear everything and start over? This cannot be undone.')) return;
+    resume = blankResume();
+    save();
+    renderEditor();
+    renderPreview();
+  });
 
   // ---------- mobile tabs ----------
 
