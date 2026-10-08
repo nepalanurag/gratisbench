@@ -125,7 +125,7 @@ function renderList(): void {
     list.appendChild(row);
   });
   el('empty-state').hidden = items.length > 0;
-  el('compress-btn').disabled = items.length === 0;
+  el<HTMLButtonElement>('compress-btn').disabled = items.length === 0;
   refreshJpegUi();
 }
 
