@@ -7,6 +7,7 @@ import {
   encodeWav,
   computePeaks,
   sliceChannels,
+  applyFades,
   validateTrimRange,
   withExtension,
   clamp,
@@ -108,8 +109,8 @@ export function initAudioTrimmer(): void {
   }
 
   function syncControls(): void {
-    el('start-input').value = formatTime(start);
-    el('end-input').value = formatTime(end);
+    el<HTMLInputElement>('start-input').value = formatTime(start);
+    el<HTMLInputElement>('end-input').value = formatTime(end);
     const sSl = el<HTMLInputElement>('start-slider');
     const eSl = el<HTMLInputElement>('end-slider');
     sSl.value = String(start);
@@ -171,7 +172,9 @@ export function initAudioTrimmer(): void {
   }
 
   function selectionChannels(): Float32Array[] {
-    return sliceChannels(channels, start * sampleRate, end * sampleRate);
+    const sliced = sliceChannels(channels, start * sampleRate, end * sampleRate);
+    applyFades(sliced, sampleRate);
+    return sliced;
   }
 
   setupDropzone('dropzone', 'file-input', async (files) => {
