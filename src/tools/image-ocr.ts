@@ -138,6 +138,9 @@ async function onFiles(files: File[]): Promise<void> {
   }
   hideError('error-box');
   file = picked;
+  // Clear any previous result so a stale transcription can't be confused with the new image.
+  el('result-block').hidden = true;
+  el<HTMLTextAreaElement>('ocr-output').value = '';
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = URL.createObjectURL(picked);
   el<HTMLImageElement>('preview-img').src = objectUrl;
