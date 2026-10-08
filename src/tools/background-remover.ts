@@ -146,8 +146,8 @@ function maskHasTransparency(mask: HTMLCanvasElement): boolean {
   const data = ctx.getImageData(0, 0, mask.width, mask.height).data;
   // Sample every 16th pixel; if none are significantly transparent, the AI
   // did not remove anything.
-  for (let i = 0; i < data.data.length; i += 64) {
-    if (data.data[i] < 128) return true;
+  for (let i = 0; i < data.length; i += 64) {
+    if (data[i] < 128) return true;
   }
   return false;
 }
