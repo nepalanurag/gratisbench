@@ -1,6 +1,7 @@
 // PDF to Word tool: DOM glue. Text/paragraph/docx logic lives in ../lib/pdf2word-core.ts
 // (pure, unit-tested in Node). pdf.js and the docx library are lazy-loaded only
 // after the user picks a file, so the page stays fast on first paint.
+// v2: force rebuild
 import {
   el,
   showError,
@@ -11,16 +12,12 @@ import {
   formatBytes,
   pdfLoadErrorMessage,
 } from './common.ts';
-import { loadPdfjs, renderPageToCanvas } from './pdf-render.ts';
-import { loadTesseract, tesseractLoadErrorMessage } from './tesseract-loader.ts';
-import { basePath } from '../lib/site.ts';
-import { cleanupOcrText } from '../lib/ocr-core.ts';
+import { loadPdfjs } from './pdf-render.ts';
 import type {
   TextItemLike,
   TextLine,
   PageImage,
   DocPage,
-  TextBlock,
 } from '../lib/pdf2word-core.ts';
 
 type PdfJs = typeof import('pdfjs-dist');
@@ -31,31 +28,9 @@ const MAX_IMAGES_PER_PAGE = 20;
 const MAX_IMAGES_TOTAL = 60;
 const IMAGE_MIN_PT = 24; // skip decorative icons/rules smaller than this
 const IMAGE_MAX_PX = 800; // downscale embedded images to this long edge
-const OCR_RENDER_DPI = 150;
-const OCR_MAX_PAGES = 50; // cap slow OCR work per run; the note says so
 
 let pickedFile: File | null = null;
 let lastResult: { bytes: Uint8Array; name: string } | null = null;
-
-/** Shared tesseract worker for the opt-in "read scanned pages" pass. */
-type OcrWorker = {
-  recognize: (image: unknown) => Promise<{ data: { text: string } }>;
-  terminate: () => Promise<void>;
-};
-let ocrWorker: OcrWorker | null = null;
-
-async function getOcrWorker(): Promise<OcrWorker> {
-  if (ocrWorker) return ocrWorker;
-  const { createWorker } = await loadTesseract();
-  // createWorker is looked up the same way the OCR tools do; tesseract.js
-  // minifies badly so the public name is referenced indirectly there too.
-  ocrWorker = (await createWorker('eng', 1, {
-    logger: () => {
-      /* per-page status is shown by the caller */
-    },
-  })) as unknown as OcrWorker;
-  return ocrWorker;
-}
 
 function mul6(m1: number[], m2: number[]): number[] {
   return [
@@ -233,15 +208,8 @@ async function convert(): Promise<void> {
 
     const pagesLines: TextLine[][] = [];
     const docPages: DocPage[] = [];
-    const ocrBlocksPerPage: TextBlock[][] = [];
     let imageTotal = 0;
     let textlessPages = 0;
-    let ocrPages = 0;
-    let ocrUnavailableNote = '';
-
-    const includeImages = el<HTMLInputElement>('pdf2word-include-images').checked;
-    const ocrScans = el<HTMLInputElement>('pdf2word-ocr-scans').checked;
-    let ocrFailed = false;
 
     for (let p = 1; p <= pages; p++) {
       setStatus(`Reading page ${p} of ${pages}…`);
@@ -252,50 +220,20 @@ async function convert(): Promise<void> {
       pagesLines.push(lines);
 
       let images: PageImage[] = [];
-      if (includeImages && imageTotal < MAX_IMAGES_TOTAL) {
+      if (imageTotal < MAX_IMAGES_TOTAL) {
         images = await extractPageImages(page, pdfjs);
         imageTotal += images.length;
       }
       const textChars = lines.reduce((n, l) => n + l.text.length, 0);
       if (textChars < 40) textlessPages++;
       docPages.push({ pageIndex: p - 1, blocks: [], images, textChars });
-
-      // Opt-in: read pages that are scanned images so their words land in
-      // the Word document too.
-      const ocrBlocks: TextBlock[] = [];
-      if (ocrScans && !ocrFailed && textChars < 40 && ocrPages < OCR_MAX_PAGES) {
-        setStatus(`Reading scanned page ${p} of ${pages}…`);
-        try {
-          const worker = await getOcrWorker();
-          const canvas = await renderPageToCanvas(page, OCR_RENDER_DPI);
-          const res = await worker.recognize(canvas);
-          const text = cleanupOcrText(res.data.text || '');
-          const paras = text
-            .split(/\n\s*\n/)
-            .map((s) => s.replace(/\s+/g, ' ').trim())
-            .filter((s) => s.length > 0);
-          for (const para of paras) {
-            ocrBlocks.push({
-              kind: 'p',
-              text: para,
-              y: 0,
-              runs: [{ text: para, bold: false, italic: false }],
-            });
-          }
-          if (paras.length > 0) ocrPages++;
-        } catch (err) {
-          ocrFailed = true;
-          ocrUnavailableNote = `The scan-reading engine could not start (${tesseractLoadErrorMessage(err)}). Scanned pages were left out.`;
-        }
-      }
-      ocrBlocksPerPage.push(ocrBlocks);
       page.cleanup();
     }
 
     setStatus('Assembling the Word document…');
     const blocksPerPage = core.linesToBlocks(pagesLines);
     blocksPerPage.forEach((blocks, i) => {
-      docPages[i].blocks = [...ocrBlocksPerPage[i], ...blocks];
+      docPages[i].blocks = blocks;
     });
 
     const bytes = await core.assembleDocx(docPages, pickedFile.name.replace(/\.pdf$/i, ''));
@@ -308,25 +246,20 @@ async function convert(): Promise<void> {
       `${pages} page${pages === 1 ? '' : 's'} converted`,
       `${paraCount} paragraphs`,
       `${headingCount} headings`,
-      includeImages ? `${imageTotal} images embedded` : 'images left out (your choice)',
+      `${imageTotal} images embedded`,
     ];
-    if (ocrPages > 0) {
-      stats.push(`${ocrPages} scanned page${ocrPages === 1 ? '' : 's'} read with the text reader`);
-    }
-    if (textlessPages > ocrPages) {
-      const skipped = textlessPages - ocrPages;
+    if (textlessPages > 0) {
       stats.push(
-        `${skipped} page${skipped === 1 ? '' : 's'} had no extractable text (likely scanned images)`
+        `${textlessPages} page${textlessPages === 1 ? '' : 's'} had no extractable text (likely scanned images)`
       );
     }
     const scanNote =
-      textlessPages > ocrPages
-        ? ` Pages that are scanned images carry no text to extract. Tick "Read text from scanned pages" before converting to have those pages read automatically, or read the text first with the <a href="${basePath('/image-ocr')}">Image OCR</a> tool.`
+      textlessPages > 0
+        ? ' Pages that are scanned images carry no text to extract. For those, read the text first with the <a href="/image-ocr">Image OCR</a> tool.'
         : '';
-    const ocrNote = ocrUnavailableNote ? ` ${ocrUnavailableNote}` : '';
     el('pdf2word-stats').innerHTML =
       `<ul class="result-list">` + stats.map((s) => `<li>${escapeHtml(s)}</li>`).join('') + `</ul>` +
-      `<p class="result-note">Headings were detected by font size. Bold and italic styling is kept. Complex layouts, tables, and multi-column designs are not preserved; for a pixel-faithful conversion use desktop software.${scanNote}${ocrNote}</p>`;
+      `<p class="result-note">Headings were detected by font size. Bold and italic styling is kept. Complex layouts, tables, and multi-column designs are not preserved; for a pixel-faithful conversion use desktop software.${scanNote}</p>`;
     el('pdf2word-result').hidden = false;
     setStatus('Done.');
   } catch (err) {
