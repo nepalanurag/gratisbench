@@ -14,6 +14,7 @@ import {
 import { loadPdfjs } from './pdf-render.ts';
 import type {
   TextItemLike,
+  TextLine,
   PageImage,
   DocPage,
 } from '../lib/pdf2word-core.ts';
@@ -60,7 +61,8 @@ async function imageDataToPng(
     if (img.bitmap) {
       ctx.drawImage(img.bitmap, 0, 0);
     } else if (img.data) {
-      const clamped = img.data instanceof Uint8ClampedArray ? img.data : new Uint8ClampedArray(img.data.buffer as ArrayBuffer, img.data.byteOffset, img.data.byteLength);
+      // Copy into a fresh buffer: ImageData requires an ArrayBuffer-backed view.
+      const clamped = new Uint8ClampedArray(img.data);
       ctx.putImageData(new ImageData(clamped, w, h), 0, 0);
     } else {
       return null;
@@ -152,6 +154,9 @@ export function initPdfToWord(): void {
     el('pdf2word-result').hidden = true;
     lastResult = null;
     if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') {
+      pickedFile = null;
+      el('pdf2word-file').hidden = true;
+      (el<HTMLButtonElement>('pdf2word-convert')).disabled = true;
       showError('pdf2word-error', 'That does not look like a PDF.');
       return;
     }
@@ -200,7 +205,7 @@ async function convert(): Promise<void> {
       setStatus(`This PDF has ${totalPages} pages; only the first ${MAX_PAGES} will be converted.`);
     }
 
-    const pagesLines: TextItemLike[][] = [];
+    const pagesLines: TextLine[][] = [];
     const docPages: DocPage[] = [];
     let imageTotal = 0;
     let textlessPages = 0;
@@ -247,9 +252,13 @@ async function convert(): Promise<void> {
         `${textlessPages} page${textlessPages === 1 ? '' : 's'} had no extractable text (likely scanned images)`
       );
     }
+    const scanNote =
+      textlessPages > 0
+        ? ' Pages that are scanned images carry no text to extract. For those, read the text first with the <a href="/image-ocr">Image OCR</a> tool.'
+        : '';
     el('pdf2word-stats').innerHTML =
       `<ul class="result-list">` + stats.map((s) => `<li>${escapeHtml(s)}</li>`).join('') + `</ul>` +
-      `<p class="result-note">Headings were detected by font size. Complex layouts, tables, and multi-column designs are not preserved; for a pixel-faithful conversion use desktop software.</p>`;
+      `<p class="result-note">Headings were detected by font size. Bold and italic styling is kept. Complex layouts, tables, and multi-column designs are not preserved; for a pixel-faithful conversion use desktop software.${scanNote}</p>`;
     el('pdf2word-result').hidden = false;
     setStatus('Done.');
   } catch (err) {
