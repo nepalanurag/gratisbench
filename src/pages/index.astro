@@ -3,9 +3,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { basePath, siteUrl } from '../lib/site';
 import { TOOL_GROUPS } from '../lib/tools';
 
-const title = 'GratisBench - Free Online Tools That Run in Your Browser';
+const title = 'TruePDF — Free PDF Tools Online: Merge, Compress, Convert | No Upload, No Watermark';
 const description =
-  'Free online tools with no signup and no watermarks: budget planner, subscription tracker, logo maker, OG image generator, device mockup generator, resume builder, invoice generator, email signature generator, merge PDF, split PDF, images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, unlock PDF, PDF to Word, compress and convert images, remove backgrounds, image OCR, trace images to SVG, QR code generator, trim and join audio, convert audio, compress/trim/convert video, screen recorder, fake data generator, business profile. Your files never leave your device.';
+  'Free PDF tools that run entirely in your browser — your files never leave your device. Merge PDF, split PDF, compress PDF, JPG to PDF, PDF to Word, PDF to JPG, redact, sign, unlock, and 20+ more tools. No signup, no watermark, no upload.';
 
 let n = 0;
 const groups = TOOL_GROUPS.map((g) => ({
@@ -16,7 +16,7 @@ const groups = TOOL_GROUPS.map((g) => ({
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
-  name: 'GratisBench',
+  name: 'TruePDF',
   url: siteUrl(Astro.site) + '/',
   description,
 };
@@ -24,16 +24,12 @@ const jsonLd = {
 <BaseLayout title={title} description={description} jsonLd={jsonLd}>
   <div class="wrap">
     <div class="home-head">
-      <h1>Free tools that run in your browser.</h1>
+      <h1>Free PDF tools that never upload your files.</h1>
       <p class="intro">
-        GratisBench is 32 small tools for everyday file work: PDFs, images, audio,
-        video, and a few business basics. They run entirely on your device,
-        so there is nothing to upload, no account to create, and no watermark
-        on the way out.
-      </p>
-      <p class="intro">
-        I built them because I kept needing them. If a tool breaks, tell me
-        and I will fix it.
+        TruePDF is 32 small tools for everyday file work: PDFs, images, audio,
+        video, and business paperwork. Everything runs on your device, so there
+        is nothing to upload, no account to create, and no watermark on the way
+        out. I built them because I kept needing them.
       </p>
     </div>
 
@@ -46,7 +42,7 @@ const jsonLd = {
           <input
             id="demo-qr-text"
             type="text"
-            value="https://gratisbench.vercel.app/"
+            value="https://truepdf.vercel.app/"
             maxlength="4000"
             autocomplete="off"
             spellcheck="false"
@@ -94,7 +90,7 @@ const jsonLd = {
         <h2>Worth knowing</h2>
         <ul>
           <li><strong>Private by construction.</strong> Your files are read and processed on your device. Open the network tab while converting something: nothing leaves.</li>
-          <li><strong>No accounts, no quotas.</strong> No signup, no daily limits, no watermarks.</li>
+          <li><strong>No accounts, no quotas, no watermarks.</strong> There is no signup wall, no daily limit, and nothing stamped on your output.</li>
           <li><strong>Works offline.</strong> Once a page has loaded, it keeps working without a connection.</li>
         </ul>
       </div>
@@ -102,16 +98,16 @@ const jsonLd = {
       <h2>Common questions</h2>
       <dl>
         <div class="faq">
-          <dt>What is GratisBench?</dt>
-          <dd>GratisBench is a collection of small, single-purpose web tools: PDF utilities, converters, and generators. Each tool does one job, runs entirely in your browser, and is free without an account.</dd>
+          <dt>What is TruePDF?</dt>
+          <dd>A collection of small, single-purpose tools: PDF utilities, converters, and generators. Each does one job, runs in your browser, and is free without an account.</dd>
         </div>
         <div class="faq">
           <dt>How can the tools be free?</dt>
-          <dd>Because there is almost nothing to pay for. The tools run on your device instead of a server, so there are no per-file processing costs. A simple site with no backend is cheap to run, and that saving is passed on as no prices, no quotas, and no watermarks.</dd>
+          <dd>There is almost nothing to pay for. The tools run on your device instead of a server, so there are no per-file processing costs and no prices, quotas, or watermarks.</dd>
         </div>
         <div class="faq">
           <dt>Are my files really private?</dt>
-          <dd>Yes. Open your browser's network tab while using any tool and you will see no file uploads. Your documents are read, processed, and downloaded locally. Closing the tab removes all trace.</dd>
+          <dd>Yes. Open your browser's network tab while using any tool and you will see no file uploads. Closing the tab removes all trace.</dd>
         </div>
       </dl>
     <!-- Ad slot: homepage bottom (AdSense display unit goes here) -->

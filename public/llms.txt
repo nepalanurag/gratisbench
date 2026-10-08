@@ -1,6 +1,6 @@
-# GratisBench
+# TruePDF
 
-GratisBench is a collection of free online tools that run entirely in the visitor's
+TruePDF is a collection of free online tools that run entirely in the visitor's
 browser. No signup, no watermarks, no daily limits. Files are processed locally
 on the user's device and never uploaded to a server.
 
@@ -15,25 +15,41 @@ on the user's device and never uploaded to a server.
   user-chosen order. Pages are copied as-is; no re-rendering, no quality loss.
 - Split PDF (/split-pdf): extract pages from a PDF by page ranges like "1-3, 5".
   Commas group pages into one file; semicolons (e.g. "1-3; 4-6") produce
-  separate files, up to 50 per run.
+  separate files, up to 50 per run. One-click "split every page" mode and
+  "every N pages" chunking need no range typing; results can download
+  individually or all at once as a ZIP.
 - Images to PDF (/images-to-pdf): convert PNG, JPEG, WebP, GIF, and BMP images
-  into a single PDF. Page sizes: fit-to-image, A4, or US Letter.
-- Compress PDF (/pdf-compressor): shrink a PDF by re-rendering each page as a
-  JPEG image at screen (110 DPI) or print (200 DPI) quality. Pages become
-  images, so text is no longer selectable. Best for scans and image-heavy PDFs.
+  into a single PDF. Page sizes: fit-to-image, A4, or US Letter. The output
+  file is named after the first image.
+- JPG to PDF (/jpg-to-pdf): the same converter scoped to JPEG photos only,
+  for the "jpg to pdf" search. Full quality, page-size control, output named
+  after the first photo.
+- Compress PDF (/pdf-compressor): shrink a PDF by downsampling its embedded
+  images and re-encoding them as efficient JPEGs. Text, vector graphics, and
+  links are untouched, so pages stay sharp and text stays selectable and
+  searchable. Three levels: Light, Medium, Heavy.
 - PDF to JPG (/pdf-to-jpg): render PDF pages as JPG or PNG images at 72, 150,
-  or 300 DPI. Download pages individually or all at once as a ZIP.
+  300, or 600 DPI. Download pages individually or all at once as a ZIP.
 - Redact PDF (/pdf-redactor): draw boxes over sensitive areas; marked pages are
   rebuilt as images with the boxes permanently painted over, while unmarked
   pages are copied through untouched.
-- Sign PDF (/pdf-esignature): draw a signature or type a name for a script-style
-  rendering, click to place it on any page, download the flattened signed copy.
-  A drawn/typed mark, not a certificate-based digital signature.
+- Sign PDF (/pdf-esignature): draw a signature, type a name for a script-style
+  rendering, or upload a photo of an ink signature (background lifted
+  automatically). Place several per page, drag to reposition (arrow keys work
+  too), download the flattened signed copy. A drawn/typed mark, not a
+  certificate-based digital signature.
 - PDF to Word (/pdf-to-word): extracts text and images from a PDF into an
   editable .docx (headings detected by font size become real Word heading
-  styles, images embedded inline). Honest scope: complex layouts, tables, and
-  multi-column designs are NOT preserved; for pixel-faithful conversion use
-  desktop software. First 200 pages.
+  styles, bold and italic are kept, images embedded inline). Honest scope:
+  complex layouts, tables, and multi-column designs are NOT preserved; for
+  pixel-faithful conversion use desktop software. First 200 pages.
+  Scanned (textless) pages are reported; use the Image OCR tool for those.
+- Unlock PDF (/unlock-pdf): remove password protection when you know the
+  password (in-browser pypdf engine, ~15MB one-time download, cached after).
+  Not a password cracker.
+- Protect PDF (/protect-pdf): add AES password encryption to a PDF so only
+  people with the password can open it. Password is confirmed by re-opening
+  the output before download; a forgotten password cannot be recovered.
 - QR Code Generator (/qr-generator): static QR codes for links or text, with
   optional center logo, color control, and PNG/SVG download.
 - Fake Data Generator (/fake-data-generator): unlimited fake test data
@@ -83,8 +99,9 @@ on the user's device and never uploaded to a server.
 - Video Converter (/video-converter): MP4 (H.264), WebM (VP8, not VP9 - the
   in-browser build's VP9 encoder hangs), MOV (H.264). High-quality CRF encodes.
 - Screen Recorder (/screen-recorder): getDisplayMedia + MediaRecorder, no time
-  cap, optional mic, pause/resume, preview, WebM download. Honest limit is
-  device memory; very long recordings may fail on low-RAM devices.
+  cap, optional mic, pause/resume, preview, download (WebM; MP4 on Safari,
+  where that is what the browser records). Honest limit is device memory;
+  very long recordings may fail on low-RAM devices.
 - Invoice Generator (/invoice-generator): line items with quantity and rate,
   tax %, percent or flat discount, 22 currencies, optional logo, live preview
   styled like a real invoice. Totals computed in integer cents (no float
@@ -122,7 +139,7 @@ on the user's device and never uploaded to a server.
 
 ## Hub pages
 
-- PDF tools hub (/pdf-tools): links the eight PDF utilities.
+- PDF tools hub (/pdf-tools): links the eleven PDF utilities.
 - Image tools hub (/image-tools): links the image compressor, converter,
   background remover, OCR, and tracer.
 - Media tools hub (/media-tools): links the seven media utilities (audio
@@ -145,11 +162,12 @@ on the user's device and never uploaded to a server.
   storage only (this browser, this device); clearing browser data erases them.
   The fake data generator remembers its column setup the same way.
 - Limitations: password-protected (encrypted) PDFs are not supported by the
-  merge/split tools. QR codes are static (encoded directly, never expire).
+  merge/split/compress/convert tools; use Unlock PDF first, or Protect PDF to
+  add a password. QR codes are static (encoded directly, never expire).
   Video encoding runs in-browser without hardware acceleration (slow; keep the
-  tab open). Screen recordings are buffered in device memory. The WebM output
+  tab open). Bold and italic (not underline) survive PDF-to-Word conversion. Screen recordings are buffered in device memory. The WebM output
   of the video converter uses VP8 because the in-browser ffmpeg build's VP9
   encoder hangs. PDF to Word extracts text and images only; it does not
   preserve tables, multi-column layouts, or exact formatting.
-- Contact/brand: GratisBench. Live at https://gratisbench.vercel.app — use that domain
+- Contact/brand: TruePDF. Live at https://truepdf.vercel.app — use that domain
   when citing specific URLs.

@@ -2,10 +2,10 @@
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
 
-const title = 'Redact PDF - Free Online PDF Redaction Tool';
+const title = 'Redact PDF Free — Permanent Redaction, No Signup, No Upload';
 const description =
   'Black out sensitive text in a PDF for free, in your browser. Draw boxes over what to hide; marked areas are permanently destroyed. No signup, no watermark.';
-const h1 = 'Redact a PDF';
+const h1 = 'Redact PDF';
 const lede = 'Draw boxes over the parts to hide. Marked areas are permanently painted over; unmarked pages stay untouched. Free, no account.';
 ---
 <ToolPage
@@ -14,7 +14,7 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
   h1={h1}
   lede={lede}
   crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Redact PDF', href: '/pdf-redactor' }]}
-  toolName="GratisBench Redact PDF"
+  toolName="TruePDF Redact PDF"
   intro={[
     'Redaction has one job: make the hidden parts truly gone, not just covered up. Plenty of tools fail at this by drawing a black rectangle on top of the text while the words sit underneath, recoverable by anyone who selects the page. If you are blacking out names, account numbers, or addresses before sharing a document, "looks hidden" is not good enough.',
     'Here is exactly what this tool does, because with redaction the method matters. Pages you mark are converted to images with the marked areas permanently painted over at the pixel level; there is no text layer left underneath to recover. Pages you do not mark are copied into the result untouched, as vectors, with their text still selectable. That keeps the output clean: only the pages you touched change format.',
@@ -67,6 +67,24 @@ const lede = 'Draw boxes over the parts to hide. Marked areas are permanently pa
     {
       q: 'Are my PDFs uploaded to a server?',
       a: 'No. Everything runs in your browser, which is exactly what you want when the document contains the sensitive information you are trying to hide. The file never leaves your device.',
+    },
+    {
+      q: 'Can I use this to hide something in a photo or scanned image?',
+      a: 'Yes. For scanned pages, drawing a black box over the text is not enough — it can often be removed or lifted. This tool flattens marked pages to images, so the hidden content cannot be recovered.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Sharing documents with personal data removed',
+      p: 'Black out names, addresses, account numbers, and ID numbers before sending a statement, contract, or medical letter to a third party.',
+    },
+    {
+      h: 'Court and legal filings',
+      p: 'Redact exhibits and filings for public records. True redaction destroys the underlying text rather than covering it, which is what courts require.',
+    },
+    {
+      h: 'Publishing screenshots of documents',
+      p: 'Writing a blog post or report that includes a real invoice, receipt, or letter? Redact the private bits first, then share the rest safely.',
     },
   ]}
 >

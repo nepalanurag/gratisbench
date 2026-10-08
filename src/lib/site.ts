@@ -1,5 +1,5 @@
 // Site URL / base-path helpers. Used by layouts and pages so the site works
-// both at a domain root and under a subpath (e.g. GitHub Pages /gratisbench/).
+// both at a domain root and under a subpath (e.g. GitHub Pages /truepdf/).
 // Never hardcode absolute internal links like "/pdf-tools" — use basePath().
 
 /** Prefix an internal path with the configured base path. */
@@ -11,12 +11,12 @@ export function basePath(p: string): string {
 
 /** Absolute site URL from the Astro config (SITE_URL env). No trailing slash. */
 export function siteUrl(site: URL | undefined): string {
-  return (site?.toString() ?? 'https://gratisbench.vercel.app').replace(/\/$/, '');
+  return (site?.toString() ?? 'https://www.truepdf.com').replace(/\/$/, '');
 }
 
 /**
  * Strip the configured base path from a request pathname.
- * Astro.url.pathname already includes the base (e.g. /gratisbench/ on GitHub
+ * Astro.url.pathname already includes the base (e.g. /truepdf/ on GitHub
  * Pages), and siteUrl() includes it too — so an absolute URL for the current
  * page is siteUrl() + stripBase(Astro.url.pathname), never
  * siteUrl() + basePath(...). basePath() is only for in-page href/src links.
@@ -41,4 +41,4 @@ export const DONATE_URL = 'https://ko-fi.com/anuragnepal';
 export const ANALYTICS_CODE = 'nepalanurag72';
 
 // GitHub repo used by the /feedback page to open prefilled issues.
-export const GITHUB_REPO = 'nepalanurag/gratisbench';
+export const GITHUB_REPO = 'nepalanurag/truepdf';

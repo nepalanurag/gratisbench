@@ -1,0 +1,119 @@
+---
+import ToolPage from '../layouts/ToolPage.astro';
+import Icon from '../components/Icon.astro';
+
+const title = 'Protect PDF Free — Add Password, No Signup, Files Stay on Device';
+const description =
+  'Add password protection to a PDF for free. Encrypt your document in the browser; no signup, no watermark, your files never leave your device.';
+const h1 = 'Protect PDF';
+const lede = 'Lock a PDF with a password so only people who know it can open it. Free, no account, done entirely in your browser.';
+---
+<ToolPage
+  title={title}
+  description={description}
+  h1={h1}
+  lede={lede}
+  crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Protect PDF', href: '/protect-pdf' }]}
+  toolName="TruePDF Protect PDF"
+  intro={[
+    'Some PDFs should not be readable by whoever happens to receive them: a contract before both sides sign, payroll details, medical paperwork, a report with client data. Email is a postcard, and a file sitting in a shared drive is one misplaced click from the wrong eyes. A password on the file itself is the simplest fix, and it travels with the document wherever it goes.',
+    'This tool adds real password encryption to your PDF on your device. Give it the file and a password, and it writes out a new PDF that asks for the password before it opens. The content is untouched: same pages, same text, same quality. The page then proves the lock works by re-opening the output with your password before you download it.',
+    'One honest note: a forgotten password cannot be recovered from the protected file, not by you and not by this tool. Pick something you will remember, or store it in a password manager.',
+  ]}
+  steps={[
+    'Drop your PDF onto the box above, or click it to browse.',
+    'Type the password you want, twice, so a typo does not lock you out.',
+    'Click "Protect PDF". The first run downloads a small engine (one-time); the encryption itself happens on your device.',
+    'Download it. The new file asks for your password every time it opens.',
+  ]}
+  specs={[
+    ['Cost', 'Free, no limits'],
+    ['Signup', 'None. No account, no email.'],
+    ['Watermark', 'None'],
+    ['Where files are processed', 'In your browser, on your device'],
+    ['Encryption', 'AES password encryption; the file opens only with the password'],
+    ['Output', 'A new PDF with identical pages, protected by your password'],
+    ['Max file size', 'Limited by your device memory; typical documents are fine'],
+  ]}
+  faqs={[
+    {
+      q: 'What kind of protection does this add?',
+      a: 'Password encryption using AES, the standard PDF encryption. Anyone opening the file is asked for the password before any page renders. Without the password the content is unreadable.',
+    },
+    {
+      q: 'Is my file uploaded anywhere?',
+      a: 'No. The first run downloads a small engine file (about 15 MB, cached afterwards), but your PDF is read into your browser memory, encrypted there, and the protected copy is generated there too. Nothing leaves your device.',
+    },
+    {
+      q: 'What happens if I forget the password?',
+      a: 'Then the file stays locked, for everyone including you. PDF encryption is designed so there is no back door and no recovery. Use a password you will remember, or save it in a password manager before downloading.',
+    },
+    {
+      q: 'Can I change or remove the password later?',
+      a: 'Yes. To change it, protect the file again with the new password after unlocking. To remove it entirely, use the Unlock PDF tool with the password you set.',
+    },
+    {
+      q: 'Will the protected PDF look exactly the same?',
+      a: 'Yes. Encryption only wraps the file; the pages, text, images, and links are identical. The file size may change slightly because of the encryption overhead.',
+    },
+    {
+      q: 'Can the recipient open it in any PDF reader?',
+      a: 'Yes. Password-encrypted PDFs are a universal standard: Adobe Reader, browser viewers, phones, and tablets all ask for the password and open the file normally once it is given.',
+    },
+    {
+      q: 'My PDF is already password-protected. Can I add a different password?',
+      a: 'Not directly. Run it through the Unlock PDF tool first with the current password, then protect the unlocked copy with the new one.',
+    },
+    {
+      q: 'Do I need to install anything?',
+      a: 'No. The encryption runs in your browser using code that ships with this page. Nothing is installed, nothing is uploaded, and the tool works offline once the page has loaded.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Sending contracts and HR documents',
+      p: 'Lock offer letters, contracts, and payroll paperwork before emailing them, so a forwarded message does not mean open access.',
+    },
+    {
+      h: 'Client reports with sensitive data',
+      p: 'Reports containing customer data, financials, or unreleased figures travel with their own lock instead of relying on whoever hosts the file.',
+    },
+    {
+      h: 'Shared drives and cloud folders',
+      p: 'A password on the file itself protects it even when the folder permissions are looser than you thought.',
+    },
+  ]}
+>
+  <section class="tool-card" slot="tool" aria-label="Protect PDF tool">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose a PDF file to protect">
+      <div class="dz-icon"><Icon name="lock" size={30} /></div>
+      <div class="dz-title">Drop your PDF here</div>
+      <div class="dz-sub">or click to choose a file &middot; it stays on your device</div>
+    </div>
+    <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+    <p id="file-label" class="count-label" role="status"></p>
+    <div class="field">
+      <label for="pass-input">Password</label>
+      <input type="password" id="pass-input" autocomplete="new-password" placeholder="The password that will open this PDF" />
+      <p id="pw-hint" class="hint" role="status" aria-live="polite"></p>
+    </div>
+    <div class="field">
+      <label for="confirm-input">Confirm password</label>
+      <input type="password" id="confirm-input" autocomplete="new-password" placeholder="Type it again" />
+    </div>
+    <div id="error-box" class="error-box" hidden></div>
+    <div class="btn-row">
+      <button id="protect-btn" class="btn" type="button" disabled>Protect PDF</button>
+    </div>
+    <p id="engine-status" class="hint" role="status" aria-live="polite"></p>
+    <div id="result" class="result" hidden>
+      <h3>Protected</h3>
+      <p id="result-info"></p>
+      <button id="download-btn" class="btn" type="button">Download PDF</button>
+    </div>
+  </section>
+  <script>
+    import { initProtectPdf } from '../tools/protect-pdf';
+    initProtectPdf();
+  </script>
+</ToolPage>

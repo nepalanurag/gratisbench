@@ -10,6 +10,11 @@ export function initHomeDemo(): void {
   const dl = document.getElementById('demo-qr-dl') as HTMLButtonElement | null;
   const err = document.getElementById('demo-qr-err');
   if (!input || !img || !dl) return;
+  // Narrowed aliases: TS does not propagate the guard's narrowing into the
+  // nested render() closure, so bind the non-null values to fresh consts.
+  const textInput: HTMLInputElement = input;
+  const qrImg: HTMLImageElement = img;
+  const dlBtn: HTMLButtonElement = dl;
 
   let current = '';
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -17,23 +22,23 @@ export function initHomeDemo(): void {
 
   async function render() {
     const mine = ++seq;
-    const text = input.value.trim();
+    const text = textInput.value.trim();
     if (err) err.hidden = true;
     if (!text) {
       current = '';
-      img.hidden = true;
+      qrImg.hidden = true;
       if (empty) empty.hidden = false;
-      dl.disabled = true;
+      dlBtn.disabled = true;
       return;
     }
     try {
       const url = await makeQrPng({ text, size: 512, errorCorrection: 'M' });
       if (mine !== seq) return; // a newer keystroke already started
       current = url;
-      img.src = url;
-      img.hidden = false;
+      qrImg.src = url;
+      qrImg.hidden = false;
       if (empty) empty.hidden = true;
-      dl.disabled = false;
+      dlBtn.disabled = false;
     } catch (e) {
       if (mine !== seq) return;
       if (err) {
@@ -43,15 +48,15 @@ export function initHomeDemo(): void {
     }
   }
 
-  input.addEventListener('input', () => {
+  textInput.addEventListener('input', () => {
     clearTimeout(timer);
     timer = setTimeout(render, 250);
   });
-  dl.addEventListener('click', () => {
+  dlBtn.addEventListener('click', () => {
     if (!current) return;
     const a = document.createElement('a');
     a.href = current;
-    a.download = 'gratisbench-qr.png';
+    a.download = 'truepdf-qr.png';
     document.body.appendChild(a);
     a.click();
     a.remove();

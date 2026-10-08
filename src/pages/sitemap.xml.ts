@@ -7,7 +7,7 @@ import type { APIRoute } from 'astro';
 const pageFiles = import.meta.glob('./*.astro');
 
 export const GET: APIRoute = ({ site }) => {
-  const base = (site?.toString() ?? 'https://gratisbench.vercel.app/').replace(/\/$/, '');
+  const base = (site?.toString() ?? 'https://www.truepdf.com/').replace(/\/$/, '');
 
   const urls = Object.keys(pageFiles)
     .map((p) => p.replace(/^\.\//, '').replace(/\.astro$/, ''))

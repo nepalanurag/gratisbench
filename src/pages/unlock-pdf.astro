@@ -2,10 +2,10 @@
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
 
-const title = 'Unlock PDF - Remove Password from PDF Online';
+const title = 'Unlock PDF Free — Remove Password, No Signup, Files Stay on Device';
 const description =
   'Remove password protection from a PDF when you know the password. Free, no signup, no watermark. Your files never leave your browser.';
-const h1 = 'Unlock a PDF';
+const h1 = 'Unlock PDF';
 const lede = 'Remove the password from a PDF you own. You need to know the password; this is not a cracker. Free, no account.';
 ---
 <ToolPage
@@ -14,7 +14,7 @@ const lede = 'Remove the password from a PDF you own. You need to know the passw
   h1={h1}
   lede={lede}
   crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Unlock PDF', href: '/unlock-pdf' }]}
-  toolName="GratisBench Unlock PDF"
+  toolName="TruePDF Unlock PDF"
   intro={[
     'A password-protected PDF is a small daily annoyance: you set the password yourself two years ago, or a bank sent you a statement locked with one, and now every open means typing it again. Some tools that remove the password want you to upload the file first, which is exactly the wrong trade for a document you bothered to lock.',
     'This tool removes the password on your device. Give it the file and the password, and it writes out a new PDF with no password on it. The content is untouched: same pages, same text, same quality. If the password is wrong, it tells you plainly instead of producing a broken file.',
@@ -51,6 +51,36 @@ const lede = 'Remove the password from a PDF you own. You need to know the passw
     {
       q: 'My PDF opens without a password but still asks for one when I try to print. Will this fix it?',
       a: 'Usually yes. That is an owner password restricting actions like printing or copying while leaving viewing open. If you can open the file, supply the password you have (or leave it blank and try) and the output will carry no restrictions.',
+    },
+    {
+      q: 'Can I remove the password from a bank statement?',
+      a: 'If you know the password, yes — that is exactly the case this tool is for. Banks, utilities, and brokerages password-protect statements, which then cannot be merged, compressed, or edited. Unlock them first, then use the other tools freely.',
+    },
+    {
+      q: 'Why is it legal to use this tool?',
+      a: 'This tool only decrypts files for which you already have the password — it cannot guess or crack an unknown password. Removing protection you were given access to, on documents you own, is an ordinary file-management operation.',
+    },
+    {
+      q: 'Will the unlocked PDF keep working with my other PDF tools?',
+      a: 'That is the point. Merging, splitting, compression, and redaction all refuse encrypted files, so unlocking is the standard first step before any of those jobs on a protected document.',
+    },
+    {
+      q: 'Do I need to install anything?',
+      a: 'No. The decryption runs in your browser using code that ships with this page. Nothing is installed, nothing is uploaded, and the tool works offline once the page has loaded.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Bank and brokerage statements',
+      p: 'Financial statements arrive password-protected, which blocks merging, compression, and editing. Unlock the statement once and it becomes an ordinary PDF you can actually work with.',
+    },
+    {
+      h: 'Preparing protected PDFs for other tools',
+      p: 'Encrypted PDFs cannot be merged, split, compressed, or converted. Unlocking is the standard first step before those jobs.',
+    },
+    {
+      h: 'Removing printing and copying restrictions',
+      p: 'Some PDFs open freely but refuse to print or let you copy text. Supply the owner password here and the output carries no restrictions.',
     },
   ]}
 >

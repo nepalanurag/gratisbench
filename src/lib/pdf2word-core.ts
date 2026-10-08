@@ -25,6 +25,15 @@ export interface TextLine {
   height: number;
   fontSize: number;
   bold: boolean;
+  /** Per-item styled fragments in reading order; join their text to get `text`. */
+  runs: StyledRun[];
+}
+
+/** A fragment of text with uniform bold/italic styling. */
+export interface StyledRun {
+  text: string;
+  bold: boolean;
+  italic: boolean;
 }
 
 export type BlockKind = 'h1' | 'h2' | 'h3' | 'p';
@@ -33,6 +42,8 @@ export interface TextBlock {
   kind: BlockKind;
   text: string;
   y: number; // y of the block's first line, PDF points (y-up)
+  /** Styled fragments across the block's lines; absent on blocks built by older callers. */
+  runs?: StyledRun[];
 }
 
 /** An embedded image extracted from a page, as PNG bytes. */
@@ -74,6 +85,29 @@ function leftX(item: TextItemLike): number {
 
 function isBoldFont(fontName: string | undefined): boolean {
   return /bold|black|heavy|demi|extra-bold/i.test(fontName ?? '');
+}
+
+function isItalicFont(fontName: string | undefined): boolean {
+  return /italic|oblique/i.test(fontName ?? '');
+}
+
+/** Coalesce consecutive runs that share the same styling. */
+function mergeRuns(runs: StyledRun[]): StyledRun[] {
+  const out: StyledRun[] = [];
+  for (const r of runs) {
+    const last = out[out.length - 1];
+    if (last && last.bold === r.bold && last.italic === r.italic) {
+      last.text += r.text;
+    } else {
+      out.push({ ...r });
+    }
+  }
+  // Same whitespace normalization the line-level `text` gets: collapse
+  // doubles and trim the ends, without joining runs of different styling.
+  for (const r of out) r.text = r.text.replace(/\s+/g, ' ');
+  if (out.length > 0) out[0].text = out[0].text.replace(/^\s+/, '');
+  if (out.length > 0) out[out.length - 1].text = out[out.length - 1].text.replace(/\s+$/, '');
+  return out.filter((r) => r.text.length > 0);
 }
 
 function median(nums: number[]): number {
@@ -122,14 +156,24 @@ export function groupItemsIntoLines(items: TextItemLike[]): TextLine[] {
 
     let text = '';
     let prevEnd = -Infinity;
+    const runs: StyledRun[] = [];
     for (const it of byX) {
       const x = leftX(it);
+      let piece = it.str;
       if (text.length > 0) {
         const gap = x - prevEnd;
         const needSpace = gap > avgChar * 0.35 && !text.endsWith(' ') && !it.str.startsWith(' ');
-        if (needSpace) text += ' ';
+        if (needSpace) piece = ' ' + piece;
       }
-      text += it.str;
+      text += piece;
+      const bold = isBoldFont(it.fontName);
+      const italic = isItalicFont(it.fontName);
+      const last = runs[runs.length - 1];
+      if (last && last.bold === bold && last.italic === italic) {
+        last.text += piece;
+      } else {
+        runs.push({ text: piece, bold, italic });
+      }
       prevEnd = x + it.width;
     }
 
@@ -148,6 +192,7 @@ export function groupItemsIntoLines(items: TextItemLike[]): TextLine[] {
       height: Math.max(...byX.map((it) => it.height)),
       fontSize: sizes.length ? median(sizes) : 0,
       bold: totalChars > 0 && boldChars / totalChars >= 0.6,
+      runs: mergeRuns(runs),
     };
   });
 }
@@ -211,7 +256,17 @@ export function linesToBlocks(pagesLines: TextLine[][]): TextBlock[][] {
         .replace(/\s+/g, ' ')
         .trim();
       if (text.length > 0) {
-        blocks.push({ kind: classifyParagraph(current, bodySize), text, y: current[0].y });
+        // Join the lines' styled runs with a space, then coalesce: wrapped
+        // lines usually share styling, so most paragraphs collapse to a
+        // handful of runs.
+        const runs = mergeRuns(
+          current.flatMap((l, i) =>
+            i === 0
+              ? l.runs
+              : [{ text: ' ', bold: false, italic: false }, ...l.runs]
+          )
+        );
+        blocks.push({ kind: classifyParagraph(current, bodySize), text, y: current[0].y, runs });
       }
       current = [];
     };
@@ -262,6 +317,9 @@ function headingLevel(kind: BlockKind): (typeof HeadingLevel)[keyof typeof Headi
  * Assemble the .docx bytes. Blocks and images are interleaved in reading
  * order per page; headings get real Word heading styles, body text gets the
  * Normal style, images are embedded inline in their own paragraphs.
+ * Bold and italic styling from the source PDF survive as Word character
+ * formatting (blocks built by older callers without `runs` fall back to
+ * plain text).
  */
 export async function assembleDocx(pages: DocPage[], title = 'Converted document'): Promise<Uint8Array> {
   const children: Paragraph[] = [];
@@ -270,10 +328,18 @@ export async function assembleDocx(pages: DocPage[], title = 'Converted document
     for (const item of orderPageContent(page)) {
       if (item.type === 'block') {
         const b = item.block;
+        const runs = b.runs ?? [{ text: b.text, bold: false, italic: false }];
         children.push(
           new Paragraph({
             heading: headingLevel(b.kind),
-            children: [new TextRun(b.text)],
+            children: runs.map(
+              (r) =>
+                new TextRun({
+                  text: r.text,
+                  bold: r.bold || undefined,
+                  italics: r.italic || undefined,
+                })
+            ),
           })
         );
         emitted++;
@@ -300,7 +366,7 @@ export async function assembleDocx(pages: DocPage[], title = 'Converted document
   }
   const doc = new Document({
     title,
-    creator: 'GratisBench PDF to Word',
+    creator: 'TruePDF PDF to Word',
     sections: [{ children }],
   });
   // Packer.toBuffer() needs Node's Buffer and throws in browsers

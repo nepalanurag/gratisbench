@@ -3,22 +3,22 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { basePath, GITHUB_REPO } from '../lib/site';
 import { TOOL_GROUPS } from '../lib/tools';
 
-const title = 'Feedback - LocalPDF Free Tools';
+const title = 'Feedback - TruePDF Free Tools';
 const description =
-  'Report a bug, request a feature, or suggest a tool for the LocalPDF free tools. Feedback opens as a GitHub issue so it stays public and trackable.';
+  'Report a bug, request a feature, or suggest a tool for the TruePDF free tools. Feedback opens as a GitHub issue so it stays public and trackable.';
 ---
 
 <BaseLayout title={title} description={description}>
   <div class="wrap">
     <div class="page-head">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href={basePath('/')}>LocalPDF</a>
+        <a href={basePath('/')}>TruePDF</a>
         <span><span class="sep">/</span>Feedback</span>
       </nav>
       <h1>Feedback</h1>
       <p class="tool-desc">
         Found a bug, want a feature, or have a tool idea? Write it below. It
-        opens as a GitHub issue on the LocalPDF repo so it stays public and
+        opens as a GitHub issue on the TruePDF repo so it stays public and
         trackable. You need a GitHub account to post.
       </p>
     </div>
@@ -100,7 +100,7 @@ const description =
       const lines = ['Category: ' + category];
       if (tool) lines.push('Tool: ' + tool);
       if (contact) lines.push('Contact: ' + contact);
-      lines.push('', message, '', '---', 'Sent from the LocalPDF feedback page.');
+      lines.push('', message, '', '---', 'Sent from the TruePDF feedback page.');
       const url =
         'https://github.com/' +
         repo +

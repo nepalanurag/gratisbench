@@ -13,7 +13,7 @@ interface Props {
 
 const { title, description, canonical, noindex, jsonLd } = Astro.props;
 const site = siteUrl(Astro.site); // from SITE_URL env, placeholder until launch
-// Astro.url.pathname already includes the base path (e.g. /localpdf/ on
+// Astro.url.pathname already includes the base path (e.g. /truepdf/ on
 // GitHub Pages), and `site` includes it too, so strip it before joining.
 // Otherwise the canonical doubles the path and points at a nonexistent page.
 const path = stripBase(Astro.url.pathname);
@@ -104,14 +104,14 @@ const pageUrl = canonical ?? site + path;
   <body>
     <header class="site-header">
       <div class="wrap">
-        <a class="brand" href={basePath('/')} aria-label="LocalPDF home">
+        <a class="brand" href={basePath('/')} aria-label="TruePDF home">
           <svg class="brand-mark" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
             <rect width="26" height="26" rx="6" fill="#b3242c" />
             <path d="M9.5 6.5h5.8l4.2 4.2V20a1.5 1.5 0 0 1-1.5 1.5H9.5A1.5 1.5 0 0 1 8 20V8a1.5 1.5 0 0 1 1.5-1.5z" fill="#fff" />
             <path d="M15.3 6.5v4.2h4.2" fill="none" stroke="#b3242c" stroke-width="1.6" stroke-linejoin="round" />
             <path d="M11 14.5h5.5M11 17.5h5.5" stroke="#b3242c" stroke-width="1.6" stroke-linecap="round" />
           </svg>
-          LocalPDF
+          TruePDF
         </a>
         <nav class="site-nav" id="fk-nav" aria-label="Main">
           <a href={basePath('/pdf-tools')}>PDF</a>
@@ -169,14 +169,14 @@ const pageUrl = canonical ?? site + path;
     <footer class="site-footer">
       <div class="wrap">
         <div class="foot-top">
-          <a class="brand" href={basePath('/')} aria-label="LocalPDF home">
+          <a class="brand" href={basePath('/')} aria-label="TruePDF home">
             <svg class="brand-mark" width="22" height="22" viewBox="0 0 26 26" aria-hidden="true">
               <rect width="26" height="26" rx="6" fill="#b3242c" />
               <path d="M9.5 6.5h5.8l4.2 4.2V20a1.5 1.5 0 0 1-1.5 1.5H9.5A1.5 1.5 0 0 1 8 20V8a1.5 1.5 0 0 1 1.5-1.5z" fill="#fff" />
               <path d="M15.3 6.5v4.2h4.2" fill="none" stroke="#b3242c" stroke-width="1.6" stroke-linejoin="round" />
               <path d="M11 14.5h5.5M11 17.5h5.5" stroke="#b3242c" stroke-width="1.6" stroke-linecap="round" />
             </svg>
-            LocalPDF
+            TruePDF
           </a>
         </div>
         <p class="foot-fine">Built by Anurag. No cookies, no accounts.</p>

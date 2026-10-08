@@ -2,10 +2,10 @@
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
 
-const title = 'Sign PDF - Free Online PDF Signature Tool';
+const title = 'Sign PDF Free — Draw Signatures, No Signup, No Watermark';
 const description =
   'Sign a PDF online for free, in your browser. Draw your signature or type your name, place it on any page, download the signed copy. No signup, no watermark.';
-const h1 = 'Sign a PDF';
+const h1 = 'Sign PDF';
 const lede = 'Draw or type your signature, click where it goes, download the signed PDF. Free, no account, no watermark.';
 ---
 <ToolPage
@@ -14,17 +14,17 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
   h1={h1}
   lede={lede}
   crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Sign PDF', href: '/pdf-esignature' }]}
-  toolName="GratisBench Sign PDF"
+  toolName="TruePDF Sign PDF"
   intro={[
     'Signing a PDF usually means one of two annoyances: printing it, signing with a pen, and scanning it back in, or creating an account with a signature service that wants your email before it will let you draw three letters. For everyday documents, a consent form, a freelance contract, a school permission slip, that is a lot of ceremony for a squiggle.',
     'This tool keeps it simple. Draw your signature with a mouse, trackpad, or finger on the pad, or type your name and get a script-style rendering of it. Then click on any page of your PDF to place it exactly where you want. The signature is flattened into the document as part of the page, so the downloaded file looks signed everywhere it is opened, with no special software needed to view it.',
     'One honest note: this is a simple drawn or typed mark on the document, the digital equivalent of signing with a pen. It is not a cryptographic digital signature with a certificate, which is a different thing used for high-assurance legal workflows. For everyday agreements it is exactly what people mean by "sign this PDF". Everything runs in your browser, so the document you are signing never leaves your device.',
   ]}
   steps={[
-    'Draw your signature on the pad with a mouse, trackpad, or finger, then click "Use this signature". Prefer typing? Switch to the Type tab, enter your name, and click "Create signature".',
+    'Make your signature: draw it on the pad and click "Use this signature"; or switch to the Type tab for a script-style rendering; or use the Photo tab to snap your ink signature on paper and have the background removed automatically.',
     'Drop your PDF onto the box, or click it to browse. A preview of every page appears.',
     'Click on a page where the signature should go. It lands centered on your click.',
-    'Adjust the size slider if the signature needs to be bigger or smaller, then click again to reposition.',
+    'Adjust the size slider if the signature needs to be bigger or smaller. Drag a placed signature to nudge it; click again on a page to add another one.',
     'Click "Sign and download" to get the signed copy. Place it on several pages first if the document needs more than one signature.',
   ]}
   specs={[
@@ -32,8 +32,8 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
     ['Signup', 'None. No account, no email.'],
     ['Watermark', 'None. The output is your document with your signature, nothing added.'],
     ['Where files are processed', 'In your browser, on your device'],
-    ['Signature styles', 'Draw freehand, or type your name for a script-style rendering'],
-    ['Placement', 'Click to place on any page; size slider; one signature per page (click again to move it)'],
+    ['Signature styles', 'Draw freehand, type your name for a script rendering, or upload a photo of your ink signature (background lifted automatically)'],
+    ['Placement', 'Click to place on any page, several per page; drag to reposition; size slider'],
     ['How it is stored', 'Flattened into the page as an image; visible in any PDF reader'],
     ['Signature type', 'A drawn or typed mark, not a certificate-based digital signature'],
     ['Output filename', 'Your original name with "-signed" added'],
@@ -50,7 +50,7 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
     },
     {
       q: 'Can I sign multiple pages?',
-      a: 'Yes. Click on each page that needs a signature; the placements are listed so you can review them before downloading. Clicking a page that already has a signature moves it to the new spot. Each placement can be removed individually from the list.',
+      a: 'Yes. Click on each page that needs a signature, as many times as you like: several signatures can share one page. The placements are listed so you can review them before downloading, and each one can be removed individually. Drag any placed signature on the page preview to reposition it, or focus it and nudge it with the arrow keys.'
     },
     {
       q: 'My handwriting with a mouse is terrible. Any tips?',
@@ -68,6 +68,24 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
       q: 'Are my documents uploaded anywhere?',
       a: 'No. The signature and the PDF are combined entirely in your browser. Nothing is sent to a server, which matters when the document you are signing is private.',
     },
+    {
+      q: 'Can I place my signature on a specific spot on the page?',
+      a: 'Yes. Click the page where the signature should go and it is placed there at a readable size, then drag it into position over the signature line. Placements can also be nudged with the keyboard arrow keys for fine control.'
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Contracts and offer letters',
+      p: 'Sign a contract, NDA, or offer letter from your laptop without printing, signing, and scanning. Draw your signature once and place it on the signature line.',
+    },
+    {
+      h: 'Rental and HR paperwork',
+      p: 'Lease agreements, tax forms, and onboarding documents all need a signature before they move forward. Type or draw it and return the signed PDF the same day.',
+    },
+    {
+      h: 'Freelance invoices and approvals',
+      p: 'Approve a quote or sign off on delivered work by placing your signature on the document itself, then email the signed copy back.',
+    },
   ]}
 >
   <section class="tool-card" slot="tool" aria-label="Sign PDF tool">
@@ -75,6 +93,7 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
     <div class="tab-bar" role="tablist" aria-label="Signature style">
       <button type="button" id="sig-tab-draw" class="tab-btn tab-active" role="tab" aria-selected="true">Draw</button>
       <button type="button" id="sig-tab-type" class="tab-btn" role="tab" aria-selected="false">Type</button>
+      <button type="button" id="sig-tab-photo" class="tab-btn" role="tab" aria-selected="false">Photo</button>
     </div>
     <div id="sig-panel-draw">
       <canvas id="sig-pad" class="sig-pad" width="520" height="180" aria-label="Draw your signature here"></canvas>
@@ -92,6 +111,17 @@ const lede = 'Draw or type your signature, click where it goes, download the sig
       <div class="btn-row">
         <button id="sig-create" class="btn" type="button">Create signature</button>
       </div>
+    </div>
+    <div id="sig-panel-photo" hidden>
+      <div class="field">
+        <label for="sig-photo-input">Photo of your signature</label>
+        <input type="file" id="sig-photo-input" accept="image/*" />
+        <p class="hint">Snap your signature on white paper. The background is lifted off automatically; dark ink on plain paper works best. The removal runs on your device (one-time ~40 MB model download).</p>
+      </div>
+      <div class="btn-row">
+        <button id="sig-use-photo" class="btn" type="button" disabled>Use this photo</button>
+      </div>
+      <p id="sig-photo-status" class="hint" role="status" aria-live="polite"></p>
     </div>
     <div class="sig-preview-box">
       <img id="sig-preview" alt="Your signature" hidden />

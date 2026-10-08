@@ -17,9 +17,10 @@ interface Props {
   steps: string[];
   specs: [string, string][];
   faqs: Faq[];
+  usecases?: { h: string; p: string }[];
 }
 
-const { title, description, h1, lede, crumbs, toolName, intro, steps, specs, faqs } = Astro.props;
+const { title, description, h1, lede, crumbs, toolName, intro, steps, specs, faqs, usecases = [] } = Astro.props;
 const site = siteUrl(Astro.site);
 // siteUrl() already includes the base path, so strip it from the pathname
 // before joining (same doubling bug as the canonical once had).
@@ -40,7 +41,7 @@ const jsonLd = [
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'GratisBench', item: site + '/' },
+      { '@type': 'ListItem', position: 1, name: 'TruePDF', item: site + '/' },
       ...crumbs.map((c, i) => ({
         '@type': 'ListItem',
         position: i + 2,
@@ -65,14 +66,19 @@ const jsonLd = [
   <div class="wrap">
     <div class="page-head">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href={basePath('/')}>GratisBench</a>
+        <a href={basePath('/')}>TruePDF</a>
         {crumbs.map((c) => (
           <span><span class="sep">/</span><a href={basePath(c.href)}>{c.label}</a></span>
         ))}
       </nav>
       <h1>{h1}</h1>
       <p class="tool-desc">{lede}</p>
-      <p class="privacy-line">Your files never leave your device. Everything runs in this tab.</p>
+      <p class="trust-row" aria-label="This tool is free with no watermark, no signup, and files stay on your device">
+        <span><span class="tick">&#10003;</span> 100% Free</span>
+        <span><span class="tick">&#10003;</span> No Watermark</span>
+        <span><span class="tick">&#10003;</span> No Signup</span>
+        <span><span class="tick">&#10003;</span> Files never leave your device</span>
+      </p>
     </div>
 
     <!-- Ad slot: above the tool (AdSense display unit goes here) -->
@@ -105,6 +111,18 @@ const jsonLd = [
           {specs.map(([k, v]) => <tr><th scope="row">{k}</th><td>{v}</td></tr>)}
         </tbody>
       </table>
+
+      {usecases.length > 0 && (
+        <>
+          <h2>Common uses</h2>
+          {usecases.map((u) => (
+            <div class="usecase">
+              <h3>{u.h}</h3>
+              <p>{u.p}</p>
+            </div>
+          ))}
+        </>
+      )}
 
       <h2>Common questions</h2>
       <dl>

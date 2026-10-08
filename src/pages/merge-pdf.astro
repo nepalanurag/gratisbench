@@ -2,10 +2,10 @@
 import ToolPage from '../layouts/ToolPage.astro';
 import Icon from '../components/Icon.astro';
 
-const title = 'Merge PDF - Free Online PDF Merger';
+const title = 'Merge PDF Free — Combine PDFs, No Upload, No Watermark';
 const description =
   'Combine multiple PDF files into one document for free. No signup, no watermark, no daily limits. Your files never leave your browser.';
-const h1 = 'Merge PDF files';
+const h1 = 'Merge PDF';
 const lede = 'Combine several PDFs into a single document, in whatever order you like. Free, no account, no watermark.';
 ---
 <ToolPage
@@ -14,7 +14,7 @@ const lede = 'Combine several PDFs into a single document, in whatever order you
   h1={h1}
   lede={lede}
   crumbs={[{ label: 'PDF tools', href: '/pdf-tools' }, { label: 'Merge PDF', href: '/merge-pdf' }]}
-  toolName="GratisBench Merge PDF"
+  toolName="TruePDF Merge PDF"
   intro={[
     'Merging PDFs is one of those small jobs that always arrives at the wrong moment: a contract split across three scans, receipts scattered through your downloads folder, a report that needs its appendix attached before a deadline. Most online mergers handle it, but they cap you at two merges a day, stamp a watermark on the result, or quietly upload your documents to a server you will never see.',
     'This merger does the whole job inside your browser. Your files are read locally, the pages are stitched together locally, and the merged PDF is generated locally. Nothing is uploaded, nothing is stored, and there is no account standing between you and the download button. When the tab closes, your files are gone from everywhere except your own computer.',
@@ -59,8 +59,30 @@ const lede = 'Combine several PDFs into a single document, in whatever order you
       a: 'This tool merges whole files. If you need selected pages, use the split tool first to extract the pages you want, then merge the results here.',
     },
     {
+      q: 'Do merged PDFs keep bookmarks and form fields?',
+      a: 'Pages are copied into the new document, so interactive elements from the originals are not guaranteed to survive. For plain reading, printing, and archiving — the common case — everything works as expected.',
+    },
+    {
+      q: 'How do I change the order of the PDFs?',
+      a: 'Use the up and down arrows on each file row after adding them. The list order is exactly the page order in the merged PDF, so check the sequence before clicking merge.',
+    },
+    {
       q: 'Why does my PDF fail to merge?',
       a: 'The usual cause is a password-protected PDF, which cannot be opened without the password. Corrupt or malformed files can also fail. If a file will not merge, check that it opens normally in your PDF reader first.',
+    },
+  ]}
+  usecases={[
+    {
+      h: 'Contracts and application packets',
+      p: 'A signed contract split across three scans, a CV plus cover letter plus references, or a report that needs its appendix attached before a deadline: merge them into one file so nothing arrives out of order.',
+    },
+    {
+      h: 'Receipt and invoice bundles',
+      p: 'Monthly expenses scattered through your downloads folder become one document for bookkeeping or expense claims. Merge in chronological order and keep one file per month.',
+    },
+    {
+      h: 'Assembling research materials',
+      p: 'Combine papers, figures, and supplementary PDFs into a single reading file. Because pages are copied as-is, text stays selectable and searchable in the merged document.',
     },
   ]}
 >

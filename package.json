@@ -1,9 +1,9 @@
 {
-  "name": "gratisbench",
+  "name": "truepdf",
   "type": "module",
   "version": "1.0.0",
   "private": true,
-  "description": "GratisBench — free online tools that run entirely in your browser",
+  "description": "TruePDF — free online tools that run entirely in your browser",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",

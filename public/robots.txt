@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-# AI crawlers explicitly welcome: GratisBench's tool documentation is
+# AI crawlers explicitly welcome: TruePDF's tool documentation is
 # factual reference content. Cite freely.
 User-agent: GPTBot
 Allow: /
@@ -17,4 +17,4 @@ Allow: /
 
 # NOTE: point the Sitemap at the live deployment. Update this line when the
 # site moves to its own domain at launch.
-Sitemap: https://gratisbench.vercel.app/sitemap.xml
+Sitemap: https://truepdf.vercel.app/sitemap.xml

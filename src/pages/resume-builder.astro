@@ -15,16 +15,16 @@ const lede =
   h1={h1}
   lede={lede}
   crumbs={[{ label: 'Resume builder', href: '/resume-builder' }]}
-  toolName="GratisBench Resume Builder"
+  toolName="TruePDF Resume Builder"
   intro={[
     'Most "free" resume builders run the same play: they let you build for free, then hold the finished resume hostage at the download button. An hour of careful writing ends at a paywall, a trial that quietly converts to a subscription, or a watermark stamped across the page unless you pay. The building is free because the building is not the product. Your finished resume is the product, and that is exactly what they charge for. Call it the pay-to-download trap.',
     'This builder is structured so the trap is impossible. There is no server, no account system, and no billing page to bolt a paywall onto. Your words are saved in your own browser, and the PDF download is just your browser printing the page to a file, something no website can charge you for or take away. The resume on your screen and the PDF you send to employers are the same document, and there is no step where a price appears.',
-    'You get three templates designed like documents a hiring manager would take seriously: Classic, the traditional single-column serif layout and the safest choice for applicant tracking systems; Modern, a two-column layout with a sidebar for contact details and skills; and Compact, a dense one-pager for fitting a full career on a single sheet. Every section is editable, entries can be added, removed, and reordered, and a live preview shows exactly what the PDF will look like.',
+    'You get three templates designed like documents a hiring manager would take seriously: Classic, the traditional single-column serif layout and the safest choice for applicant tracking systems; Modern, a two-column layout with a sidebar for contact details and skills; and Compact, a dense one-pager for fitting a full career on a single sheet. Every section is editable, sections can be shown, hidden, and reordered, entries can be added, removed, and reordered, and a live preview shows exactly what the PDF will look like.',
   ]}
   steps={[
     'Pick a template above the editor: Classic, Modern, or Compact. You can switch at any time without losing anything you typed.',
     'Fill in your contact details and professional summary. Add work experience entries with the "Add position" button, one bullet per line, most recent job first.',
-    'Add your education, then group your skills so they scan quickly. Projects, certifications, and languages are optional and can be left empty.',
+    'Add your education, then group your skills so they scan quickly. Projects, certifications, languages, awards, publications, volunteer work, and courses are optional and can be left empty or hidden with the Show toggle.',
     'Reorder entries with the up and down arrows until the story reads the way you want. Remove anything that does not earn its space.',
     'Check the live preview beside the editor (or the Preview tab on a phone). What you see is what the PDF will contain.',
     'Click "Download PDF". Your browser\u2019s print dialog opens; choose "Save as PDF" as the destination and save the file. That is the whole transaction: there is no checkout, because there is nothing to buy.',
@@ -36,7 +36,7 @@ const lede =
     ['Where your resume is stored', 'In this browser only (local storage). Nothing is uploaded.'],
     ['PDF export', 'Browser print to PDF. Choose "Save as PDF" in the print dialog.'],
     ['Templates', 'Classic (most ATS-safe), Modern (sidebar), Compact (one-pager)'],
-    ['Sections', 'Contact, summary, experience, education, skills, projects, certifications, languages'],
+    ['Sections', 'Contact, summary, experience, education, skills, projects, certifications, languages, awards, publications, volunteer, courses. Sections can be toggled on/off and reordered.'],
     ['ATS note', 'Classic uses standard single-column formatting. No template guarantees ATS parsing.'],
     ['Works offline', 'Yes, once the page has loaded'],
   ]}
