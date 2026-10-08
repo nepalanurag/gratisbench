@@ -142,6 +142,15 @@ export function initVideoCompressor(): void {
           },
         });
         const out = new Uint8Array(await blob.arrayBuffer());
+        if (out.length >= file.size) {
+          setProgress(100, 'Done.');
+          el('result').hidden = false;
+          const biggerPct = Math.round((out.length / file.size - 1) * 100);
+          el('result-info').textContent =
+            `Compressed file is ${formatBytes(out.length)} — ${biggerPct}% larger than the original ${formatBytes(file.size)}. The original is already well compressed; keeping it is the better option.`;
+          setBusy('compress-btn', false);
+          return;
+        }
         downloadBytes(outName, out, 'video/mp4');
         setProgress(100, 'Done.');
         el('result').hidden = false;
@@ -198,13 +207,21 @@ export function initVideoCompressor(): void {
       ]);
       const data = (await ffmpeg.readFile(outName2)) as Uint8Array;
       const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
-      downloadBytes(outName, out, 'video/mp4');
-      setProgress(100, 'Done.');
-      el('result').hidden = false;
-      suggestNextSteps('result', 'video-compressor');
-      const savedPct = Math.round((1 - out.length / file.size) * 100);
-      el('result-info').textContent =
-        `${outName} · ${formatBytes(out.length)} (was ${formatBytes(file.size)}, ${savedPct}% smaller)`;
+      if (out.length >= file.size) {
+        setProgress(100, 'Done.');
+        el('result').hidden = false;
+        const biggerPct = Math.round((out.length / file.size - 1) * 100);
+        el('result-info').textContent =
+          `Compressed file is ${formatBytes(out.length)} — ${biggerPct}% larger than the original ${formatBytes(file.size)}. The original is already well compressed; keeping it is the better option.`;
+      } else {
+        downloadBytes(outName, out, 'video/mp4');
+        setProgress(100, 'Done.');
+        el('result').hidden = false;
+        suggestNextSteps('result', 'video-compressor');
+        const savedPct = Math.round((1 - out.length / file.size) * 100);
+        el('result-info').textContent =
+          `${outName} · ${formatBytes(out.length)} (was ${formatBytes(file.size)}, ${savedPct}% smaller)`;
+      }
     } catch (err) {
       showError('error-box', ffmpegErrorMessage(err));
     } finally {
