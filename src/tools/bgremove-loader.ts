@@ -7,13 +7,27 @@ type BgRemoval = typeof import('@imgly/background-removal');
 
 let bgRemovalPromise: Promise<BgRemoval> | null = null;
 
+/** How long the ~40MB model may take to download before we give up loudly. */
+const LOAD_TIMEOUT_MS = 180_000;
+
 /**
  * Load the background-removal engine on demand and return a shared module.
  * A failed load clears the cached promise so the user can retry.
+ * The load races a timeout: a stalled download must surface an error,
+ * never leave the tool stuck on "Preparing…" forever.
  */
 export function loadBackgroundRemoval(): Promise<BgRemoval> {
   if (!bgRemovalPromise) {
-    bgRemovalPromise = import('@imgly/background-removal');
+    bgRemovalPromise = (async () => {
+      const load = import('@imgly/background-removal');
+      const timeout = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error('The background-removal engine download stalled. Check your connection and try again.')),
+          LOAD_TIMEOUT_MS,
+        );
+      });
+      return Promise.race([load, timeout]);
+    })();
     bgRemovalPromise.catch(() => {
       bgRemovalPromise = null;
     });
