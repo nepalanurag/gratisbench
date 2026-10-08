@@ -40,6 +40,9 @@ interface Item {
   thumb: string;
   resultName: string | null;
   resultData: Uint8Array | null;
+  /** MIME actually used when this item was converted (may differ from the
+   *  currently selected format if the user changed it afterwards). */
+  resultMime: string | null;
 }
 
 const items: Item[] = [];
@@ -52,6 +55,12 @@ const X_SVG =
 
 function selectedFormat(): ImageOutputFormat {
   return el<HTMLSelectElement>('output-select').value as ImageOutputFormat;
+}
+
+/** Human label for a conversion-time MIME, e.g. "image/webp" -> "WEBP". */
+function mimeLabel(mime: string): string {
+  const found = (Object.keys(OUTPUT_MIMES) as ImageOutputFormat[]).find((f) => OUTPUT_MIMES[f] === mime);
+  return found ? found.toUpperCase() : mime.replace(/^image\//, '').toUpperCase();
 }
 
 /** White fill + transparency warning appear only for JPEG output; warn only if alpha is real. */
@@ -99,7 +108,10 @@ function renderList(): void {
       dl.innerHTML = DOWNLOAD_SVG;
       const data = item.resultData;
       const rname = item.resultName;
-      dl.addEventListener('click', () => downloadBytes(rname, data, OUTPUT_MIMES[selectedFormat()]));
+      // Use the MIME from conversion time, not the currently selected format:
+      // the user may have switched formats after converting.
+      const mime = item.resultMime ?? OUTPUT_MIMES[selectedFormat()];
+      dl.addEventListener('click', () => downloadBytes(rname, data, mime));
       actions.appendChild(dl);
     }
     const rm = document.createElement('button');
@@ -120,7 +132,7 @@ function renderList(): void {
     list.appendChild(row);
   });
   el('empty-state').hidden = items.length > 0;
-  el('convert-btn').disabled = items.length === 0;
+  el<HTMLButtonElement>('convert-btn').disabled = items.length === 0;
   refreshJpegUi();
 }
 
@@ -169,6 +181,7 @@ export function initImageConverter(): void {
           thumb: thumbnailDataUrl(img),
           resultName: null,
           resultData: null,
+          resultMime: null,
         });
       } catch {
         showError(
@@ -199,6 +212,7 @@ export function initImageConverter(): void {
         const data = await canvasToImageBytes(canvas, mime, q);
         item.resultName = outputFileName(item.file.name, '-converted', fmt);
         item.resultData = data;
+        item.resultMime = mime;
         renderList();
       }
       updateCount();
@@ -231,9 +245,13 @@ export function initImageConverter(): void {
   function updateCount(): void {
     const done = items.filter((i) => i.resultData);
     el('download-all-btn').hidden = done.length < 2;
+    const fmtLabel =
+      done.length > 0 && done[0].resultMime
+        ? mimeLabel(done[0].resultMime)
+        : selectedFormat().toUpperCase();
     el('count-label').textContent =
       done.length > 0
-        ? `${done.length} converted to ${selectedFormat().toUpperCase()}`
+        ? `${done.length} converted to ${fmtLabel}`
         : items.length === 0
           ? ''
           : `${items.length} image${items.length === 1 ? '' : 's'} ready`;
