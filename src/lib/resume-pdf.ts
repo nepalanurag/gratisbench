@@ -1,7 +1,7 @@
 // Direct PDF generation for the resume builder.
 // Generates a clean, professional, ATS-friendly PDF with clickable links
 // (email, website, LinkedIn, project demo links) — no print dialog needed.
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFFont, PDFPage, PDFName, PDFString, StandardFonts, rgb } from 'pdf-lib';
 import type { ResumeData } from './resume-core.ts';
 import { defaultSectionVisibility, asSectionOrder, type SectionKey } from './resume-core.ts';
 
@@ -30,6 +30,29 @@ function normUrl(u: string): string {
   if (!t) return '';
   if (/^https?:\/\//i.test(t)) return t;
   return 'https://' + t;
+}
+
+/** Add a clickable link annotation to the current page. */
+function addLinkAnnot(ctx: Ctx, x1: number, y1: number, x2: number, y2: number, url: string): void {
+  const annot = ctx.doc.context.obj({
+    Type: PDFName.of('Annot'),
+    Subtype: PDFName.of('Link'),
+    Rect: [x1, y1, x2, y2],
+    Border: [0, 0, 0],
+    A: {
+      Type: PDFName.of('Action'),
+      S: PDFName.of('URI'),
+      URI: PDFString.of(url),
+    },
+  });
+  const ref = ctx.doc.context.register(annot);
+  const pageDict = ctx.page.node;
+  const existing = pageDict.lookupMaybe('Annots');
+  if (existing) {
+    (existing as any).push(ref);
+  } else {
+    pageDict.set(PDFName.of('Annots'), ctx.doc.context.obj([ref]));
+  }
 }
 
 function newPage(ctx: Ctx): void {
@@ -91,31 +114,7 @@ function drawText(
     // Add clickable link annotation
     if (opts.link) {
       const w = font.widthOfTextAtSize(line, size);
-      const annot = ctx.doc.context.obj({
-        Type: 'Annot',
-        Subtype: 'Link',
-        Rect: [lx, ctx.y - size - 2, lx + w, ctx.y + 2],
-        Border: [0, 0, 0],
-        A: {
-          Type: 'Action',
-          S: 'URI',
-          URI: opts.link,
-        },
-      });
-      const annotRef = ctx.doc.context.register(annot);
-      const annots = (ctx.page.node as any).lookupMaybe('Annots');
-      // pdf-lib page node Annots handling
-      const pageDict = ctx.page.node;
-      const existing = pageDict.lookupMaybe('Annots');
-      if (existing) {
-        // Append to existing array - use low-level push via context
-        (existing as any).push(annotRef);
-      } else {
-        const arr = ctx.doc.context.obj([annotRef]);
-        pageDict.set('Annots', arr);
-      }
-      // Silence unused var
-      void annots;
+      addLinkAnnot(ctx, lx, ctx.y - size - 2, lx + w, ctx.y + 2, opts.link);
     }
     ctx.y -= lineH;
   }
@@ -201,21 +200,7 @@ export async function generateResumePdf(resume: ResumeData): Promise<Uint8Array>
         const linkText = line.slice(r.start, r.end);
         const bx = lx + font.widthOfTextAtSize(before, size);
         const bw = font.widthOfTextAtSize(linkText, size);
-        const annot = doc.context.obj({
-          Type: 'Annot',
-          Subtype: 'Link',
-          Rect: [bx, ctx.y - size - 2, bx + bw, ctx.y + 2],
-          Border: [0, 0, 0],
-          A: { Type: 'Action', S: 'URI', URI: r.link },
-        });
-        const ref = doc.context.register(annot);
-        const pageDict = ctx.page.node;
-        const existing = pageDict.lookupMaybe('Annots');
-        if (existing) {
-          (existing as any).push(ref);
-        } else {
-          pageDict.set('Annots', doc.context.obj([ref]));
-        }
+        addLinkAnnot(ctx, bx, ctx.y - size - 2, bx + bw, ctx.y + 2, r.link);
       }
       ctx.y -= size * 1.35;
       ctx.y -= 4;
