@@ -995,6 +995,74 @@ function classifyFont(name: string): { font: 'sans' | 'serif' | 'mono'; bold: bo
   return { font, bold, italic };
 }
 
+/**
+ * Group text fragments into lines. PDF.js often splits a single visual line
+ * into multiple fragments (words or even characters). Grouping them gives
+ * block-level editing: the user edits a whole line, not a fragment.
+ * Two fragments join the same line if their Y positions are within 30% of
+ * the font size and the X gap between them is small (less than the font size).
+ */
+function groupTextItems(fragments: TextItem[]): TextItem[] {
+  if (fragments.length === 0) return [];
+  // Sort by Y (top to bottom), then X (left to right)
+  const sorted = [...fragments].sort((a, b) => a.y - b.y || a.x - b.x);
+  const lines: TextItem[][] = [];
+  for (const frag of sorted) {
+    let placed = false;
+    for (const line of lines) {
+      const first = line[0];
+      // Same line if Y within 30% of font size
+      const yThreshold = first.size * 0.3;
+      if (Math.abs(frag.y - first.y) <= yThreshold) {
+        // Check X gap: fragment should be near the line (not a separate column)
+        const lineRight = Math.max(...line.map((f) => f.x + f.w));
+        const gap = frag.x - lineRight;
+        if (gap < first.size * 2) { // Allow up to 2x font size gap (spaces)
+          line.push(frag);
+          placed = true;
+          break;
+        }
+      }
+    }
+    if (!placed) lines.push([frag]);
+  }
+  // Merge each line's fragments into a single TextItem
+  return lines.map((line) => {
+    line.sort((a, b) => a.x - b.x);
+    const first = line[0];
+    const last = line[line.length - 1];
+    // Join with spaces, but avoid double spaces if fragments already have them
+    let str = line[0].str;
+    for (let i = 1; i < line.length; i++) {
+      const prev = line[i - 1];
+      const curr = line[i];
+      const gap = curr.x - (prev.x + prev.w);
+      // Add a space if there's a significant gap and neither has trailing/leading space
+      if (gap > first.size * 0.2 && !prev.str.endsWith(' ') && !curr.str.startsWith(' ')) {
+        str += ' ';
+      }
+      str += curr.str;
+    }
+    const x = first.x;
+    const y = Math.min(...line.map((f) => f.y));
+    const right = Math.max(...line.map((f) => f.x + f.w));
+    const bottom = Math.max(...line.map((f) => f.y + f.h));
+    return {
+      str,
+      x,
+      y,
+      w: right - x,
+      h: bottom - y,
+      pdfX: first.pdfX,
+      pdfY: first.pdfY,
+      size: first.size,
+      font: first.font,
+      bold: first.bold,
+      italic: first.italic,
+    };
+  });
+}
+
 async function openPageView(pageUid: string): Promise<void> {
   const item = pages.find((p) => p.uid === pageUid);
   if (!item) return;
@@ -1023,7 +1091,7 @@ async function openPageView(pageUid: string): Promise<void> {
     wrap.appendChild(canvas);
 
     const tc = await page.getTextContent();
-    const items: TextItem[] = [];
+    const rawItems: TextItem[] = [];
     for (const raw of tc.items) {
       const ti = raw as unknown as { str: string; transform: number[]; width: number; height: number; fontName: string };
       if (!ti.str.trim()) continue;
@@ -1038,12 +1106,16 @@ async function openPageView(pageUid: string): Promise<void> {
       // Position the hit area so its top aligns with the text ascender top.
       // Use 0.8*size as the ascender estimate (more reliable than ti.height).
       const ascender = size * scale * 0.8;
-      items.push({
+      rawItems.push({
         str: ti.str, x, y: yTop - ascender, w, h: h * 1.25,
         pdfX: e, pdfY: f - size * 0.2, size,
         font: cls.font, bold: cls.bold, italic: cls.italic,
       });
     }
+    // Group fragments into lines: items on the same Y (within 30% of font size)
+    // and with small X gaps belong to the same line. This gives block-level
+    // editing instead of fragment-level (like iLovePDF, not Sejda).
+    const items = groupTextItems(rawItems);
     for (const t of items) {
       const hit = document.createElement('div');
       hit.className = 'ws-text-hit';
