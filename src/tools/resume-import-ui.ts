@@ -48,6 +48,12 @@ export function initResumeImport(): void {
       return n > 0 ? `${n} skills` : '';
     }],
     ['Projects', (r) => (r.projects.length > 0 ? `${r.projects.length} project${r.projects.length === 1 ? '' : 's'}` : '')],
+    ['Certifications', (r) => (r.certifications.length > 0 ? `${r.certifications.length} certification${r.certifications.length === 1 ? '' : 's'}` : '')],
+    ['Languages', (r) => (r.languages.length > 0 ? `${r.languages.length} language${r.languages.length === 1 ? '' : 's'}` : '')],
+    ['Awards', (r) => (r.awards.length > 0 ? `${r.awards.length} award${r.awards.length === 1 ? '' : 's'}` : '')],
+    ['Publications', (r) => (r.publications.length > 0 ? `${r.publications.length} publication${r.publications.length === 1 ? '' : 's'}` : '')],
+    ['Volunteer', (r) => (r.volunteer.length > 0 ? `${r.volunteer.length} role${r.volunteer.length === 1 ? '' : 's'}` : '')],
+    ['Courses', (r) => (r.courses.length > 0 ? `${r.courses.length} course${r.courses.length === 1 ? '' : 's'}` : '')],
   ];
 
   function renderReview(parsed: ParsedResume): void {
