@@ -33,7 +33,7 @@ export async function renderPageToCanvas(
   // White background so transparent page regions do not turn black in JPEGs.
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  await page.render({ canvas, viewport }).promise;
   return canvas;
 }
 
