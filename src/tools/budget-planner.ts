@@ -304,6 +304,12 @@ export function initBudgetPlanner(): void {
 
   el('budget-example').addEventListener('click', () => {
     hideError('budget-error');
+    if (
+      (month().income.length > 0 || month().categories.length > 0) &&
+      !window.confirm(`Replace this month's plan with the example budget? This cannot be undone.`)
+    ) {
+      return;
+    }
     store.months[key] = exampleMonth(key);
     commit();
   });
