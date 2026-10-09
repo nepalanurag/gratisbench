@@ -2,6 +2,11 @@
 // tesseract.js is lazy-loaded from ./tesseract-loader.ts only after the
 // user picks an image. Preprocessing (upscale + grayscale/contrast) runs on
 // a canvas before recognition; tesseract wants roughly 300-DPI text.
+//
+// Region selection: the user can draw as many boxes as they like on the
+// preview. Each region is OCR'd separately and the results are grouped
+// under "Region 1:", "Region 2:", etc. No boxes means the whole image.
+// Sync: 2026-10-08 - ensuring multi-region code is deployed.
 import {
   OCR_LANGUAGES,
   validateOcrOptions,
@@ -22,7 +27,6 @@ import {
   setupDropzone,
   setupPasteHandler,
   loadImage,
-  EtaTracker,
 } from './common.ts';
 
 type OcrWorker = {
@@ -31,17 +35,26 @@ type OcrWorker = {
   terminate: () => Promise<void>;
 };
 
+/** One user-drawn region, in natural (unscaled) image pixels. */
+interface Zone {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  id: number;
+}
+
 let file: File | null = null;
 let objectUrl: string | null = null;
 let worker: OcrWorker | null = null;
 let workerLang: string | null = null;
 let busy = false;
-/** Loaded source image (unrotated); the preview shows the rotated version. */
-let sourceImg: HTMLImageElement | null = null;
-/** Clockwise rotation in degrees: 0, 90, 180, or 270. */
-let rotation = 0;
-/** Selected region in oriented (rotated) image pixels, or null for the whole image. */
-let zone: { x: number; y: number; w: number; h: number } | null = null;
+/** Drawn regions; empty means "read the whole image". */
+let zones: Zone[] = [];
+let nextZoneId = 1;
+
+/** Distinct box colors, cycled per region. */
+const ZONE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2'];
 
 function readOptions(): OcrOptions {
   return validateOcrOptions({
@@ -52,13 +65,10 @@ function readOptions(): OcrOptions {
   });
 }
 
-const etaTracker = new EtaTracker();
-
 function setProgress(percent: number, label: string): void {
   el('progress-wrap').hidden = false;
   el('progress-bar').style.width = `${Math.max(0, Math.min(100, percent))}%`;
-  const eta = etaTracker.eta(percent / 100);
-  el('progress-label').textContent = eta ? `${label} — ${eta}` : label;
+  el('progress-label').textContent = label;
 }
 
 function clearProgress(): void {
@@ -68,51 +78,25 @@ function clearProgress(): void {
 }
 
 /**
- * Draw the source image with the current rotation applied. Used both for the
- * on-screen preview and as the base for preprocessing, so what you see is
- * what gets read.
- */
-function drawOriented(img: HTMLImageElement, deg: number): HTMLCanvasElement {
-  const swap = deg === 90 || deg === 270;
-  const canvas = document.createElement('canvas');
-  canvas.width = swap ? img.naturalHeight : img.naturalWidth;
-  canvas.height = swap ? img.naturalWidth : img.naturalHeight;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Your browser could not create a drawing surface.');
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.rotate((deg * Math.PI) / 180);
-  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-  return canvas;
-}
-
-/** Refresh the on-screen preview from the source image + rotation. */
-function renderPreview(): void {
-  if (!sourceImg) return;
-  const canvas = drawOriented(sourceImg, rotation);
-  el<HTMLImageElement>('preview-img').src = canvas.toDataURL('image/jpeg', 0.92);
-}
-
-/**
- * Preprocess for OCR: crop to the selected zone (if any), optionally upscale
- * small images (tesseract likes text at roughly 300 DPI) and stretch
- * contrast on a grayscale copy. Returns a canvas tesseract can read directly.
+ * Preprocess the picked image for OCR: optionally crop to a region,
+ * optionally upscale small images (tesseract likes text at roughly 300 DPI)
+ * and stretch contrast on a grayscale copy. Returns a canvas tesseract can
+ * read directly. `crop` is in natural image pixels.
  */
 async function preprocessImage(
-  img: HTMLImageElement,
+  src: string,
   opts: OcrOptions,
-  sel: { x: number; y: number; w: number; h: number } | null
+  crop?: { x: number; y: number; w: number; h: number },
 ): Promise<HTMLCanvasElement> {
-  const oriented = drawOriented(img, rotation);
-  let sx = 0;
-  let sy = 0;
-  let sw = oriented.width;
-  let sh = oriented.height;
-  if (sel) {
-    sx = Math.max(0, Math.min(oriented.width - 1, Math.round(sel.x)));
-    sy = Math.max(0, Math.min(oriented.height - 1, Math.round(sel.y)));
-    sw = Math.max(8, Math.min(oriented.width - sx, Math.round(sel.w)));
-    sh = Math.max(8, Math.min(oriented.height - sy, Math.round(sel.h)));
-  }
+  const img = await loadImage(src);
+  const sx = crop ? Math.max(0, Math.min(img.naturalWidth - 1, Math.round(crop.x))) : 0;
+  const sy = crop ? Math.max(0, Math.min(img.naturalHeight - 1, Math.round(crop.y))) : 0;
+  const sw = crop
+    ? Math.max(1, Math.min(img.naturalWidth - sx, Math.round(crop.w)))
+    : img.naturalWidth;
+  const sh = crop
+    ? Math.max(1, Math.min(img.naturalHeight - sy, Math.round(crop.h)))
+    : img.naturalHeight;
   let w = sw;
   let h = sh;
   if (opts.upscaleSmall) {
@@ -128,7 +112,7 @@ async function preprocessImage(
   canvas.height = h;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Your browser could not create a drawing surface.');
-  ctx.drawImage(oriented, sx, sy, sw, sh, 0, 0, w, h);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
   if (opts.enhanceContrast) {
     const imageData = ctx.getImageData(0, 0, w, h);
     const d = imageData.data;
@@ -154,6 +138,149 @@ async function preprocessImage(
     }
   }
   return canvas;
+}
+
+/** Re-render all region boxes as numbered, color-coded overlays. */
+function renderZones(): void {
+  const boxes = document.getElementById('zone-boxes');
+  if (!boxes) return;
+  boxes.innerHTML = '';
+  zones.forEach((z, i) => {
+    const color = ZONE_COLORS[i % ZONE_COLORS.length];
+    const img = document.getElementById('preview-img') as HTMLImageElement | null;
+    const nw = img?.naturalWidth || 1;
+    const nh = img?.naturalHeight || 1;
+    const div = document.createElement('div');
+    div.className = 'zone-box';
+    div.dataset.zoneId = String(z.id);
+    div.style.left = `${(z.x / nw) * 100}%`;
+    div.style.top = `${(z.y / nh) * 100}%`;
+    div.style.width = `${(z.w / nw) * 100}%`;
+    div.style.height = `${(z.h / nh) * 100}%`;
+    div.style.borderColor = color;
+    div.style.backgroundColor = `${color}1a`;
+    div.title = `Region ${i + 1} — click to remove`;
+    const label = document.createElement('span');
+    label.className = 'zone-label';
+    label.style.backgroundColor = color;
+    label.textContent = String(i + 1);
+    div.appendChild(label);
+    boxes.appendChild(div);
+  });
+  const clearBtn = document.getElementById('zone-clear');
+  if (clearBtn) clearBtn.hidden = zones.length === 0;
+  const hint = document.getElementById('zone-hint');
+  if (hint) {
+    hint.textContent =
+      zones.length === 0
+        ? 'Tip: drag boxes on the image to read only those parts — draw as many regions as you like; each is read separately. Click a box to remove it.'
+        : `${zones.length} region${zones.length === 1 ? '' : 's'} selected — each will be read separately. Click a box to remove it, or clear all below.`;
+  }
+}
+
+/** Remove every region. */
+function clearZones(): void {
+  zones = [];
+  renderZones();
+}
+
+/**
+ * Drag-to-select on the preview: every drag draws a NEW box (old boxes are
+ * kept). Clicking an existing box removes it.
+ */
+function setupZoneSelect(): void {
+  const wrap = document.getElementById('zone-wrap');
+  const img = document.getElementById('preview-img') as HTMLImageElement | null;
+  if (!wrap || !img) return;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let ghost: HTMLDivElement | null = null;
+
+  const toFractions = (clientX: number, clientY: number) => {
+    const rect = img.getBoundingClientRect();
+    return {
+      fx: rect.width > 0 ? (clientX - rect.left) / rect.width : 0,
+      fy: rect.height > 0 ? (clientY - rect.top) / rect.height : 0,
+    };
+  };
+
+  const paintGhost = (x0: number, clientX: number, y0: number, clientY: number) => {
+    const { fx: fx0, fy: fy0 } = toFractions(x0, y0);
+    const { fx: fx1, fy: fy1 } = toFractions(clientX, clientY);
+    if (!ghost) {
+      ghost = document.createElement('div');
+      ghost.className = 'zone-ghost';
+      wrap.appendChild(ghost);
+    }
+    ghost.style.left = `${Math.min(fx0, fx1) * 100}%`;
+    ghost.style.top = `${Math.min(fy0, fy1) * 100}%`;
+    ghost.style.width = `${Math.abs(fx1 - fx0) * 100}%`;
+    ghost.style.height = `${Math.abs(fy1 - fy0) * 100}%`;
+  };
+
+  const dropGhost = () => {
+    if (ghost) {
+      ghost.remove();
+      ghost = null;
+    }
+  };
+
+  wrap.addEventListener('pointerdown', (e) => {
+    if (busy || !file) return;
+    const boxEl = (e.target as HTMLElement).closest?.('.zone-box') as HTMLElement | null;
+    // Clicking an existing box removes it (handled on pointerup as a click).
+    if (boxEl && !dragging) {
+      (wrap as HTMLElement).dataset.clickTarget = boxEl.dataset.zoneId || '';
+    }
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    try {
+      wrap.setPointerCapture(e.pointerId);
+    } catch {
+      /* not critical */
+    }
+    e.preventDefault();
+  });
+
+  wrap.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    paintGhost(startX, e.clientX, startY, e.clientY);
+  });
+
+  const finishDrag = (e: PointerEvent, cancelled: boolean) => {
+    if (!dragging) return;
+    dragging = false;
+    dropGhost();
+    if (cancelled) return;
+    const moved = Math.hypot(e.clientX - startX, e.clientY - startY);
+    if (moved < 8) {
+      // A click, not a drag: remove the box that was clicked, if any.
+      const zoneId = (wrap as HTMLElement).dataset.clickTarget;
+      delete (wrap as HTMLElement).dataset.clickTarget;
+      if (zoneId) {
+        zones = zones.filter((z) => String(z.id) !== zoneId);
+        renderZones();
+      }
+      return;
+    }
+    delete (wrap as HTMLElement).dataset.clickTarget;
+    const { fx: fx0, fy: fy0 } = toFractions(startX, startY);
+    const { fx: fx1, fy: fy1 } = toFractions(e.clientX, e.clientY);
+    const nw = img.naturalWidth || 1;
+    const nh = img.naturalHeight || 1;
+    const x = Math.round(Math.min(fx0, fx1) * nw);
+    const y = Math.round(Math.min(fy0, fy1) * nh);
+    const w = Math.round(Math.abs(fx1 - fx0) * nw);
+    const h = Math.round(Math.abs(fy1 - fy0) * nh);
+    if (w < 12 || h < 12) return; // Too small to be deliberate.
+    zones.push({ x, y, w, h, id: nextZoneId++ });
+    renderZones();
+  };
+
+  wrap.addEventListener('pointerup', (e) => finishDrag(e, false));
+  wrap.addEventListener('pointercancel', (e) => finishDrag(e, true));
 }
 
 async function getWorker(lang: string, onProgress: (percent: number, label: string) => void): Promise<OcrWorker> {
@@ -191,126 +318,69 @@ async function onFiles(files: File[]): Promise<void> {
   // Clear any previous result so a stale transcription can't be confused with the new image.
   el('result-block').hidden = true;
   el<HTMLTextAreaElement>('ocr-output').value = '';
+  clearZones();
+  nextZoneId = 1;
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = URL.createObjectURL(picked);
-  try {
-    sourceImg = await loadImage(objectUrl);
-  } catch {
-    showError('error-box', `"${picked.name}" could not be read as an image.`);
-    return;
-  }
-  rotation = 0;
-  clearZone();
-  renderPreview();
+  el<HTMLImageElement>('preview-img').src = objectUrl;
   el('preview-block').hidden = false;
   el('file-meta').textContent = `${picked.name} · ${formatBytes(picked.size)}`;
   el<HTMLButtonElement>('recognize-btn').disabled = false;
 }
 
-/** Clear the selected zone, if any. */
-function clearZone(): void {
-  zone = null;
-  el('zone-box').hidden = true;
-  el('zone-clear').hidden = true;
+/** Read one image canvas and return cleaned text. */
+async function recognizeCanvas(w: OcrWorker, canvas: HTMLCanvasElement, opts: OcrOptions): Promise<string> {
+  const { data } = await w.recognize(canvas);
+  return opts.lightCleanup ? cleanupOcrText(data.text) : data.text.trim();
 }
 
-/** Set up drag-to-select on the preview: the user draws a box, we read only that part. */
-function setupZoneSelect(): void {
-  const wrap = document.getElementById('zone-wrap');
-  const box = document.getElementById('zone-box');
-  const img = document.getElementById('preview-img');
-  if (!wrap || !box || !img) return;
-  let dragging = false;
-  let startX = 0;
-  let startY = 0;
-
-  const toImageCoords = (clientX: number, clientY: number) => {
-    const rect = (document.getElementById('preview-img') as HTMLImageElement).getBoundingClientRect();
-    const oriented = sourceImg ? drawOriented(sourceImg, rotation) : null;
-    return {
-      fx: (clientX - rect.left) / rect.width,
-      fy: (clientY - rect.top) / rect.height,
-      ow: oriented?.width ?? 1,
-      oh: oriented?.height ?? 1,
-    };
-  };
-
-  const paintBox = (x0: number, y0: number, x1: number, y1: number) => {
-    const rect = (document.getElementById('preview-img') as HTMLImageElement).getBoundingClientRect();
-    const wrapRect = wrap.getBoundingClientRect();
-    // The img fills the wrap; express the box in wrap pixels.
-    const left = Math.min(x0, x1);
-    const top = Math.min(y0, y1);
-    box.style.left = `${left - (rect.left - wrapRect.left)}px`;
-    box.style.top = `${top - (rect.top - wrapRect.top)}px`;
-    box.style.width = `${Math.abs(x1 - x0)}px`;
-    box.style.height = `${Math.abs(y1 - y0)}px`;
-    box.hidden = false;
-  };
-
-  wrap.addEventListener('pointerdown', (e) => {
-    if (busy || !sourceImg) return;
-    dragging = true;
-    wrap.setPointerCapture(e.pointerId);
-    startX = e.clientX;
-    startY = e.clientY;
-    paintBox(startX, startY, startX, startY);
-    e.preventDefault();
-  });
-  wrap.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    paintBox(startX, startY, e.clientX, e.clientY);
-  });
-  wrap.addEventListener('pointerup', (e) => {
-    if (!dragging) return;
-    dragging = false;
-    const { fx: fx0, fy: fy0, ow, oh } = toImageCoords(startX, startY);
-    const { fx: fx1, fy: fy1 } = toImageCoords(e.clientX, e.clientY);
-    const x = Math.round(Math.min(fx0, fx1) * ow);
-    const y = Math.round(Math.min(fy0, fy1) * oh);
-    const w = Math.round(Math.abs(fx1 - fx0) * ow);
-    const h = Math.round(Math.abs(fy1 - fy0) * oh);
-    if (w < 12 || h < 12) {
-      // Too small to be deliberate — treat as a click, not a selection.
-      clearZone();
-      return;
-    }
-    zone = { x, y, w, h };
-    el('zone-clear').hidden = false;
-  });
-  wrap.addEventListener('pointercancel', () => {
-    dragging = false;
-    if (!zone) box.hidden = true;
-  });
+function showResult(text: string, bodyForCounts: string): void {
+  el<HTMLTextAreaElement>('ocr-output').value = text;
+  el('result-block').hidden = false;
+  const chars = bodyForCounts.length;
+  const words = bodyForCounts.split(/\s+/).filter(Boolean).length;
+  el('result-info').textContent =
+    chars === 0
+      ? 'No text found. Try a sharper, higher-contrast image.'
+      : `${words} words, ${chars} characters recognized.`;
+  el<HTMLButtonElement>('copy-btn').disabled = chars === 0;
+  el<HTMLButtonElement>('download-btn').disabled = chars === 0;
+  setProgress(100, 'Done.');
 }
 
 async function onRecognize(): Promise<void> {
-  if (busy || !file || !sourceImg) return;
+  if (busy || !file || !objectUrl) return;
   busy = true;
   hideError('error-box');
   setBusy('recognize-btn', true, 'Reading…');
   setProgress(2, 'Loading the OCR engine…');
-  const currentImg = sourceImg;
-  const currentZone = zone;
+  const currentUrl = objectUrl;
+  const currentZones = zones.slice();
   try {
     const opts = readOptions();
     const w = await getWorker(opts.lang, setProgress);
-    setProgress(60, 'Preparing the image…');
-    const canvas = await preprocessImage(currentImg, opts, currentZone);
-    setProgress(62, 'Reading the text…');
-    const { data } = await w.recognize(canvas);
-    const text = opts.lightCleanup ? cleanupOcrText(data.text) : data.text.trim();
-    el<HTMLTextAreaElement>('ocr-output').value = text;
-    el('result-block').hidden = false;
-    const chars = text.length;
-    const words = text.split(/\s+/).filter(Boolean).length;
-    el('result-info').textContent =
-      chars === 0
-        ? 'No text found. Try a sharper, higher-contrast image.'
-        : `${words} words, ${chars} characters recognized${currentZone ? ' in the selected area' : ''}.`;
-    el<HTMLButtonElement>('copy-btn').disabled = chars === 0;
-    el<HTMLButtonElement>('download-btn').disabled = chars === 0;
-    setProgress(100, 'Done.');
+    if (currentZones.length === 0) {
+      // Whole image, as before.
+      setProgress(60, 'Preparing the image…');
+      const canvas = await preprocessImage(currentUrl, opts);
+      setProgress(62, 'Reading the text…');
+      const text = await recognizeCanvas(w, canvas, opts);
+      showResult(text, text);
+    } else {
+      // One region at a time; results grouped under numbered headings.
+      const bodies: string[] = [];
+      for (let i = 0; i < currentZones.length; i++) {
+        const z = currentZones[i];
+        setProgress(
+          60 + Math.round((i / currentZones.length) * 30),
+          `Reading region ${i + 1} of ${currentZones.length}…`,
+        );
+        const canvas = await preprocessImage(currentUrl, opts, z);
+        bodies.push(await recognizeCanvas(w, canvas, opts));
+      }
+      const display = bodies.map((b, i) => `Region ${i + 1}:\n${b}`).join('\n\n');
+      showResult(display, bodies.join('\n\n'));
+    }
   } catch (err) {
     showError('error-box', ocrErrorMessage(err));
   } finally {
@@ -348,15 +418,12 @@ export function initImageOcr(): void {
   }
   setupDropzone('dropzone', 'file-input', (files) => void onFiles(files));
   setupPasteHandler((files) => void onFiles(files), (f) => f.type.startsWith('image/'));
-  el('recognize-btn').addEventListener('click', () => void onRecognize());
-  el('rotate-btn').addEventListener('click', () => {
-    if (busy || !sourceImg) return;
-    rotation = (rotation + 90) % 360;
-    clearZone();
-    renderPreview();
-  });
-  el('zone-clear').addEventListener('click', clearZone);
   setupZoneSelect();
+  const clearBtn = document.getElementById('zone-clear');
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    if (!busy) clearZones();
+  });
+  el('recognize-btn').addEventListener('click', () => void onRecognize());
   el('copy-btn').addEventListener('click', () => void onCopy());
   el('download-btn').addEventListener('click', () => {
     if (!file) return;
