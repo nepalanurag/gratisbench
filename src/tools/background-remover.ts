@@ -483,7 +483,7 @@ async function onRemove(): Promise<void> {
     // name `removeBackground` survives esbuild minification.
     setProgress(5, 'Preparing the AI model…');
     cutoutBlob = await removeBackground(currentFile, {
-      model: 'large', // Maximum edge quality. Slower but much better for real photos.
+      model: 'isnet', // Full-precision IS-Net: best quality for real photos.
       output: { format: 'image/png', quality: 1 },
       progress: (key: string, current: number, total: number) => {
         if (bgStageFromProgressKey(key) === 'loading-model') {
