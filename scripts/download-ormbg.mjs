@@ -7,8 +7,8 @@ import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import { get } from 'https';
 import { pipeline } from 'stream/promises';
 
-const MODEL_URL = 'https://huggingface.co/onnx-community/ormbg-ONNX/resolve/main/onnx/model_int8.onnx?download=true';
-const OUT_PATH = new URL('../public/models/ormbg_int8.onnx', import.meta.url).pathname;
+const MODEL_URL = 'https://huggingface.co/BritishWerewolf/U-2-Netp/resolve/main/onnx/model.onnx?download=true';
+const OUT_PATH = new URL('../public/models/u2netp.onnx', import.meta.url).pathname;
 
 async function download(url, dest) {
   return new Promise((resolve, reject) => {

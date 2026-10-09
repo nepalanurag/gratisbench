@@ -1,13 +1,13 @@
-// ORMBG background removal: direct onnxruntime-web wrapper.
-// Bypasses buggy wrapper libraries (@imgly, @bg0). Uses the ORMBG model
-// (Apache-2.0, 43MB int8) from Hugging Face. Proven working via direct
-// ONNX inference tests on 2026-10-08.
+// U2Netp background removal: direct onnxruntime-web wrapper.
+// 4.6MB model (vs 43MB ORMBG), Apache-2.0, general salient object detection.
+// Input: 320x320, output: 320x320 sigmoid mask.
 import * as ort from 'onnxruntime-web';
 
-// Model is hosted on the site itself (public/models/) to avoid CORS issues
-// with Hugging Face. 43MB, downloaded once and cached by the browser.
-const MODEL_URL = `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/models/ormbg_int8.onnx`;
-const MODEL_SIZE = 1024;
+// Model is hosted on the site itself (public/models/) to avoid CORS issues.
+// 4.6MB, downloaded once and cached by the browser.
+const MODEL_URL = `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/models/u2netp.onnx`;
+const MODEL_SIZE = 320;
+const INPUT_NAME = 'input.1';
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
@@ -26,7 +26,7 @@ export interface BgProgress {
 async function loadModel(onProgress?: (p: BgProgress) => void): Promise<ort.InferenceSession> {
   if (!sessionPromise) {
     sessionPromise = (async () => {
-      onProgress?.({ stage: 'downloading', progress: 0, message: 'Downloading AI model (43MB)…' });
+      onProgress?.({ stage: 'downloading', progress: 0, message: 'Downloading AI model (5MB)…' });
       // Fetch the model. Use arrayBuffer for simplicity and reliability.
       const resp = await fetch(MODEL_URL);
       if (!resp.ok) throw new Error(`Model download failed: ${resp.status}`);
@@ -91,9 +91,11 @@ export async function removeBackgroundOrmBg(
     const { tensor, w, h } = await preprocess(img);
 
     onProgress?.({ stage: 'processing', progress: 0.4, message: 'Removing background…' });
-    const feeds = { [session.inputNames[0]]: tensor };
+    const feeds = { [INPUT_NAME]: tensor };
     const results = await session.run(feeds);
-    const output = results[session.outputNames[0]];
+    // U2Netp output node is '1959', shape [1, 320, 320]
+    const outputName = session.outputNames[0];
+    const output = results[outputName];
     const maskData = output.data as Float32Array; // 1024x1024, values 0-1
 
     onProgress?.({ stage: 'processing', progress: 0.8, message: 'Creating cutout…' });
