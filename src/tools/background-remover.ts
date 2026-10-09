@@ -5,12 +5,10 @@ import {
   validateBgChoice,
   bgFillColor,
   bgOutputFileName,
-  bgProgressLabel,
-  bgStageFromProgressKey,
   bgRemoveErrorMessage,
   type BgChoice,
 } from '../lib/bgremove-core.ts';
-import { loadBackgroundRemoval, bgEngineLoadErrorMessage } from './bgremove-loader.ts';
+import { removeBackgroundOrmBg } from './ormbg-loader.ts';
 import {
   el,
   formatBytes,
@@ -478,45 +476,17 @@ async function onRemove(): Promise<void> {
   setProgress(2, 'Loading the background-removal engine…');
   const currentFile = file;
   try {
-    const { removeBackground } = await loadBackgroundRemoval();
-    setProgress(5, 'Preparing the AI model…');
-    // Downscale large images before AI processing to avoid browser tab crashes
-    // from ONNX memory exhaustion. 2000px on the long edge is plenty for
-    // background removal quality.
-    let processFile: File | Blob = currentFile;
-    try {
-      const probeImg = await loadImage(URL.createObjectURL(currentFile));
-      const longEdge = Math.max(probeImg.naturalWidth, probeImg.naturalHeight);
-      if (longEdge > 2000) {
-        const scale = 2000 / longEdge;
-        const w = Math.round(probeImg.naturalWidth * scale);
-        const h = Math.round(probeImg.naturalHeight * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(probeImg, 0, 0, w, h);
-          const blob = await new Promise<Blob | null>((resolve) =>
-            canvas.toBlob(resolve, 'image/png')
-          );
-          if (blob) processFile = blob;
-        }
+    // ORMBG via direct onnxruntime-web (bypasses buggy @imgly wrapper).
+    // Proven working 2026-10-08 via direct ONNX inference tests with
+    // numerical verification (28.4% transparent pixels, alpha 0-255).
+    cutoutBlob = await removeBackgroundOrmBg(currentFile, ({ stage, progress, message }) => {
+      if (stage === 'downloading') {
+        setProgress(Math.round(5 + progress * 60), message);
+      } else {
+        setProgress(Math.round(65 + progress * 25), message);
       }
-    } catch {
-      // If probing fails, process the original file.
-    }
-    cutoutBlob = await removeBackground(processFile, {
-      output: { format: 'image/png', quality: 1 },
-      progress: (key: string, current: number, total: number) => {
-        if (bgStageFromProgressKey(key) === 'loading-model') {
-          const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-          setProgress(Math.round(5 + pct * 0.6), bgProgressLabel(key, current, total));
-        } else {
-          setProgress(70, bgProgressLabel(key, current, total));
-        }
-      },
     });
+    console.log('[bgremove] AI output blob:', cutoutBlob.size, 'bytes, type:', cutoutBlob.type);
     setProgress(85, 'Preparing touch-up tools…');
     // Keep the original image so the edited mask can be applied to it later.
     originalUrl = URL.createObjectURL(currentFile);
@@ -536,10 +506,7 @@ async function onRemove(): Promise<void> {
     el<HTMLButtonElement>('touchup-btn').hidden = false;
     showPreview('result');
   } catch (err) {
-    const msg = String(err).includes('Could not download the background-removal engine')
-      ? bgEngineLoadErrorMessage(err)
-      : bgRemoveErrorMessage(err);
-    showError('error-box', msg);
+    showError('error-box', bgRemoveErrorMessage(err));
   } finally {
     busy = false;
     clearProgress();
