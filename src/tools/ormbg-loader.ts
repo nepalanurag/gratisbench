@@ -4,9 +4,9 @@
 // erase-bg, frogmonster12/background_remover, and cutlybg.
 import * as ort from 'onnxruntime-web';
 
-// Model is hosted on the site itself (public/models/) to avoid CORS issues.
-// 85MB, downloaded once and cached by the browser.
-const MODEL_URL = `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/models/isnet_fp16.onnx`;
+// Model is hosted on HuggingFace (85MB too large for GitHub API).
+// Direct download URL with CORS enabled.
+const MODEL_URL = 'https://huggingface.co/imgly/isnet-general-onnx/resolve/main/onnx/model_fp16.onnx';
 const MODEL_SIZE = 1024;
 const INPUT_NAME = 'input';
 const OUTPUT_NAME = 'output';
