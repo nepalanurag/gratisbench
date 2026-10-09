@@ -4,9 +4,9 @@
 // erase-bg, frogmonster12/background_remover, and cutlybg.
 import * as ort from 'onnxruntime-web';
 
-// Model is hosted on HuggingFace (85MB too large for GitHub API).
-// Direct download URL with CORS enabled.
-const MODEL_URL = 'https://huggingface.co/imgly/isnet-general-onnx/resolve/main/onnx/model_fp16.onnx';
+// Model is hosted on truepdf-models repo (separate Vercel project for large assets).
+// This keeps TruePDF's main repo lean and avoids GitHub API size limits.
+const MODEL_URL = 'https://truepdf-models.vercel.app/models/isnet_fp16.onnx';
 const MODEL_SIZE = 1024;
 const INPUT_NAME = 'input';
 const OUTPUT_NAME = 'output';
@@ -28,7 +28,7 @@ export interface BgProgress {
 async function loadModel(onProgress?: (p: BgProgress) => void): Promise<ort.InferenceSession> {
   if (!sessionPromise) {
     sessionPromise = (async () => {
-      onProgress?.({ stage: 'downloading', progress: 0, message: 'Downloading AI model (5MB)…' });
+      onProgress?.({ stage: 'downloading', progress: 0, message: 'Downloading AI model (85MB)…' });
       // Fetch the model. Use arrayBuffer for simplicity and reliability.
       const resp = await fetch(MODEL_URL);
       if (!resp.ok) throw new Error(`Model download failed: ${resp.status}`);
