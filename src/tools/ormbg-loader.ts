@@ -1,13 +1,15 @@
-// U2Netp background removal: direct onnxruntime-web wrapper.
-// 4.6MB model (vs 43MB ORMBG), Apache-2.0, general salient object detection.
-// Input: 320x320, output: 320x320 sigmoid mask.
+// ISNet background removal: direct onnxruntime-web wrapper.
+// 85MB FP16 model (imgly/isnet-general-onnx), MIT license, general-purpose segmentation.
+// Input: 1024x1024, output: 1024x1024 sigmoid mask. Proven in browser WASM by
+// erase-bg, frogmonster12/background_remover, and cutlybg.
 import * as ort from 'onnxruntime-web';
 
 // Model is hosted on the site itself (public/models/) to avoid CORS issues.
-// 4.6MB, downloaded once and cached by the browser.
-const MODEL_URL = `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/models/u2netp.onnx`;
-const MODEL_SIZE = 320;
-const INPUT_NAME = 'input.1';
+// 85MB, downloaded once and cached by the browser.
+const MODEL_URL = `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/models/isnet_fp16.onnx`;
+const MODEL_SIZE = 1024;
+const INPUT_NAME = 'input';
+const OUTPUT_NAME = 'output';
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
@@ -93,35 +95,9 @@ export async function removeBackgroundOrmBg(
     onProgress?.({ stage: 'processing', progress: 0.4, message: 'Removing background…' });
     const feeds = { [INPUT_NAME]: tensor };
     const results = await session.run(feeds);
-    // U2Netp has multiple outputs (1959-1965). 1959 is the main segmentation mask.
-    // Try 1959 first, then fall back to the output with the most balanced mask.
-    let output = null;
-    let outputData = null;
-    const candidateNames = ['1959', ...session.outputNames];
-    for (const name of candidateNames) {
-      if (!results[name]) continue;
-      const data = results[name].data as Float32Array;
-      // Check if this output has reasonable segmentation (not all 0 or all 1)
-      let mn = Infinity, mx = -Infinity;
-      const sample = Math.min(data.length, 1000);
-      for (let i = 0; i < sample; i++) {
-        const v = data[Math.floor((i / sample) * data.length)];
-        if (v < mn) mn = v;
-        if (v > mx) mx = v;
-      }
-      if (mx - mn > 0.5) { // Good dynamic range
-        output = results[name];
-        outputData = data;
-        break;
-      }
-    }
-    if (!output || !outputData) {
-      // Fall back to first output
-      const name = session.outputNames[0];
-      output = results[name];
-      outputData = output.data as Float32Array;
-    }
-    const maskData = outputData;
+    // ISNet has a single clean output named 'output', shape [1, 1, 1024, 1024].
+    const output = results[OUTPUT_NAME] ?? results[session.outputNames[0]];
+    const maskData = output.data as Float32Array;
 
     onProgress?.({ stage: 'processing', progress: 0.8, message: 'Creating cutout…' });
 
