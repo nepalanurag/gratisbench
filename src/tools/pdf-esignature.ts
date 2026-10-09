@@ -315,15 +315,12 @@ export function initPdfEsignature(): void {
     photoBtn.disabled = true;
     setBusy('sig-use-photo', true, 'Working…');
     try {
-      const { loadBackgroundRemoval, bgEngineLoadErrorMessage } = await import('./bgremove-loader.ts');
+      const { removeBackgroundOrmBg } = await import('./ormbg-loader.ts');
       let blob: Blob;
       try {
-        const { removeBackground } = await loadBackgroundRemoval();
-        blob = await removeBackground(photoFile, {
-          output: { format: 'image/png', quality: 1 },
-        });
+        blob = await removeBackgroundOrmBg(photoFile);
       } catch (err) {
-        throw new Error(bgEngineLoadErrorMessage(err));
+        throw new Error(String(err instanceof Error ? err.message : err));
       }
       const url = URL.createObjectURL(blob);
       try {

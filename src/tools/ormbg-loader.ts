@@ -9,6 +9,12 @@ const MODEL_SIZE = 1024;
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
+// Configure WASM paths for onnxruntime-web. The WASM binaries are in public/ort/.
+if (typeof window !== 'undefined') {
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+  ort.env.wasm.wasmPaths = `${base}/ort/`;
+}
+
 export interface BgProgress {
   stage: 'downloading' | 'processing';
   progress: number; // 0-1
