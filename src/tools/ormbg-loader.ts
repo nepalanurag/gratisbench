@@ -4,7 +4,9 @@
 // ONNX inference tests on 2026-10-08.
 import * as ort from 'onnxruntime-web';
 
-const MODEL_URL = 'https://huggingface.co/onnx-community/ormbg-ONNX/resolve/main/onnx/model_int8.onnx';
+// Model is hosted on the site itself (public/models/) to avoid CORS issues
+// with Hugging Face. 43MB, downloaded once and cached by the browser.
+const MODEL_URL = `${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/models/ormbg_int8.onnx`;
 const MODEL_SIZE = 1024;
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
@@ -25,32 +27,13 @@ async function loadModel(onProgress?: (p: BgProgress) => void): Promise<ort.Infe
   if (!sessionPromise) {
     sessionPromise = (async () => {
       onProgress?.({ stage: 'downloading', progress: 0, message: 'Downloading AI model (43MB)…' });
-      // Fetch with progress
+      // Fetch the model. Use arrayBuffer for simplicity and reliability.
       const resp = await fetch(MODEL_URL);
       if (!resp.ok) throw new Error(`Model download failed: ${resp.status}`);
-      const contentLength = Number(resp.headers.get('content-length') || '44315136');
-      const reader = resp.body?.getReader();
-      if (!reader) throw new Error('Could not read model download');
-      const chunks: Uint8Array[] = [];
-      let received = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += value.length;
-        onProgress?.({
-          stage: 'downloading',
-          progress: received / contentLength,
-          message: `Downloading AI model… ${Math.round((received / contentLength) * 100)}%`,
-        });
-      }
-      const modelData = new Uint8Array(received);
-      let offset = 0;
-      for (const chunk of chunks) {
-        modelData.set(chunk, offset);
-        offset += chunk.length;
-      }
-      onProgress?.({ stage: 'downloading', progress: 1, message: 'Loading model…' });
+      const buffer = await resp.arrayBuffer();
+      onProgress?.({ stage: 'downloading', progress: 0.9, message: 'Loading model…' });
+      const modelData = new Uint8Array(buffer);
+      onProgress?.({ stage: 'downloading', progress: 1, message: 'Starting AI engine…' });
       const session = await ort.InferenceSession.create(modelData, {
         executionProviders: ['wasm'],
       });
