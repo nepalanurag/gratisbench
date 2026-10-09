@@ -480,7 +480,33 @@ async function onRemove(): Promise<void> {
   try {
     const { removeBackground } = await loadBackgroundRemoval();
     setProgress(5, 'Preparing the AI model…');
-    cutoutBlob = await removeBackground(currentFile, {
+    // Downscale large images before AI processing to avoid browser tab crashes
+    // from ONNX memory exhaustion. 2000px on the long edge is plenty for
+    // background removal quality.
+    let processFile: File | Blob = currentFile;
+    try {
+      const probeImg = await loadImage(URL.createObjectURL(currentFile));
+      const longEdge = Math.max(probeImg.naturalWidth, probeImg.naturalHeight);
+      if (longEdge > 2000) {
+        const scale = 2000 / longEdge;
+        const w = Math.round(probeImg.naturalWidth * scale);
+        const h = Math.round(probeImg.naturalHeight * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(probeImg, 0, 0, w, h);
+          const blob = await new Promise<Blob | null>((resolve) =>
+            canvas.toBlob(resolve, 'image/png')
+          );
+          if (blob) processFile = blob;
+        }
+      }
+    } catch {
+      // If probing fails, process the original file.
+    }
+    cutoutBlob = await removeBackground(processFile, {
       output: { format: 'image/png', quality: 1 },
       progress: (key: string, current: number, total: number) => {
         if (bgStageFromProgressKey(key) === 'loading-model') {
