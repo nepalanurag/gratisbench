@@ -93,21 +93,48 @@ export async function removeBackgroundOrmBg(
     onProgress?.({ stage: 'processing', progress: 0.4, message: 'Removing background…' });
     const feeds = { [INPUT_NAME]: tensor };
     const results = await session.run(feeds);
-    // U2Netp output node is '1959', shape [1, 320, 320]
-    const outputName = session.outputNames[0];
-    const output = results[outputName];
-    const maskData = output.data as Float32Array; // 1024x1024, values 0-1
+    // U2Netp has multiple outputs (1959-1965). 1959 is the main segmentation mask.
+    // Try 1959 first, then fall back to the output with the most balanced mask.
+    let output = null;
+    let outputData = null;
+    const candidateNames = ['1959', ...session.outputNames];
+    for (const name of candidateNames) {
+      if (!results[name]) continue;
+      const data = results[name].data as Float32Array;
+      // Check if this output has reasonable segmentation (not all 0 or all 1)
+      let mn = Infinity, mx = -Infinity;
+      const sample = Math.min(data.length, 1000);
+      for (let i = 0; i < sample; i++) {
+        const v = data[Math.floor((i / sample) * data.length)];
+        if (v < mn) mn = v;
+        if (v > mx) mx = v;
+      }
+      if (mx - mn > 0.5) { // Good dynamic range
+        output = results[name];
+        outputData = data;
+        break;
+      }
+    }
+    if (!output || !outputData) {
+      // Fall back to first output
+      const name = session.outputNames[0];
+      output = results[name];
+      outputData = output.data as Float32Array;
+    }
+    const maskData = outputData;
 
     onProgress?.({ stage: 'processing', progress: 0.8, message: 'Creating cutout…' });
 
-    // Create mask canvas at 1024x1024, then resize to original
+    // Create mask canvas. Handle different output shapes: [1,1,320,320], [1,320,320], or [320,320]
+    const maskLen = maskData.length;
+    const maskDim = Math.sqrt(maskLen); // Should be 320
     const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = MODEL_SIZE;
-    maskCanvas.height = MODEL_SIZE;
+    maskCanvas.width = maskDim;
+    maskCanvas.height = maskDim;
     const mctx = maskCanvas.getContext('2d');
     if (!mctx) throw new Error('Could not create mask canvas');
-    const maskImage = mctx.createImageData(MODEL_SIZE, MODEL_SIZE);
-    for (let i = 0; i < MODEL_SIZE * MODEL_SIZE; i++) {
+    const maskImage = mctx.createImageData(maskDim, maskDim);
+    for (let i = 0; i < maskLen; i++) {
       const v = Math.max(0, Math.min(1, maskData[i]));
       const a = Math.round(v * 255);
       maskImage.data[i * 4] = a;
