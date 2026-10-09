@@ -1,25 +1,17 @@
-// @imgly/background-removal loading for the background remover tool.
-// The engine is lazy-loaded (dynamic import) only after the user picks an
-// image, so the page stays fast on first paint. The ~40MB ONNX model then
-// downloads from the package's CDN on first use and is cached by the browser.
-// Same lazy pattern as src/tools/pdf-render.ts (pdf.js).
-type BgRemoval = typeof import('@imgly/background-removal');
+// @bg0/browser loading for the background remover tool.
+// BiRefNet model, runs locally in the browser via WebGPU (WASM fallback).
+// Lazy-loaded only after the user picks an image.
+type Bg0 = typeof import('@bg0/browser');
 
-let bgRemovalPromise: Promise<BgRemoval> | null = null;
+let bg0Promise: Promise<Bg0> | null = null;
 
-/** How long the ~40MB model may take to download before we give up loudly. */
-const LOAD_TIMEOUT_MS = 180_000;
+/** How long the ~90MB model may take to download before we give up loudly. */
+const LOAD_TIMEOUT_MS = 300_000;
 
-/**
- * Load the background-removal engine on demand and return a shared module.
- * A failed load clears the cached promise so the user can retry.
- * The load races a timeout: a stalled download must surface an error,
- * never leave the tool stuck on "Preparing…" forever.
- */
-export function loadBackgroundRemoval(): Promise<BgRemoval> {
-  if (!bgRemovalPromise) {
-    bgRemovalPromise = (async () => {
-      const load = import('@imgly/background-removal');
+export function loadBackgroundRemoval(): Promise<Bg0> {
+  if (!bg0Promise) {
+    bg0Promise = (async () => {
+      const load = import('@bg0/browser');
       const timeout = new Promise<never>((_, reject) => {
         setTimeout(
           () => reject(new Error('The background-removal engine download stalled. Check your connection and try again.')),
@@ -28,11 +20,11 @@ export function loadBackgroundRemoval(): Promise<BgRemoval> {
       });
       return Promise.race([load, timeout]);
     })();
-    bgRemovalPromise.catch(() => {
-      bgRemovalPromise = null;
+    bg0Promise.catch(() => {
+      bg0Promise = null;
     });
   }
-  return bgRemovalPromise;
+  return bg0Promise;
 }
 
 /** Friendly message for common engine load failures. */

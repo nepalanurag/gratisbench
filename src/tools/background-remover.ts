@@ -5,8 +5,6 @@ import {
   validateBgChoice,
   bgFillColor,
   bgOutputFileName,
-  bgProgressLabel,
-  bgStageFromProgressKey,
   bgRemoveErrorMessage,
   type BgChoice,
 } from '../lib/bgremove-core.ts';
@@ -479,21 +477,21 @@ async function onRemove(): Promise<void> {
   const currentFile = file;
   try {
     const { removeBackground } = await loadBackgroundRemoval();
-    // Minification-proof marker for this tool's bundled chunk: the property
-    // name `removeBackground` survives esbuild minification.
     setProgress(5, 'Preparing the AI model…');
-    cutoutBlob = await removeBackground(currentFile, {
-      // Default isnet_fp16: the isnet full-precision model 404s on the CDN.
-      output: { format: 'image/png', quality: 1 },
-      progress: (key: string, current: number, total: number) => {
-        if (bgStageFromProgressKey(key) === 'loading-model') {
-          const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-          setProgress(Math.round(5 + pct * 0.6), bgProgressLabel(key, current, total));
+    const result = await removeBackground(currentFile, {
+      quality: 'quality', // BiRefNet: best quality for real photos.
+      onProgress: ({ stage, progress, message }) => {
+        const pct = Math.round(progress * 100);
+        if (stage === 'downloading') {
+          setProgress(Math.round(5 + pct * 0.6), message || `Downloading model… ${pct}%`);
+        } else if (stage === 'processing') {
+          setProgress(Math.round(65 + pct * 0.25), message || 'Removing background…');
         } else {
-          setProgress(70, bgProgressLabel(key, current, total));
+          setProgress(92, message || 'Finishing…');
         }
       },
     });
+    cutoutBlob = result.blob;
     setProgress(85, 'Preparing touch-up tools…');
     // Keep the original image so the edited mask can be applied to it later.
     originalUrl = URL.createObjectURL(currentFile);
