@@ -119,7 +119,7 @@ const activeGroup = categoryForPath[currentPath] ?? ALL_TOOLS.find((tool) => too
       />
     )}
   </head>
-  <body>
+  <body data-engine-route={path}>
     <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="site-header">
       <div class="wrap">
@@ -213,8 +213,11 @@ const activeGroup = categoryForPath[currentPath] ?? ALL_TOOLS.find((tool) => too
         </nav>
       </div>
     </footer>
+    <p id="engine-prep-status" class="engine-prep-status" role="status" aria-live="polite" hidden></p>
     <CommandPalette />
     <script>
+      import { scheduleEnginePreload } from '../tools/engine-preloader.ts';
+
       // Theme toggling is handled by the synchronous is:inline script in <head>
       // (delegated click listener); this deferred module only syncs nothing
       // theme-related. Mobile nav toggle below.
@@ -310,6 +313,25 @@ const activeGroup = categoryForPath[currentPath] ?? ALL_TOOLS.find((tool) => too
         );
         els.forEach((el) => io.observe(el));
       })();
+
+      const prepStatus = document.getElementById('engine-prep-status');
+      let prepShowTimer = 0;
+      let prepHideTimer = 0;
+      scheduleEnginePreload(document.body.dataset.engineRoute ?? '/', (state) => {
+        if (!prepStatus) return;
+        window.clearTimeout(prepShowTimer);
+        window.clearTimeout(prepHideTimer);
+        if (state === 'preparing') {
+          prepShowTimer = window.setTimeout(() => {
+            prepStatus.textContent = 'Preparing this tool…';
+            prepStatus.hidden = false;
+          }, 500);
+          return;
+        }
+        if (prepStatus.hidden) return;
+        prepStatus.textContent = state === 'ready' ? 'Ready to use.' : 'This tool will prepare when you start.';
+        prepHideTimer = window.setTimeout(() => { prepStatus.hidden = true; }, state === 'ready' ? 1200 : 2600);
+      });
     </script>
   </body>
 </html>

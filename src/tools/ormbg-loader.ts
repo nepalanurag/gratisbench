@@ -51,6 +51,10 @@ async function loadModel(onProgress?: (p: BgProgress) => void): Promise<ort.Infe
   return sessionPromise;
 }
 
+export function preloadBackgroundRemoval(): Promise<ort.InferenceSession> {
+  return loadModel();
+}
+
 /** Preprocess to the square size expected by the model's ViT feature extractor. */
 async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; w: number; h: number }> {
   const canvas = document.createElement('canvas');

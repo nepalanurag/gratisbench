@@ -136,6 +136,10 @@ function loadPdfjs(): Promise<PdfJs> {
   return pdfjsPromise;
 }
 
+export async function preloadResumeFileReaders(): Promise<void> {
+  await Promise.all([loadPdfjs(), import('jszip')]);
+}
+
 /** Extract plain text from a PDF file, preserving line breaks. */
 export async function extractTextFromPdf(file: File): Promise<string> {
   const pdfjs = await loadPdfjs();

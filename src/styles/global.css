@@ -535,6 +535,12 @@ input[type="checkbox"] { width: 1.05rem; height: 1.05rem; accent-color: var(--ac
 .site-footer nav { display: flex; gap: 0.2rem 1.1rem; margin-top: 1rem; flex-wrap: wrap; }
 .site-footer a { color: var(--muted); text-decoration: none; font-size: 0.88rem; }
 .site-footer a:hover { color: var(--link); }
+.engine-prep-status {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 160;
+  max-width: calc(100vw - 2rem); margin: 0; padding: 0.55rem 0.8rem;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--ink); color: var(--paper); font-size: 0.86rem;
+}
 
 /* ---------- QR generator ---------- */
 .qr-layout { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; align-items: start; }

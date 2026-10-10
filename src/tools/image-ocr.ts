@@ -306,6 +306,10 @@ async function getWorker(lang: string, onProgress: (percent: number, label: stri
   return w;
 }
 
+export async function preloadImageOcr(): Promise<void> {
+  await getWorker('eng', () => {});
+}
+
 async function onFiles(files: File[]): Promise<void> {
   if (busy) return;
   const picked = files.find((f) => f.type.startsWith('image/'));

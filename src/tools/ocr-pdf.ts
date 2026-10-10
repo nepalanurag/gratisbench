@@ -76,6 +76,10 @@ async function getWorker(lang: string): Promise<OcrWorker> {
   return worker;
 }
 
+export async function preloadOcrPdf(): Promise<void> {
+  await getWorker('eng');
+}
+
 export function initOcrPdf(): void {
   const select = el<HTMLSelectElement>('lang-select');
   for (const { code, label } of OCR_LANGUAGES) {
