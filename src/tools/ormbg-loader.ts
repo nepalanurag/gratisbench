@@ -100,7 +100,8 @@ export async function removeBackgroundOrmBg(
     const { tensor, w, h, dx, dy, dw, dh } = await preprocess(img);
 
     onProgress?.({ stage: 'processing', progress: 0.4, message: 'Removing background…' });
-    const feeds = { [INPUT_NAME]: tensor };
+    // Use the session's actual input name (U2Netp uses 'input.1', ISNet uses 'input')
+    const feeds = { [session.inputNames[0]]: tensor };
     const results = await session.run(feeds);
     // ISNet has a single clean output named 'output', shape [1, 1, 1024, 1024].
     const output = results[OUTPUT_NAME] ?? results[session.outputNames[0]];
