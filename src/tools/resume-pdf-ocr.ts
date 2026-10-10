@@ -3,7 +3,7 @@
 // on-device tesseract.js engine. Nothing leaves the browser.
 
 import { loadPdfjs, renderPageToCanvas } from './pdf-render.ts';
-import { loadTesseract } from './tesseract-loader.ts';
+import { loadTesseract, tesseractWorkerOptions } from './tesseract-loader.ts';
 import { cleanupOcrText, ocrProgressLabel } from '../lib/ocr-core.ts';
 
 /** Resumes are short; cap OCR pages so a big scan cannot hang the import. */
@@ -23,6 +23,7 @@ export async function ocrPdfPages(data: Uint8Array, onProgress?: ResumeOcrProgre
   // Destructure to keep the property name `createWorker` visible to the bundler.
   const { createWorker } = await loadTesseract();
   const worker = await createWorker('eng', 1, {
+    ...tesseractWorkerOptions('eng'),
     logger: (m: { status: string; progress: number }) => {
       const { percent, label } = ocrProgressLabel(m);
       onProgress?.(label, percent);

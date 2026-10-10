@@ -1,5 +1,7 @@
 node_modules/
 dist/
 .astro/
+public/tesseract/
+/public/pdf.worker.min.mjs
 
 test-fixtures/

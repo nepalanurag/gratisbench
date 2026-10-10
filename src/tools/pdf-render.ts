@@ -1,32 +1,10 @@
 // pdf.js loading + page rendering helpers for the browser tools.
 // pdf.js is lazy-loaded (dynamic import) only after the user picks a file,
-// so the tool pages stay fast on first paint. The worker URL is also resolved
-// lazily for the same reason; `?url` is a Vite/Astro build-time feature.
-type PdfJs = typeof import('pdfjs-dist');
+// so the tool pages stay fast on first paint. The worker is copied to the
+// public directory during build and served from the same origin.
+import { loadPdfjs } from '../lib/pdfjs-loader.ts';
 
-let pdfjsPromise: Promise<PdfJs> | null = null;
-
-/** Load pdf.js on demand and point it at the bundled worker. */
-export function loadPdfjs(): Promise<PdfJs> {
-  if (!pdfjsPromise) {
-    pdfjsPromise = (async () => {
-      try {
-        const pdfjs = await import('pdfjs-dist');
-        const { default: workerSrc } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
-        pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
-        return pdfjs;
-      } catch {
-        // pdf.js v6 needs a recent browser (Safari 18.4+/Chrome 126+). On
-        // older browsers the import itself fails: surface a plain message so
-        // the tool can degrade (no preview) instead of crashing cryptically.
-        throw new Error(
-          'PDF previews need a newer browser than this one. The other PDF tools on this page still work — only the page preview is unavailable.'
-        );
-      }
-    })();
-  }
-  return pdfjsPromise;
-}
+export { loadPdfjs };
 
 /** Render one pdf.js page to a canvas at the given DPI. Rotation is clockwise degrees. */
 export async function renderPageToCanvas(

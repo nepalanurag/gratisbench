@@ -16,7 +16,7 @@ import {
   ocrErrorMessage,
   type OcrOptions,
 } from '../lib/ocr-core.ts';
-import { loadTesseract, tesseractLoadErrorMessage } from './tesseract-loader.ts';
+import { loadTesseract, tesseractLoadErrorMessage, tesseractWorkerOptions } from './tesseract-loader.ts';
 import {
   el,
   formatBytes,
@@ -296,6 +296,7 @@ async function getWorker(lang: string, onProgress: (percent: number, label: stri
   // Minification-proof marker for this tool's bundled chunk: the property
   // name `createWorker` survives esbuild minification.
   const w = (await createWorker(lang, 1, {
+    ...tesseractWorkerOptions(lang),
     logger: (m: { status: string; progress: number }) => {
       const { percent, label } = ocrProgressLabel(m);
       onProgress(percent, label);

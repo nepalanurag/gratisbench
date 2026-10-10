@@ -4,7 +4,7 @@
 // tesseract.js -> the output PDF copies text pages as-is and rebuilds the
 // rest as page images with an invisible text layer.
 import { loadPdfjs, renderPageToCanvas, canvasToBytes, pdfJsLoadErrorMessage } from './pdf-render.ts';
-import { loadTesseract, tesseractLoadErrorMessage } from './tesseract-loader.ts';
+import { loadTesseract, tesseractLoadErrorMessage, tesseractWorkerOptions } from './tesseract-loader.ts';
 import { OCR_LANGUAGES } from '../lib/ocr-core.ts';
 import {
   assembleSearchablePdf,
@@ -66,6 +66,7 @@ async function getWorker(lang: string): Promise<OcrWorker> {
   // tesseract.js minifies badly; the public name `createWorker` is referenced
   // through the same lookup the image OCR tool uses.
   worker = (await createWorker(lang, 1, {
+    ...tesseractWorkerOptions(lang),
     logger: (m: { status: string; progress: number }) => {
       if (m.status === 'recognizing text') {
         setProgress(Math.round(m.progress * 100), 100, 'Reading text…');

@@ -16,6 +16,7 @@ import {
   blankCourseEntry,
 } from './resume-core.ts';
 import type { ResumeData } from './resume-core.ts';
+import { loadPdfjs } from './pdfjs-loader.ts';
 
 export interface ParsedWorkEntry {
   title: string;
@@ -121,21 +122,6 @@ function genId(): string {
 
 // pdf.js is lazy-loaded (dynamic import) only after the user picks a file,
 // following the same pattern as ../tools/pdf-render.ts.
-type PdfJs = typeof import('pdfjs-dist');
-let pdfjsPromise: Promise<PdfJs> | null = null;
-
-function loadPdfjs(): Promise<PdfJs> {
-  if (!pdfjsPromise) {
-    pdfjsPromise = (async () => {
-      const pdfjs = await import('pdfjs-dist');
-      const { default: workerSrc } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
-      pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
-      return pdfjs;
-    })();
-  }
-  return pdfjsPromise;
-}
-
 export async function preloadResumeFileReaders(): Promise<void> {
   await Promise.all([loadPdfjs(), import('jszip')]);
 }
@@ -169,21 +155,33 @@ interface PdfTextItem {
   str?: unknown;
   hasEOL?: boolean;
   transform?: number[];
+  width?: number;
 }
 
 /**
- * Rebuild text lines from pdf.js items. Prefers the hasEOL flag (pdf.js v4+);
- * falls back to grouping items by their Y position for older content.
+ * Rebuild text lines from pdf.js items. Positioned items are grouped by row,
+ * with repeated whitespace gutters used to restore left-to-right columns in
+ * reading order. Text-only items fall back to pdf.js' end-of-line markers.
  */
 export function pdfItemsToLines(items: unknown[]): string[] {
   const typed = items as PdfTextItem[];
-  const strs = typed.map((it) => (typeof it.str === 'string' ? it.str : ''));
+  const rows: { y: number; x: number; width: number; fontSize: number; order: number; str: string }[] = typed
+    .map((it, order) => ({
+      y: Array.isArray(it.transform) ? it.transform[5] : Number.NaN,
+      x: Array.isArray(it.transform) ? it.transform[4] : Number.NaN,
+      width: typeof it.width === 'number' ? it.width : 0,
+      fontSize: Array.isArray(it.transform) ? Math.abs(it.transform[0] ?? 0) : 0,
+      order,
+      str: typeof it.str === 'string' ? it.str : '',
+    }))
+    .filter((item) => item.str.trim().length > 0);
 
-  if (typed.some((it) => it.hasEOL)) {
+  if (rows.length === 0) return [];
+  if (!rows.every((item) => Number.isFinite(item.x) && Number.isFinite(item.y))) {
     const lines: string[] = [];
     let cur = '';
-    typed.forEach((it, i) => {
-      cur += strs[i];
+    typed.forEach((it) => {
+      cur += typeof it.str === 'string' ? it.str : '';
       if (it.hasEOL) {
         lines.push(cur);
         cur = '';
@@ -193,27 +191,90 @@ export function pdfItemsToLines(items: unknown[]): string[] {
     return lines;
   }
 
-  // Fallback: group by Y coordinate (transform[5]), top line first.
-  const rows: { y: number; x: number; order: number; str: string }[] = typed.map((it, order) => ({
-    y: Array.isArray(it.transform) ? it.transform[5] : 0,
-    x: Array.isArray(it.transform) ? it.transform[4] : 0,
-    order,
-    str: strs[order],
-  }));
   rows.sort((a, b) => b.y - a.y || a.x - b.x || a.order - b.order);
-  const lines: string[] = [];
-  const lineYs: number[] = [];
+  const grouped: (typeof rows)[] = [];
   const TOL = 3;
   for (const row of rows) {
-    const prevY = lineYs.length > 0 ? lineYs[lineYs.length - 1] : null;
-    if (prevY !== null && Math.abs(row.y - prevY) <= TOL) {
-      lines[lines.length - 1] += row.str;
+    const previous = grouped[grouped.length - 1];
+    if (previous && Math.abs(row.y - previous[0].y) <= TOL) {
+      previous.push(row);
     } else {
-      lines.push(row.str);
-      lineYs.push(row.y);
+      grouped.push([row]);
     }
   }
-  return lines;
+
+  let pageLeft = Number.POSITIVE_INFINITY;
+  let pageRight = Number.NEGATIVE_INFINITY;
+  for (const item of rows) {
+    pageLeft = Math.min(pageLeft, item.x);
+    pageRight = Math.max(pageRight, item.x + Math.max(item.width, 0));
+  }
+  const pageWidth = pageRight - pageLeft;
+  const gutters: { x: number; row: number }[] = [];
+  grouped.forEach((row, rowIndex) => {
+    row.sort((a, b) => a.x - b.x || a.order - b.order);
+    for (let i = 1; i < row.length; i++) {
+      const left = row[i - 1];
+      const right = row[i];
+      const gap = right.x - (left.x + left.width);
+      const fontSize = Math.max(left.fontSize, right.fontSize);
+      if (gap >= Math.max(20, fontSize * 1.4)) {
+        gutters.push({ x: (left.x + left.width + right.x) / 2, row: rowIndex });
+      }
+    }
+  });
+
+  let splitX: number | null = null;
+  if (pageWidth > 0) {
+    const candidates = gutters
+      .filter((g) => g.x > pageLeft + pageWidth * 0.3 && g.x < pageRight - pageWidth * 0.3)
+      .sort((a, b) => a.x - b.x);
+    const clusters: { xs: number[]; rowIds: Set<number> }[] = [];
+    for (const gutter of candidates) {
+      let cluster = clusters.find((c) => Math.abs(c.xs[c.xs.length - 1] - gutter.x) <= 18);
+      if (!cluster) {
+        cluster = { xs: [], rowIds: new Set<number>() };
+        clusters.push(cluster);
+      }
+      cluster.xs.push(gutter.x);
+      cluster.rowIds.add(gutter.row);
+    }
+    const repeated = clusters
+      .filter((cluster) => cluster.rowIds.size >= 2)
+      .sort((a, b) => b.rowIds.size - a.rowIds.size)[0];
+    if (repeated) {
+      const xs = [...repeated.xs].sort((a, b) => a - b);
+      splitX = xs[Math.floor(xs.length / 2)];
+    }
+  }
+
+  const renderRow = (row: typeof rows): string => {
+    let text = '';
+    let previous: (typeof rows)[number] | undefined;
+    for (const item of row) {
+      if (previous) {
+        const gap = item.x - (previous.x + previous.width);
+        if (gap > Math.max(1, Math.max(previous.fontSize, item.fontSize) * 0.15) && !/\s$/.test(text)) {
+          text += ' ';
+        }
+      }
+      text += item.str;
+      previous = item;
+    }
+    return text.replace(/\s+/g, ' ').trim();
+  };
+
+  if (splitX === null) return grouped.map(renderRow).filter(Boolean);
+
+  const leftColumn: string[] = [];
+  const rightColumn: string[] = [];
+  for (const row of grouped) {
+    const left = row.filter((item) => item.x < splitX!);
+    const right = row.filter((item) => item.x >= splitX!);
+    if (left.length) leftColumn.push(renderRow(left));
+    if (right.length) rightColumn.push(renderRow(right));
+  }
+  return [...leftColumn, ...rightColumn].filter(Boolean);
 }
 
 function docxXmlToText(xml: string): string {
@@ -278,14 +339,17 @@ type SectionKey = 'summary' | 'experience' | 'education' | 'skills' | 'projects'
 
 const SECTION_DEFS: { re: RegExp; section: SectionKey }[] = [
   { re: /^(work\s+)?experience$/, section: 'experience' },
-  { re: /^employment(\s+history)?$/, section: 'experience' },
+  { re: /^(employment|work|career)(\s+history)?$/, section: 'experience' },
   { re: /^professional\s+experience$/, section: 'experience' },
+  { re: /^selected\s+experience$/, section: 'experience' },
   { re: /^education$/, section: 'education' },
   { re: /^academic\s+background$/, section: 'education' },
-  { re: /^(technical\s+)?skills?$/, section: 'skills' },
-  { re: /^core\s+competencies$/, section: 'skills' },
-  { re: /^projects?$/, section: 'projects' },
-  { re: /^(professional\s+)?summary$/, section: 'summary' },
+  { re: /^(technical\s+)?(skills?|expertise)$/, section: 'skills' },
+  { re: /^core\s+(skills?|competencies)$/, section: 'skills' },
+  { re: /^(selected\s+)?projects?$/, section: 'projects' },
+  { re: /^(professional\s+)?(summary|profile)$/, section: 'summary' },
+  { re: /^career\s+highlights$/, section: 'summary' },
+  { re: /^about\s+me$/, section: 'summary' },
   { re: /^objective$/, section: 'summary' },
   { re: /^profile$/, section: 'summary' },
   { re: /^certifications?$/, section: 'certifications' },
@@ -494,7 +558,14 @@ interface EntryBlock {
 /** A location-looking line right after a date line: "Lalitpur, Nepal". */
 function looksLikeLocation(s: string): boolean {
   const t = s.trim();
-  return t.length > 0 && t.length <= 60 && /,/.test(t) && /[A-Za-z]/.test(t) && !/\d{4}/.test(t);
+  return (
+    t.length > 0 &&
+    t.length <= 60 &&
+    /,/.test(t) &&
+    /[A-Za-z]/.test(t) &&
+    !/\d{4}/.test(t) &&
+    !looksLikeEntryHeader(t)
+  );
 }
 
 /** A line that reads as an entry header rather than a location: degree
@@ -523,14 +594,33 @@ function splitEntries(lines: string[]): EntryBlock[] {
     if (DATE_RANGE_RE.test(line)) dateIdx.push(i);
   });
   if (dateIdx.length === 0) {
+    const headerIndexes = lines
+      .map((line, i) => ({ line, i }))
+      .filter(({ line }) =>
+        line.length <= 100 &&
+        !isBulletLine(line) &&
+        !/[.!?]$/.test(line) &&
+        /\s(?:\||@|at|—|–|-)\s/i.test(line)
+      )
+      .map(({ i }) => i);
+    if (headerIndexes.length > 1) {
+      return headerIndexes.map((start, i) => ({
+        headerLines: [lines[start]],
+        dateLine: '',
+        bodyLines: lines.slice(start + 1, headerIndexes[i + 1] ?? lines.length),
+        trailingLocation: '',
+      }));
+    }
     return lines.length > 0
       ? [{ headerLines: [lines[0]], dateLine: '', bodyLines: lines.slice(1), trailingLocation: '' }]
       : [];
   }
   interface Walk {
     headers: string[];
+    headerLineCount: number;
     skippedBullets: string[];
     start: number;
+    dateLine: string;
     trailingLocation: string;
     consumed: number;
   }
@@ -539,13 +629,22 @@ function splitEntries(lines: string[]): EntryBlock[] {
   for (const di of dateIdx) {
     const headers: string[] = [];
     const skippedBullets: string[] = [];
+    const dateMatch = lines[di].match(DATE_RANGE_RE);
+    const inlinePrefix = dateMatch
+      ? lines[di]
+          .slice(0, dateMatch.index)
+          .replace(/[·|]\s*$/, '')
+          .replace(/[\s(,–—-]+$/, '')
+          .trim()
+      : '';
+    const hasInlineHeader = inlinePrefix.length > 0 && !looksLikeLocation(inlinePrefix) && !/^(remote|hybrid|on[- ]?site)$/i.test(inlinePrefix);
     let s = di;
     let guard = 0;
-    while (s - 1 >= floor && guard++ < 8) {
+    while (s - 1 >= floor && guard++ < 8 && headers.length < (hasInlineHeader ? 1 : 2)) {
       const line = lines[s - 1];
       if (detectSection(line) || DATE_RANGE_RE.test(line)) break;
       if (isBulletLine(line)) {
-        if (headers.length === 0) {
+        if (headers.length === 0 && !hasInlineHeader) {
           skippedBullets.unshift(stripBullet(line)!.trim());
           s -= 1;
           continue;
@@ -554,8 +653,9 @@ function splitEntries(lines: string[]): EntryBlock[] {
       }
       headers.unshift(line);
       s -= 1;
-      if (headers.length === 2) break;
     }
+    const headerLineCount = headers.length;
+    if (hasInlineHeader) headers.push(inlinePrefix);
     // A location line right under the date ("Lalitpur, Nepal"), possibly
     // wrapped across two lines ("Kavrepalanchowk," / "Nepal"). But if the line
     // after it is another date range and the line itself looks like an entry
@@ -594,13 +694,21 @@ function splitEntries(lines: string[]): EntryBlock[] {
       if (looksLikeLocation(loc)) trailingLocation = loc.trim();
       else consumed = 0;
     }
-    walks.push({ headers, skippedBullets, start: s, trailingLocation, consumed });
+    walks.push({
+      headers,
+      headerLineCount,
+      skippedBullets,
+      start: s,
+      dateLine: hasInlineHeader && dateMatch ? dateMatch[0] : lines[di],
+      trailingLocation,
+      consumed,
+    });
     floor = di + 1 + consumed;
   }
   return dateIdx.map((di, k) => {
     const w = walks[k];
     const preDateBody: string[] = [];
-    for (let i = w.start + w.skippedBullets.length + w.headers.length; i < di; i++) {
+    for (let i = w.start + w.skippedBullets.length + w.headerLineCount; i < di; i++) {
       const b = stripBullet(lines[i]);
       const t = (b !== null ? b : lines[i]).trim();
       if (t) preDateBody.push(t);
@@ -614,7 +722,7 @@ function splitEntries(lines: string[]): EntryBlock[] {
     }
     return {
       headerLines: w.headers,
-      dateLine: lines[di],
+      dateLine: w.dateLine,
       bodyLines: [...w.skippedBullets, ...preDateBody, ...postDateBody],
       trailingLocation: w.trailingLocation,
     };

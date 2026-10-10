@@ -19,7 +19,7 @@ const lede =
   intro={[
     'Most "free" resume builders run the same play: they let you build for free, then hold the finished resume hostage at the download button. An hour of careful writing ends at a paywall, a trial that quietly converts to a subscription, or a watermark stamped across the page unless you pay. The building is free because the building is not the product. Your finished resume is the product, and that is exactly what they charge for. Call it the pay-to-download trap.',
     'This builder is structured so the trap is impossible. There is no server, no account system, and no billing page to bolt a paywall onto. Your words are saved in your own browser, and the PDF download is just your browser printing the page to a file, something no website can charge you for or take away. The resume on your screen and the PDF you send to employers are the same document, and there is no step where a price appears.',
-    'You get three templates designed like documents a hiring manager would take seriously: Classic, the traditional single-column serif layout and the safest choice for applicant tracking systems; Modern, a two-column layout with a sidebar for contact details and skills; and Compact, a dense one-pager for fitting a full career on a single sheet. Every section is editable, sections can be shown, hidden, and reordered, entries can be added, removed, and reordered, and a live preview shows exactly what the PDF will look like.',
+    'You get three readable, single-column templates designed around standard resume headings: Classic uses a traditional serif style, Modern uses a clean sans-serif style, and Compact uses tighter spacing without forcing the resume onto one page. Every section is editable, sections can be shown, hidden, and reordered, entries can be added, removed, and reordered, and the live preview keeps the same content and reading order as the downloaded PDF.',
   ]}
   steps={[
     'Pick a template above the editor: Classic, Modern, or Compact. You can switch at any time without losing anything you typed.',
@@ -35,7 +35,7 @@ const lede =
     ['Watermark', 'None. The PDF is your resume, nothing added.'],
     ['Where your resume is stored', 'In this browser only (local storage). Nothing is uploaded.'],
     ['PDF export', 'Direct PDF download with clickable links.'],
-    ['Templates', 'Classic (most ATS-safe), Modern (sidebar), Compact (one-pager)'],
+    ['Templates', 'Classic (serif), Modern (sans serif), Compact (tighter spacing); all use one column and standard headings'],
     ['Sections', 'Contact, summary, experience, education, skills, projects, certifications, languages, awards, publications, volunteer, courses. Sections can be toggled on/off and reordered.'],
     ['ATS note', 'Classic uses standard single-column formatting. No template guarantees ATS parsing.'],
     ['Works offline', 'Yes, once the page has loaded'],
@@ -55,7 +55,7 @@ const lede =
     },
     {
       q: 'Which template is best for applicant tracking systems (ATS)?',
-      a: 'Classic is the safest choice: single column, standard section headings like "Work Experience" and "Education," no graphics or text boxes, which is the formatting parsers handle most reliably. That said, be honest with yourself: no template on any site can guarantee perfect ATS parsing, because every system parses differently. Simple formatting plus standard headings is the best anyone can offer.',
+      a: 'All three templates use a single column, standard section headings, and no graphics or text boxes. These choices are generally easier for parsers to read, but no template can guarantee perfect ATS parsing because systems differ. Choose the visual style you prefer and review the exported PDF before applying.',
     },
     {
       q: 'What is the pay-to-download trap?',
@@ -71,7 +71,7 @@ const lede =
     },
     {
       q: 'Can I import my existing resume instead of retyping it?',
-      a: 'Yes. Drop a PDF or Word file on the upload box at the top of the builder and it reads the contact details, experience, education, skills, and projects into the editor on this device. Check the review list before using it: parsing is heuristic, so odd layouts may need a touch-up. Scanned PDFs are read with on-device text recognition; your file never leaves your browser.',
+      a: 'Yes. Drop a PDF or Word file on the upload box at the top of the builder and it reads the contact details, experience, education, skills, and projects in your browser. Correct the extracted fields in the review before importing. Scanned PDFs use on-device text recognition, and the optional larger reader runs in your browser too; your resume is never sent to a server.',
     },
     {
       q: 'Do I need an account to use this?',
@@ -95,32 +95,23 @@ const lede =
       </div>
       <details class="rb-ai-details">
         <summary>Smarter reading (optional)</summary>
-        <p class="hint">Messy or badly formatted resume? Smarter reading finds more of the details. Choose how:</p>
+        <p class="hint">The standard reader works on this device and is the default. For harder-to-read layouts, you can optionally download a larger model to run on this device:</p>
         <div class="field checkline">
           <input type="radio" name="rb-parse-mode" id="rb-mode-local" value="local" />
-          <label for="rb-mode-local">Read on this device (recommended)</label>
+          <label for="rb-mode-local">Download and use the on-device model</label>
         </div>
-        <p class="hint">Downloads a one-time ~430 MB reading model, then works offline. Your resume never leaves this device.</p>
-        <div class="field checkline">
-          <input type="radio" name="rb-parse-mode" id="rb-mode-gemini" value="gemini" />
-          <label for="rb-mode-gemini">Use my Gemini API key</label>
-        </div>
-        <div class="field" id="rb-gemini-key-field">
-          <label for="rb-ai-key">Gemini API key</label>
-          <input type="password" id="rb-ai-key" autocomplete="off" placeholder="Paste your key here" />
-          <p class="hint">Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Your resume text is sent to Google only when you import. If AI reading fails, the standard reader is used instead.</p>
-        </div>
+        <p class="hint">This downloads about 430 MB the first time you choose it. It then runs offline and keeps your resume on this device.</p>
         <div class="field checkline">
           <input type="radio" name="rb-parse-mode" id="rb-mode-heuristic" value="heuristic" />
-          <label for="rb-mode-heuristic">Standard reading only</label>
+          <label for="rb-mode-heuristic">Standard reader (no AI model)</label>
         </div>
       </details>
       <div id="rb-import-review" hidden>
         <p class="mono-label">Check what was found</p>
-        <p>Your file was read on this device. Look over the details, then use them or discard and start blank.</p>
+        <p>Your file was read on this device. Correct any fields below before importing, or discard and start blank.</p>
         <div class="rb-import-review-grid">
           <img id="rb-import-preview" class="rb-import-preview" alt="First page of the uploaded resume" hidden />
-          <dl id="rb-import-fields"></dl>
+          <div id="rb-import-fields"></div>
         </div>
         <div class="btn-row">
           <button id="rb-import-use" class="btn" type="button">Use these details</button>
@@ -135,23 +126,23 @@ const lede =
           <span>
             <strong>Classic</strong>
             <small>Traditional single-column serif layout. The familiar resume shape.</small>
-            <span class="rb-ats">Most ATS-safe</span>
+            <span class="rb-ats">Single column with standard headings</span>
           </span>
         </label>
         <label class="rb-template">
           <input type="radio" name="rb-template" value="modern" />
           <span>
             <strong>Modern</strong>
-            <small>Two-column layout with a sidebar for contact, skills, and languages.</small>
-            <span class="rb-ats">Parses well in most systems</span>
+            <small>Single-column sans-serif layout with clear hierarchy and standard section headings.</small>
+            <span class="rb-ats">Single column; parsing varies by system</span>
           </span>
         </label>
         <label class="rb-template">
           <input type="radio" name="rb-template" value="compact" />
           <span>
             <strong>Compact</strong>
-            <small>Dense spacing built to fit a full career on a single page.</small>
-            <span class="rb-ats">Single column, ATS-friendly</span>
+            <small>Readable single-column layout with tighter spacing; may flow onto extra pages.</small>
+            <span class="rb-ats">Single column with standard headings</span>
           </span>
         </label>
       </div>
@@ -166,7 +157,8 @@ const lede =
       </div>
       <p class="autosave-note"><Icon name="check" size={14} /> Your resume is saved automatically in this browser only.</p>
     </div>
-    <div id="rb-error" class="error-box no-print" hidden></div>
+    <div id="rb-error" class="error-box no-print" hidden>    </div>
+    <aside id="rb-writing-review" class="rb-writing-review no-print" aria-label="Resume writing review"></aside>
     <div class="tab-bar tab-mobile no-print" role="tablist" aria-label="Editor or preview">
       <button type="button" id="rb-tab-edit" class="tab-btn tab-active" role="tab" aria-selected="true">Edit</button>
       <button type="button" id="rb-tab-preview" class="tab-btn" role="tab" aria-selected="false">Preview</button>
@@ -179,17 +171,19 @@ const lede =
     </div>
   </section>
   <style>
-    /* Import review list: matches the global #import-review dl styling. */
-    #rb-import-fields { display: grid; grid-template-columns: 150px 1fr; margin: 0.6rem 0 0; font-size: 0.93rem; }
-    #rb-import-fields > div { display: contents; }
-    #rb-import-fields dt { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 8px 0; border-bottom: 1px solid var(--line); }
-    #rb-import-fields dd { margin: 0; padding: 8px 0 8px 12px; border-bottom: 1px solid var(--line); font-weight: 500; }
+    #rb-import-fields { display: grid; gap: 1rem; margin: 0.8rem 0; }
+    .rb-review-section h4 { margin: 0 0 0.6rem; font-size: 0.94rem; }
+    .rb-review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem 0.8rem; }
+    .rb-review-field { display: grid; gap: 0.25rem; margin: 0; font-size: 0.76rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .rb-review-field input, .rb-review-field textarea { box-sizing: border-box; width: 100%; font: 400 0.95rem/1.45 var(--font-sans, sans-serif); letter-spacing: normal; text-transform: none; color: var(--ink); }
+    .rb-review-check { display: flex; align-items: center; gap: 0.5rem; }
+    .rb-review-check input { width: auto; }
+    .rb-review-entry { min-width: 0; margin: 0 0 0.7rem; padding: 0.8rem; border: 1px solid var(--line); border-radius: var(--radius); }
+    .rb-review-entry legend { padding: 0 0.3rem; font-weight: 650; }
     #rb-import-status { font-size: 0.92rem; color: var(--muted); margin: 0.8rem 0 0; display: flex; align-items: center; gap: 0.6rem; }
     #rb-import-status[hidden] { display: none; }
     @media (max-width: 560px) {
-      #rb-import-fields { grid-template-columns: 1fr; }
-      #rb-import-fields dt { border-bottom: none; padding-bottom: 0; }
-      #rb-import-fields dd { padding-top: 2px; }
+      .rb-review-grid { grid-template-columns: 1fr; }
     }
   </style>
   <script>

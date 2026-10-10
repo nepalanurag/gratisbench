@@ -25,7 +25,7 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     'Drop an image onto the box above, or click it to browse. PNG, JPG, and WebP all work. Tip: drag a box on the preview to read just that part of the image, and use "Turn image" if the photo is sideways.',
     'Pick the language of the text. English is the default; eleven more languages are available.',
     'Leave the preprocessing options on unless you have a reason not to: upscaling and contrast help most images.',
-    'Click "Read text". The first run downloads the OCR engine and language data (about 15 MB, once per browser).',
+    'Click "Read text". The first run loads the English OCR engine from this site (about 10 MB, once per browser). Other language data downloads only if selected.',
     'Copy the text or download it as a .txt file. Proofread anything important: OCR can misread blurry or stylized text.',
   ]}
   specs={[
@@ -38,7 +38,7 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
     ['Preprocessing', 'Optional upscale for small images, contrast boost'],
     ['Read part of the image', 'Drag a box on the preview to read only that region'],
     ['Rotate', 'Turn a sideways photo upright before reading'],
-    ['Engine download', 'About 15 MB once per browser, then cached'],
+    ['Engine download', 'About 10 MB from this site once per browser, then cached; other language data downloads when selected'],
     ['Works offline', 'Yes, once the engine and language data have downloaded'],
     ['Honest limits', 'Clean, high-contrast text works best; handwriting and blurry photos will have errors'],
   ]}

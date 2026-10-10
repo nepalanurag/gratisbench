@@ -14,9 +14,6 @@ import {
 import type { ParsedResume } from '../lib/resume-import.ts';
 import type { ResumeData } from '../lib/resume-core.ts';
 import {
-  getAiKey,
-  setAiKey,
-  setAiEnabled,
   getParseMode,
   setParseMode,
   smartParseResume,
@@ -30,52 +27,94 @@ function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-function trunc(s: string, n: number): string {
-  return s.length > n ? `${s.slice(0, n - 1).trim()}…` : s;
-}
-
 export function initResumeImport(): void {
   const status = el('rb-import-status');
   const review = el('rb-import-review');
   const fields = el('rb-import-fields');
   const drop = el('rb-import-drop');
-  let imported: ResumeData | null = null;
+  let parsedDraft: ParsedResume | null = null;
   let working = false;
 
-  const ROWS: [string, (r: ParsedResume) => string][] = [
-    ['Name', (r) => r.fullName],
-    ['Headline', (r) => r.title],
-    ['Email', (r) => r.email],
-    ['Phone', (r) => r.phone],
-    ['Location', (r) => r.location],
-    ['Website', (r) => r.website],
-    ['LinkedIn', (r) => r.linkedin],
-    ['Summary', (r) => trunc(r.summary, 160)],
-    ['Experience', (r) => (r.experience.length > 0 ? `${r.experience.length} position${r.experience.length === 1 ? '' : 's'}` : '')],
-    ['Education', (r) => (r.education.length > 0 ? `${r.education.length} entr${r.education.length === 1 ? 'y' : 'ies'}` : '')],
-    ['Skills', (r) => {
-      const n = r.skills.reduce((acc, g) => acc + g.items.length, 0);
-      return n > 0 ? `${n} skills` : '';
-    }],
-    ['Projects', (r) => (r.projects.length > 0 ? `${r.projects.length} project${r.projects.length === 1 ? '' : 's'}` : '')],
-    ['Certifications', (r) => (r.certifications.length > 0 ? `${r.certifications.length} certification${r.certifications.length === 1 ? '' : 's'}` : '')],
-    ['Languages', (r) => (r.languages.length > 0 ? `${r.languages.length} language${r.languages.length === 1 ? '' : 's'}` : '')],
-    ['Awards', (r) => (r.awards.length > 0 ? `${r.awards.length} award${r.awards.length === 1 ? '' : 's'}` : '')],
-    ['Publications', (r) => (r.publications.length > 0 ? `${r.publications.length} publication${r.publications.length === 1 ? '' : 's'}` : '')],
-    ['Volunteer', (r) => (r.volunteer.length > 0 ? `${r.volunteer.length} role${r.volunteer.length === 1 ? '' : 's'}` : '')],
-    ['Courses', (r) => (r.courses.length > 0 ? `${r.courses.length} course${r.courses.length === 1 ? '' : 's'}` : '')],
+  const ROOT_FIELDS: [keyof ParsedResume, string][] = [
+    ['fullName', 'Name'],
+    ['title', 'Headline'],
+    ['email', 'Email'],
+    ['phone', 'Phone'],
+    ['location', 'Location'],
+    ['website', 'Website'],
+    ['linkedin', 'LinkedIn'],
+    ['summary', 'Summary'],
   ];
 
   function renderReview(parsed: ParsedResume): void {
-    fields.innerHTML = ROWS.map(
-      ([label, get]) => {
-        const value = get(parsed).trim();
-        const shown = value
-          ? `<dd>${esc(value)}</dd>`
-          : `<dd><span style="color:var(--muted)">Not found</span></dd>`;
-        return `<div><dt>${esc(label)}</dt>${shown}</div>`;
+    const renderField = (label: string, path: (string | number)[], value: unknown): string => {
+      const pathAttr = `data-review-path="${esc(JSON.stringify(path))}"`;
+      const labelHtml = `<span>${esc(label)}</span>`;
+      if (typeof value === 'boolean') {
+        return `<label class="rb-review-field rb-review-check">${labelHtml}<input type="checkbox" ${pathAttr} ${value ? 'checked' : ''} /></label>`;
       }
+      if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
+        return `<label class="rb-review-field">${labelHtml}<textarea rows="3" data-review-array="true" ${pathAttr}>${esc(value.join('\n'))}</textarea></label>`;
+      }
+      if (typeof value === 'string') {
+        const control = label === 'Summary' || label === 'Detail' || label === 'Bullets' || label === 'Description'
+          ? `<textarea rows="3" ${pathAttr}>${esc(value)}</textarea>`
+          : `<input type="text" ${pathAttr} value="${esc(value)}" />`;
+        return `<label class="rb-review-field">${labelHtml}${control}</label>`;
+      }
+      return '';
+    };
+
+    const root = ROOT_FIELDS.map(([key, label]) =>
+      renderField(label, [key], parsed[key])
     ).join('');
+    const sections = [
+      ['experience', 'Experience', parsed.experience],
+      ['education', 'Education', parsed.education],
+      ['skills', 'Skills', parsed.skills],
+      ['projects', 'Projects', parsed.projects],
+      ['certifications', 'Certifications', parsed.certifications],
+      ['languages', 'Languages', parsed.languages],
+      ['awards', 'Awards', parsed.awards],
+      ['publications', 'Publications', parsed.publications],
+      ['volunteer', 'Volunteer', parsed.volunteer],
+      ['courses', 'Courses', parsed.courses],
+    ] as const;
+    const sectionHtml = sections
+      .map(([key, title, entries]) => {
+        if (entries.length === 0) return '';
+        const entryHtml = entries
+          .map((entry, index) => {
+            const controls = Object.entries(entry)
+              .map(([field, value]) => {
+                const label = field === 'current' ? 'Currently in this role' : field.replace(/[A-Z]/g, (c) => ` ${c}`).replace(/^./, (c) => c.toUpperCase());
+                return renderField(label, [key, index, field], value);
+              })
+              .join('');
+            return `<fieldset class="rb-review-entry"><legend>${esc(title)} ${index + 1}</legend><div class="rb-review-grid">${controls}</div></fieldset>`;
+          })
+          .join('');
+        return `<section class="rb-review-section"><h4>${esc(title)}</h4>${entryHtml}</section>`;
+      })
+      .join('');
+    fields.innerHTML = `<section class="rb-review-section"><h4>Contact and summary</h4><div class="rb-review-grid">${root}</div></section>${sectionHtml}`;
+  }
+
+  function updateParsedValue(root: ParsedResume, path: (string | number)[], value: string | string[] | boolean): void {
+    let current: unknown = root;
+    for (const part of path.slice(0, -1)) {
+      if (Array.isArray(current) && typeof part === 'number') current = current[part];
+      else if (current && typeof current === 'object' && typeof part === 'string') {
+        current = (current as Record<string, unknown>)[part];
+      } else {
+        return;
+      }
+    }
+    const last = path[path.length - 1];
+    if (Array.isArray(current) && typeof last === 'number') current[last] = value;
+    else if (current && typeof current === 'object' && typeof last === 'string') {
+      (current as Record<string, unknown>)[last] = value;
+    }
   }
 
   function showStatus(msg: string, busy = false): void {
@@ -128,6 +167,8 @@ export function initResumeImport(): void {
       return;
     }
     working = true;
+    parsedDraft = null;
+    review.hidden = true;
     drop.setAttribute('aria-disabled', 'true');
     showStatus('Reading your file…', true);
     try {
@@ -167,7 +208,7 @@ export function initResumeImport(): void {
         );
         return;
       }
-      imported = parsedToResumeData(parsed);
+      parsedDraft = parsed;
       renderReview(parsed);
       const preview = el<HTMLImageElement>('rb-import-preview');
       if (isPdf) {
@@ -196,16 +237,12 @@ export function initResumeImport(): void {
     void handleFile(files[0]);
   });
 
-  // Reading mode: on-device AI (default), the user's own Gemini key, or the
-  // standard reader. The key field only matters for the Gemini option.
+  // The standard reader is the default; the larger on-device model is opt-in.
   const modeRadios = document.querySelectorAll<HTMLInputElement>('input[name="rb-parse-mode"]');
-  const keyField = document.getElementById('rb-gemini-key-field');
-  const aiKey = document.getElementById('rb-ai-key') as HTMLInputElement | null;
   const syncModeUi = (mode: ParseMode): void => {
     modeRadios.forEach((r) => {
       r.checked = r.value === mode;
     });
-    if (keyField) keyField.hidden = mode !== 'gemini';
   };
   if (modeRadios.length > 0) {
     syncModeUi(getParseMode());
@@ -218,22 +255,25 @@ export function initResumeImport(): void {
       });
     });
   }
-  if (aiKey) {
-    aiKey.value = getAiKey();
-    aiKey.addEventListener('change', () => {
-      setAiKey(aiKey.value.trim());
-      // A key without the Gemini mode selected does nothing.
-      if (aiKey.value.trim()) {
-        setAiEnabled(true);
-        setParseMode('gemini');
-        syncModeUi('gemini');
-      }
-    });
-  }
+
+  fields.addEventListener('input', (e) => {
+    const control = (e.target as HTMLElement).closest('[data-review-path]') as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!control || !parsedDraft) return;
+    const path = JSON.parse(control.dataset.reviewPath ?? '[]') as (string | number)[];
+    const value =
+      control instanceof HTMLInputElement && control.type === 'checkbox'
+        ? control.checked
+        : control.dataset.reviewArray === 'true'
+          ? control.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+          : control.value;
+    updateParsedValue(parsedDraft, path, value);
+  });
 
   el('rb-import-use').addEventListener('click', () => {
-    if (!imported) return;
+    if (!parsedDraft) return;
+    const imported: ResumeData = parsedToResumeData(parsedDraft);
     window.dispatchEvent(new CustomEvent('freekit:resume-import', { detail: imported }));
+    parsedDraft = null;
     review.hidden = true;
     el('rb-import-panel').hidden = true;
     el('rb-import-again')?.removeAttribute('hidden');
@@ -241,7 +281,7 @@ export function initResumeImport(): void {
   });
 
   el('rb-import-discard').addEventListener('click', () => {
-    imported = null;
+    parsedDraft = null;
     review.hidden = true;
     status.hidden = true;
     el<HTMLImageElement>('rb-import-preview').hidden = true;

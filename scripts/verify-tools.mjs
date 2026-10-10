@@ -1,6 +1,7 @@
 // Verification: exercises the same src/lib modules the browser tools use.
 // Run: node scripts/verify-tools.mjs   (exit 0 = all pass)
 import { PDFDocument, StandardFonts, rgb, decodePDFRawStream } from 'pdf-lib';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { PNG } from 'pngjs';
 import jsqr from 'jsqr';
 import {
@@ -96,10 +97,13 @@ import {
   renderResume,
 } from '../src/lib/resume-core.ts';
 import {
+  extractTextFromDocx,
   parseResumeText,
   parsedToResumeData,
   pdfItemsToLines,
 } from '../src/lib/resume-import.ts';
+import { reviewResumeWriting } from '../src/lib/resume-writing-review.ts';
+import { getParseMode } from '../src/lib/resume-ai-parse.ts';
 import {
   INVOICE_SCHEMA_VERSION,
   INVOICE_STORAGE_KEY,
@@ -363,7 +367,7 @@ import {
 import JSZip from 'jszip';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -1057,6 +1061,8 @@ console.log('== resume-core ==');
   ok('every template has an ATS note', TEMPLATES.every((t) => t.atsNote.length > 10));
   ok('isTemplateId accepts known ids', isTemplateId('classic') && isTemplateId('modern') && isTemplateId('compact'));
   ok('isTemplateId rejects junk', !isTemplateId('fancy') && !isTemplateId('') && !isTemplateId(null));
+  ok('every template describes a single-column layout',
+    TEMPLATES.every((t) => /single.column/i.test(t.description) && /single.column/i.test(t.atsNote)));
 
   // rendering
   for (const t of ['classic', 'modern', 'compact']) {
@@ -1071,11 +1077,9 @@ console.log('== resume-core ==');
     ok(`${t} renders courses`, html.includes('>Courses<') && html.includes('Design Systems Masterclass'));
   }
   const modern = renderResume(example, 'modern');
-  ok('modern uses sidebar structure', modern.includes('rs-side') && modern.includes('rs-main'));
-  ok('modern puts new sections in the main column', (() => {
-    const main = modern.split('rs-main')[1] || '';
-    return main.includes('Studio Interaction Design Award') && main.includes('Design Mentor');
-  })());
+  ok('modern uses the same single-column structure', !modern.includes('rs-side') && !modern.includes('rs-mod'));
+  ok('modern preserves all sections in reading order',
+    modern.includes('Studio Interaction Design Award') && modern.includes('Design Mentor'));
 
   // section visibility toggles
   const hidden = exampleResume();
@@ -1086,7 +1090,7 @@ console.log('== resume-core ==');
   ok('toggled-off contact skips the header', !hiddenHtml.includes('Sam Rivera'));
   ok('other sections still render when one is hidden', hiddenHtml.includes('Northwind Mobile'));
   const hiddenModern = renderResume(hidden, 'modern');
-  ok('modern sidebar respects hidden contact', !hiddenModern.includes('rs-side-name'));
+  ok('modern respects hidden contact', !hiddenModern.includes('Sam Rivera'));
 
   // section reordering
   const reordered = exampleResume();
@@ -1124,6 +1128,56 @@ console.log('== resume-core ==');
 
 console.log('== resume-import ==');
 {
+  const docxFile = new File(
+    [readFileSync(join(ROOT, 'test-fixtures', 'resume-sample.docx'))],
+    'resume-sample.docx',
+    { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
+  );
+  const docxParsed = parseResumeText(await extractTextFromDocx(docxFile));
+  ok(
+    'DOCX fixture recovers contact and inline-date experience',
+    docxParsed.fullName === 'Anurag Sharma' &&
+      docxParsed.email === 'anurag@example.com' &&
+      docxParsed.experience[0]?.title === 'Senior Data Analyst' &&
+      docxParsed.experience[0]?.company === 'Acme Corp',
+    JSON.stringify(docxParsed.experience)
+  );
+
+  const cleanPdf = await getDocument({
+    data: new Uint8Array(readFileSync(join(ROOT, 'test-fixtures', 'resume-sample.pdf'))),
+    disableWorker: true,
+    verbosity: 0,
+  }).promise;
+  const cleanPage = await cleanPdf.getPage(1);
+  const cleanText = pdfItemsToLines((await cleanPage.getTextContent()).items).join('\n');
+  const cleanParsed = parseResumeText(cleanText);
+  ok(
+    'clean PDF fixture recovers multiple dated roles',
+    cleanParsed.fullName === 'Anurag Sharma' &&
+      cleanParsed.experience.length === 2 &&
+      cleanParsed.experience[0].company === 'Acme Corp' &&
+      cleanParsed.experience[1].company === 'Beta Inc',
+    JSON.stringify(cleanParsed.experience)
+  );
+
+  const scanDocument = await PDFDocument.create();
+  const scanImage = await scanDocument.embedPng(
+    new Uint8Array(readFileSync(join(ROOT, 'test-fixtures', 'text-sample.png')))
+  );
+  const scanPage = scanDocument.addPage([scanImage.width, scanImage.height]);
+  scanPage.drawImage(scanImage, { x: 0, y: 0, width: scanImage.width, height: scanImage.height });
+  const scannedPdf = await getDocument({
+    data: await scanDocument.save(),
+    disableWorker: true,
+    verbosity: 0,
+  }).promise;
+  const scannedItems = (await (await scannedPdf.getPage(1)).getTextContent()).items;
+  ok(
+    'image-only scanned PDF has no selectable text for the OCR fallback',
+    pdfItemsToLines(scannedItems).join('').trim().length === 0,
+    `${scannedItems.length} text items`
+  );
+
   const sample = [
     'Priya Sharma',
     'Senior Product Designer',
@@ -1220,6 +1274,39 @@ console.log('== resume-import ==');
   ];
   const yLines = pdfItemsToLines(yItems);
   ok('Y-grouping fallback joins same-line items', yLines.length === 3 && yLines[1].includes('San Francisco, CA'), JSON.stringify(yLines));
+
+  const columns = [
+    { str: 'Experience', transform: [10, 0, 0, 10, 72, 720], width: 120 },
+    { str: 'Skills', transform: [10, 0, 0, 10, 330, 720], width: 140 },
+    { str: 'Senior Engineer, Acme Corp', transform: [10, 0, 0, 10, 72, 700], width: 180 },
+    { str: 'TypeScript', transform: [10, 0, 0, 10, 330, 700], width: 80 },
+    { str: 'Jan 2022 - Present', transform: [10, 0, 0, 10, 72, 680], width: 130 },
+    { str: 'SQL', transform: [10, 0, 0, 10, 330, 680], width: 35 },
+    { str: '• Built service used by 50 teams.', transform: [10, 0, 0, 10, 72, 660], width: 190 },
+    { str: 'Projects', transform: [10, 0, 0, 10, 330, 660], width: 60 },
+    { str: 'Education', transform: [10, 0, 0, 10, 72, 640], width: 80 },
+    { str: 'Open Source Tool', transform: [10, 0, 0, 10, 330, 640], width: 120 },
+  ];
+  const columnLines = pdfItemsToLines(columns);
+  const columnParsed = parseResumeText(columnLines.join('\n'));
+  ok(
+    'multi-column PDF recovers sections and entries without interleaving',
+    columnLines.join('|') === 'Experience|Senior Engineer, Acme Corp|Jan 2022 - Present|• Built service used by 50 teams.|Education|Skills|TypeScript|SQL|Projects|Open Source Tool' &&
+      columnParsed.experience[0]?.company === 'Acme Corp' &&
+      columnParsed.experience[0]?.bullets[0] === 'Built service used by 50 teams.' &&
+      columnParsed.skills.length === 1 &&
+      columnParsed.projects.length === 1,
+    `${JSON.stringify(columnLines)} ${JSON.stringify(columnParsed)}`
+  );
+  const aliasParsed = parseResumeText(
+    ['Jordan Lee', 'Career History', 'Engineer @ Acme', '2020 - 2022', 'Core Skills', 'SQL, Python'].join('\n')
+  );
+  ok(
+    'career and core-skill heading aliases retain their sections',
+    aliasParsed.experience[0]?.company === 'Acme' && aliasParsed.skills.length > 0,
+    JSON.stringify(aliasParsed)
+  );
+  ok('default resume import does not opt into the large local model', getParseMode() === 'heuristic');
 }
 
 console.log('== resume-import messy resumes ==');
@@ -1400,6 +1487,26 @@ console.log('== resume-import new sections ==');
     const ids = data.awards.map((e) => e.id).concat(data.publications.map((e) => e.id)).concat(data.volunteer.map((e) => e.id)).concat(data.courses.map((e) => e.id));
     return ids.every((id) => typeof id === 'string' && id.length > 0) && new Set(ids).size === ids.length;
   })());
+}
+
+console.log('== resume-writing-review ==');
+{
+  const draft = blankResume();
+  draft.contact.fullName = 'Jordan Lee';
+  draft.contact.email = 'jordan@example.com';
+  draft.experience.push({
+    ...blankWorkEntry(),
+    title: 'Operations Analyst',
+    bullets: ['Responsible for weekly reports.', 'Built dashboards used by 200 people.'],
+  });
+  const notes = reviewResumeWriting(draft);
+  ok('writing review flags vague duty-only bullets', notes.some((note) => /vague duty phrase/.test(note.detail)));
+  ok('writing review prompts for a missing outcome', notes.some((note) => /no clear result/.test(note.detail)));
+  ok('writing review suggests empty essentials', notes.some((note) => note.title === 'Consider a short summary'));
+  ok(
+    'writing prompts use action, scope, and outcome language',
+    notes.some((note) => /action \+ scope \+ outcome/.test(note.prompt))
+  );
 }
 
 console.log('== invoice-core ==');
@@ -1842,8 +1949,28 @@ console.log('== ocr-core ==');
   ok('language data 100% -> 55%', p2.percent === 55, `${p2.percent}`);
   const p3 = ocrProgressLabel({ status: 'loading tesseract core', progress: 0.5 });
   ok('core load 50% -> ~13%', p3.percent === 13 && p3.label.includes('engine'), `${p3.percent}`);
-  ok('engine note mentions 15 MB', OCR_ENGINE_NOTE.includes('15 MB'));
+  ok('engine note explains local English assets and optional language data',
+    OCR_ENGINE_NOTE.includes('10 MB') && OCR_ENGINE_NOTE.includes('Other language data'));
   ok('ocr network error is friendly', ocrErrorMessage(new Error('Failed to fetch')).includes('Check your connection'));
+  const tessLoader = readFileSync(join(ROOT, 'src/tools/tesseract-loader.ts'), 'utf8');
+  const tessPrep = readFileSync(join(ROOT, 'scripts/prepare-tesseract-assets.mjs'), 'utf8');
+  const pdfLoader = readFileSync(join(ROOT, 'src/lib/pdfjs-loader.ts'), 'utf8');
+  const resumeImport = readFileSync(join(ROOT, 'src/lib/resume-import.ts'), 'utf8');
+  const packageJson = readFileSync(join(ROOT, 'package.json'), 'utf8');
+  ok('Tesseract worker and core use same-origin assets',
+    tessLoader.includes('${base}tesseract/worker.min.js') && tessLoader.includes('${base}tesseract/core/'));
+  ok('English traineddata uses same-origin assets',
+    tessLoader.includes('${base}tesseract/lang') && tessPrep.includes('eng.traineddata.gz'));
+  ok('Tesseract WASM core variants are staged for browser support',
+    tessPrep.includes("['relaxedsimd-lstm', 'simd-lstm', 'lstm']"));
+  ok('Tesseract assets are prepared for development and production builds',
+    packageJson.includes('"predev": "node scripts/prepare-tesseract-assets.mjs"') &&
+    packageJson.includes('node scripts/prepare-tesseract-assets.mjs'));
+  ok('PDF.js worker is staged as a same-origin public asset',
+    tessPrep.includes("pdf.worker.min.mjs") && pdfLoader.includes('${import.meta.env.BASE_URL}pdf.worker.min.mjs'));
+  ok('resume imports and other PDF tools share one PDF.js loader',
+    resumeImport.includes("import { loadPdfjs } from './pdfjs-loader.ts'") &&
+    !resumeImport.includes('pdf.worker.min.mjs?url'));
 }
 
 console.log('== trace-core (incl. real imagetracerjs run in Node) ==');
@@ -2645,6 +2772,15 @@ console.log('== built HTML: page scripts survived the build ==');
   // contains a minification-proof marker string unique to that tool's code —
   // which fails the same way if the script were silently dropped.)
   const { existsSync } = await import('node:fs');
+  function bundledModuleTree(filePath, seen = new Set()) {
+    const resolvedPath = resolve(filePath);
+    const astroDir = resolve(ROOT, 'dist', '_astro');
+    if (!resolvedPath.startsWith(`${astroDir}/`) || seen.has(resolvedPath) || !existsSync(resolvedPath)) return '';
+    seen.add(resolvedPath);
+    const source = readFileSync(resolvedPath, 'utf8');
+    const imports = [...source.matchAll(/(?:from\s*|import\s*)["'](\.\/[^"']+)["']/g)];
+    return source + imports.map((match) => bundledModuleTree(join(dirname(resolvedPath), match[1]), seen)).join('\n');
+  }
   const pages = [
     ['audio-trimmer', 'waveform'],
     ['audio-merger', 'merge-btn'],
@@ -2684,7 +2820,7 @@ console.log('== built HTML: page scripts survived the build ==');
       const m = html.match(/<script type="module" src="([^"]*\/_astro\/[a-z-]+\.astro_astro_type_script_index_0_lang\.[A-Za-z0-9_-]+\.js)"/);
       const rel = m ? m[1].slice(m[1].indexOf('/_astro/') + 1) : null;
       const chunkPath = rel ? join(ROOT, 'dist', rel) : null;
-      const chunk = chunkPath && existsSync(chunkPath) ? readFileSync(chunkPath, 'utf8') : '';
+      const chunk = chunkPath ? bundledModuleTree(chunkPath) : '';
       ok(
         `${page}: bundled page script references tool code ("${marker}")`,
         !!chunk && chunk.includes(marker) && chunk.length > 1000,
@@ -2729,7 +2865,7 @@ console.log('== responsive / mobile checks (static) ==');
   ok('primary buttons go full width under 560px', /\.btn-row \.btn\s*\{\s*flex:\s*1 1 100%/.test(css));
   // v5: spec tables stack as hairline rows on mobile, not boxed cards.
   ok('spec tables stack as rows on mobile', /\.content tr\s*\{\s*border-bottom:\s*1px solid var\(--line\)/.test(css));
-  ok('resume modern template stacks its sidebar', /\.resume-modern \.rs-mod\s*\{\s*grid-template-columns:\s*1fr/.test(css));
+  ok('resume modern template remains single-column', !css.includes('.resume-modern .rs-mod'));
   ok('invoice header stacks on mobile', /\.inv-header\s*\{\s*flex-direction:\s*column/.test(css));
   // v5: footer stacks as a column on mobile (new .wrap flex rule).
   ok('footer stacks on mobile', /\.site-footer \.wrap[^{]*\{[^}]*flex-direction:\s*column/.test(css));

@@ -404,22 +404,22 @@ export const TEMPLATES: ResumeTemplate[] = [
     id: 'classic',
     name: 'Classic',
     tagline: 'Traditional and familiar',
-    description: 'Centered serif header, single column, ruled section headings. The resume shape hiring managers expect.',
-    atsNote: 'Most ATS-safe: single column, standard headings, no graphics.',
+    description: 'A single-column serif layout with conventional section headings and a centered header.',
+    atsNote: 'Single column with standard headings and no graphics; a straightforward choice for parsing.',
   },
   {
     id: 'modern',
     name: 'Modern',
-    tagline: 'Two-column with sidebar',
-    description: 'Contact, skills, and languages in a tinted sidebar; experience and education in the main column.',
-    atsNote: 'Sidebar layouts parse fine in most systems, but Classic is the safer pick.',
+    tagline: 'Clean single-column sans serif',
+    description: 'A single-column sans-serif layout with clear hierarchy and conventional section headings.',
+    atsNote: 'Single column with standard headings and no graphics; parsing can vary between systems.',
   },
   {
     id: 'compact',
     name: 'Compact',
-    tagline: 'Dense one-pager',
-    description: 'Tight spacing and small type built to fit a full career on a single page.',
-    atsNote: 'Single column and ATS-friendly when it fits on one page.',
+    tagline: 'Space-efficient single column',
+    description: 'A readable single-column layout with tighter spacing; content may still flow onto extra pages.',
+    atsNote: 'Single column with standard headings; review the final page count and readability.',
   },
 ];
 
@@ -840,32 +840,10 @@ export function renderResume(r: ResumeData, template: TemplateId): string {
       })
       .join('');
 
-  if (template === 'modern') {
-    const name = c.fullName.trim() ? esc(c.fullName.trim()) : '<span class="rs-empty-name">Your Name</span>';
-    const role = c.title.trim() ? `<div class="rs-side-role"${de('contact.title')}>${esc(c.title.trim())}</div>` : '';
-    const sideContact =
-      visible('contact') && bits.length > 0
-        ? `<div class="rs-side-sec"><div class="rs-side-t">Contact</div>${bits.map((b) => `<div class="rs-side-line"${de(`contact.${b.field}`)}>${b.html}</div>`).join('')}</div>`
-        : '';
-    const side = (k: Exclude<SectionKey, 'contact'>, label: string, inner: string) =>
-      visible(k) && inner
-        ? `<div class="rs-side-sec"><div class="rs-side-t">${esc(label)}</div><div class="rs-side-body">${inner}</div></div>`
-        : '';
-    return `<div class="rs-mod">
-      <aside class="rs-side">
-        ${visible('contact') ? `<div class="rs-side-name"${de('contact.fullName')}>${name}</div>${role}` : ''}
-        ${sideContact}
-        ${side('skills', 'Skills', skillsHtml(r))}
-        ${side('languages', 'Languages', languagesHtml(r))}
-      </aside>
-      <div class="rs-main">${bodyHtml(['skills', 'languages'])}</div>
-    </div>`;
-  }
-
   const name = c.fullName.trim() ? esc(c.fullName.trim()) : '<span class="rs-empty-name">Your Name</span>';
   const role = c.title.trim() ? `<div class="rs-role"${de('contact.title')}>${esc(c.title.trim())}</div>` : '';
   const contactLine = bits.length > 0 ? `<div class="rs-contact">${bits.map((b) => `<span${de(`contact.${b.field}`)}>${b.html}</span>`).join(' <span class="rs-sep">·</span> ')}</div>` : '';
-  const headClass = template === 'compact' ? 'rs-head rs-head-left' : 'rs-head rs-head-center';
+  const headClass = template === 'classic' ? 'rs-head rs-head-center' : 'rs-head rs-head-left';
   const header = visible('contact')
     ? `<div class="${headClass}">
       <div class="rs-name"${de('contact.fullName')}>${name}</div>${role}${contactLine}

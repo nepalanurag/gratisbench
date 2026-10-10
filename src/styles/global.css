@@ -382,6 +382,17 @@ a { color: var(--link); }
 .rb-import-review-grid { display: flex; gap: 18px; align-items: flex-start; margin: 12px 0; }
 .rb-import-review-grid dl { flex: 1; min-width: 0; margin: 0; }
 .rb-import-preview { width: 132px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.rb-writing-review { margin: 0 0 1rem; padding: 0.9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.rb-writing-review:empty { display: none; }
+.rb-writing-review h3 { margin: 0; font-size: 1rem; }
+.rb-writing-review p { margin: 0.45rem 0 0; }
+.rb-writing-review .rb-writing-review-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.7rem; }
+.rb-writing-review-head > span { color: var(--muted); font: 0.72rem var(--font-mono); }
+.rb-writing-review ul { display: grid; gap: 0.65rem; margin: 0.7rem 0 0; padding-left: 1.2rem; }
+.rb-writing-review li { padding-left: 0.15rem; }
+.rb-writing-review li > strong, .rb-writing-review li > span { display: block; }
+.rb-writing-review li > span { margin-top: 0.15rem; color: var(--muted); font-size: 0.88rem; }
+.rb-writing-review li > .rb-review-prompt { color: var(--ink); }
 @media (max-width: 560px) {
   .rb-import-review-grid { flex-direction: column; }
   .rb-import-preview { width: 110px; }
@@ -730,22 +741,15 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
 .resume-classic .rs-contact { font-size: 0.88em; color: #4a4438; margin-top: 0.35rem; }
 .resume-classic .rs-sep { color: #a89e8d; }
 
-.resume-modern { font-family: var(--font-ui); padding: 0; overflow: hidden; }
-.resume-modern .rs-mod { display: grid; grid-template-columns: 225px 1fr; }
-.resume-modern .rs-side { background: #f3eee2; padding: 2rem 1.4rem; border-right: 1px solid #e3dac6; }
-.resume-modern .rs-side-name { font-family: var(--font-head); font-size: 1.35rem; font-weight: 700; line-height: 1.2; margin: 0 0 0.15rem; }
-.resume-modern .rs-side-role { font-size: 0.9em; color: #161616; font-weight: 600; margin-bottom: 1.1rem; }
-.resume-modern .rs-side-sec { margin-bottom: 1.1rem; }
-.resume-modern .rs-side-t { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #161616; margin-bottom: 0.4rem; border-bottom: 1px solid #ddd2ba; padding-bottom: 0.2rem; }
-.resume-modern .rs-side-line { font-size: 0.88em; margin-bottom: 0.25rem; word-break: break-word; }
-.resume-modern .rs-side-body { font-size: 0.88em; }
-.resume-modern .rs-side-body .rs-skill { display: block; margin-bottom: 0.45rem; }
-.resume-modern .rs-side-body .rs-skill-label { display: block; font-size: 0.92em; }
-.resume-modern .rs-main { padding: 2rem 2.2rem; min-width: 0; }
+.resume-modern { font-family: var(--font-ui); }
+.resume-modern .rs-head-left { border-bottom: 2px solid #201c16; padding-bottom: 0.7rem; margin-bottom: 0.4rem; }
+.resume-modern .rs-name { font-family: var(--font-head); font-size: 1.75rem; font-weight: 700; margin: 0; }
+.resume-modern .rs-role { font-weight: 600; color: #343434; margin-top: 0.15rem; }
+.resume-modern .rs-contact { font-size: 0.92em; color: #343434; margin-top: 0.35rem; }
 .resume-modern .rs-sec { margin-top: 1rem; }
-.resume-modern .rs-sec-t { color: #161616; border-bottom-color: #e3dac6; }
+.resume-modern .rs-sec-t { color: #161616; border-bottom-color: #bdbdbd; letter-spacing: 0.08em; }
 
-.resume-compact { font-family: var(--font-ui); font-size: 12px; line-height: 1.42; padding: 1.8rem 2rem; }
+.resume-compact { font-family: var(--font-ui); font-size: 13px; line-height: 1.45; padding: 1.8rem 2rem; }
 .resume-compact .rs-head-left { border-bottom: 2px solid #201c16; padding-bottom: 0.5rem; margin-bottom: 0.3rem; }
 .resume-compact .rs-name { font-family: var(--font-head); font-size: 1.5rem; font-weight: 700; margin: 0; }
 .resume-compact .rs-role { font-weight: 600; color: #4a4438; font-size: 0.95em; }
@@ -770,7 +774,6 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
   body.resume-print .resume-workspace { display: block; }
   body.resume-print .resume-preview-pane { display: block !important; position: static; }
   body.resume-print .resume-doc { border: none; border-radius: 0; margin: 0; padding: 0; max-width: none; }
-  body.resume-print .resume-modern .rs-side { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .rs-item, .rs-sec { break-inside: avoid; }
 }
 
@@ -1010,10 +1013,6 @@ select.select-input { font: inherit; color: var(--ink); background: var(--card);
   /* Footer stacks instead of spreading out. */
   .site-footer .wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 0.7rem; }
   .site-footer .foot-fine, .site-footer nav { margin-top: 0; }
-  /* Resume "modern" template: sidebar moves above the main column. */
-  .resume-modern .rs-mod { grid-template-columns: 1fr; }
-  .resume-modern .rs-side { border-right: none; border-bottom: 1px solid #e3dac6; padding: 1.4rem; }
-  .resume-modern .rs-main { padding: 1.4rem; }
   /* Invoice header stacks: title block left-aligns under the business name. */
   .inv-header { flex-direction: column; }
   .inv-title-block { text-align: left; }

@@ -29,6 +29,7 @@ import {
   renderResume,
 } from '../lib/resume-core.ts';
 import { el, showError, hideError, downloadText, downloadBytes, setBusy, ICONS } from './common.ts';
+import { reviewResumeWriting } from '../lib/resume-writing-review.ts';
 
 type ListKey = 'experience' | 'education' | 'skills' | 'projects' | 'certifications' | 'languages' | 'awards' | 'publications' | 'volunteer' | 'courses';
 
@@ -327,9 +328,31 @@ export function initResumeBuilder(): void {
 
   // ---------- preview ----------
 
+  function renderWritingReview(): void {
+    const panel = document.getElementById('rb-writing-review');
+    if (!panel) return;
+    const notes = reviewResumeWriting(resume);
+    const content = notes.length
+      ? `<ul>${notes
+          .map(
+            (note) => `<li class="rb-review-${note.kind}">
+              <strong>${escapeHtml(note.title)}</strong>
+              <span>${escapeHtml(note.detail)}</span>
+              <span class="rb-review-prompt">${escapeHtml(note.prompt)}</span>
+            </li>`
+          )
+          .join('')}</ul>`
+      : '<p>Your draft has all the basic details and no obvious duty-only bullets. Keep tailoring it to the role.</p>';
+    panel.innerHTML = `<div class="rb-writing-review-head">
+      <h3>Writing check</h3><span>Private, rule-based, runs in this browser</span>
+    </div>
+    <p class="hint">Suggestions are prompts, not rules. Add only details you can support.</p>${content}`;
+  }
+
   function renderPreview(): void {
     preview.className = `resume-doc resume-${template}`;
     preview.innerHTML = renderResume(resume, template);
+    renderWritingReview();
   }
 
   // Click-to-edit: click text in the preview to edit it in place.

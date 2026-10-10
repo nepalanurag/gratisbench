@@ -9,7 +9,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "verify": "node scripts/verify-tools.mjs",
-    "prebuild": "node scripts/download-ormbg.mjs"
+    "predev": "node scripts/prepare-tesseract-assets.mjs",
+    "prebuild": "node scripts/download-ormbg.mjs && node scripts/prepare-tesseract-assets.mjs"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",

@@ -26,10 +26,10 @@ export const OCR_LANGUAGES: readonly OcrLanguage[] = [
 
 export const DEFAULT_OCR_LANG = 'eng';
 
-/** Honest engine note: the worker and language data download on first use. */
+/** OCR assets load only on demand; non-English data is fetched when selected. */
 export const OCR_ENGINE_NOTE =
-  'The OCR engine and language data (~15 MB) download the first time you run it, ' +
-  'then stay cached in your browser. Your image never leaves your device.';
+  'English OCR assets (~10 MB) load from this site the first time you run OCR and are cached by your browser. ' +
+  'Other language data downloads only when selected. Your image never leaves your device.';
 
 /** Validate a language code from the UI; unknown values fall back to English. */
 export function resolveOcrLanguage(code: unknown): string {

@@ -1,8 +1,6 @@
-// tesseract.js loading for the image OCR tool.
-// Lazy-loaded (dynamic import) only after the user picks an image, so the
-// page stays fast on first paint. The worker script, WASM core, and language
-// data then download from tesseract.js's CDN on first use and are cached by
-// the browser. Same lazy pattern as src/tools/pdf-render.ts (pdf.js).
+// Tesseract.js is lazy-loaded only after a user starts OCR. Its worker, WASM
+// core, and English data are hosted with the site; other language data is
+// fetched from the Tesseract data CDN only when that language is selected.
 
 let tesseractPromise: Promise<typeof import('tesseract.js')> | null = null;
 
@@ -34,11 +32,24 @@ export function loadTesseract(): Promise<typeof import('tesseract.js')> {
   return tesseractPromise;
 }
 
+export function tesseractWorkerOptions(language: string) {
+  const base = import.meta.env.BASE_URL;
+  return {
+    workerPath: `${base}tesseract/worker.min.js`,
+    corePath: `${base}tesseract/core/`,
+    langPath:
+      language === 'eng'
+        ? `${base}tesseract/lang`
+        : `https://cdn.jsdelivr.net/npm/@tesseract.js-data/${language}/4.0.0_best_int`,
+    gzip: true,
+  };
+}
+
 /** Friendly message for common engine load failures. */
 export function tesseractLoadErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (/network|fetch|failed to fetch/i.test(msg)) {
-    return 'Could not download the OCR engine. Check your connection and try again.';
+    return 'Could not load the OCR engine or language data. Check your connection and try again.';
   }
   return msg || 'Could not start the OCR engine.';
 }
