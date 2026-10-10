@@ -42,31 +42,61 @@ export async function removeBackgroundOrmBg(
   const url = URL.createObjectURL(file);
   try {
     const image = await RawImage.fromURL(url);
+    const origW = image.width;
+    const origH = image.height;
+    
     const result = await segmentator(image);
-    // result is an array, first element has the mask
-    const mask = result[0].mask;
-    // Apply mask to original image
+    const mask = result[0].mask as RawImage; // Grayscale mask, may differ in size
+    
+    // Create canvas at original image size
     const canvas = document.createElement('canvas');
-    canvas.width = image.width;
-    canvas.height = image.height;
+    canvas.width = origW;
+    canvas.height = origH;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Could not create canvas');
     
     // Draw original image
     const img = await createImageBitmap(file);
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img, 0, 0, origW, origH);
     
-    // Apply mask as alpha
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const maskData = await mask.toTensor();
-    // mask is grayscale, resize to match image and apply as alpha
-    // For simplicity, assume mask matches image size (transformers.js handles resizing)
+    // Get image data
+    const imageData = ctx.getImageData(0, 0, origW, origH);
     const data = imageData.data;
-    const maskValues = maskData.data as Uint8Array;
-    for (let i = 0; i < data.length / 4; i++) {
-      // maskValues may need to be indexed differently based on actual mask size
-      const mi = Math.min(i, maskValues.length - 1);
-      data[i * 4 + 3] = maskValues[mi];
+    
+    // Resize mask to match image dimensions using a temp canvas
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = origW;
+    maskCanvas.height = origH;
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) throw new Error('Could not create mask canvas');
+    
+    // Convert RawImage mask to canvas
+    // RawImage has .data (Uint8Array), .width, .height
+    const maskImageData = maskCtx.createImageData(mask.width, mask.height);
+    const maskPixels = maskImageData.data;
+    const maskRaw = mask.data as Uint8Array;
+    // mask is grayscale, convert to RGBA
+    for (let i = 0; i < mask.width * mask.height; i++) {
+      const v = maskRaw[i];
+      maskPixels[i * 4] = v;
+      maskPixels[i * 4 + 1] = v;
+      maskPixels[i * 4 + 2] = v;
+      maskPixels[i * 4 + 3] = 255;
+    }
+    maskCtx.putImageData(maskImageData, 0, 0);
+    
+    // Now draw the mask scaled to full size and get its data
+    const scaledMaskCanvas = document.createElement('canvas');
+    scaledMaskCanvas.width = origW;
+    scaledMaskCanvas.height = origH;
+    const scaledCtx = scaledMaskCanvas.getContext('2d');
+    if (!scaledCtx) throw new Error('Could not create scaled mask canvas');
+    scaledCtx.drawImage(maskCanvas, 0, 0, origW, origH);
+    const scaledMaskData = scaledCtx.getImageData(0, 0, origW, origH).data;
+    
+    // Apply mask as alpha channel
+    for (let i = 0; i < origW * origH; i++) {
+      data[i * 4 + 3] = scaledMaskData[i * 4]; // Use red channel (grayscale)
     }
     ctx.putImageData(imageData, 0, 0);
     
