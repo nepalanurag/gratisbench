@@ -1,7 +1,7 @@
 // Background remover pure logic: option validation, output filenames, and
-// progress labels. No DOM. The @imgly/background-removal engine is
-// browser-only (it downloads a ~40MB ONNX model and runs inference on
-// canvas/WebGPU), so everything except the engine calls is tested here.
+// progress labels. No DOM. The @bg0/browser engine runs locally and may
+// download model files up to about 192 MB, so everything except engine calls
+// is tested here.
 
 export type BgChoice = 'transparent' | 'white' | 'black';
 
@@ -13,8 +13,8 @@ export type BgStage = 'loading-model' | 'removing';
 
 /** Honest one-time-download note shown next to the file picker. */
 export const BG_MODEL_DOWNLOAD_NOTE =
-  'The AI model (~40 MB) downloads once per browser the first time you use this tool. ' +
-  'After that it is cached, so repeat visits work offline and start instantly.';
+  'The AI model (up to about 192 MB) downloads the first time you use this tool. ' +
+  'A compatibility fallback may download another model; both are cached by your browser.';
 
 /** Validate the background choice radio value; unknown values fall back to transparent. */
 export function validateBgChoice(value: unknown): BgChoice {

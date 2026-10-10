@@ -1,6 +1,6 @@
 // Background remover tool: DOM glue. Pure logic lives in
-// ../lib/bgremove-core.ts; the @imgly/background-removal engine is
-// lazy-loaded from ./bgremove-loader.ts only after the user picks an image.
+// ../lib/bgremove-core.ts; the @bg0/browser engine is loaded from
+// ./ormbg-loader.ts only after the user picks an image.
 import {
   validateBgChoice,
   bgFillColor,
@@ -209,6 +209,27 @@ function adjustEdges(base: HTMLCanvasElement, delta: number): HTMLCanvasElement 
   return out;
 }
 
+function toAlphaMask(grayscale: HTMLCanvasElement): HTMLCanvasElement {
+  const sourceContext = grayscale.getContext('2d');
+  if (!sourceContext) throw new Error('Your browser could not read the mask.');
+  const pixels = sourceContext.getImageData(0, 0, grayscale.width, grayscale.height);
+  const alphaMask = document.createElement('canvas');
+  alphaMask.width = grayscale.width;
+  alphaMask.height = grayscale.height;
+  const alphaContext = alphaMask.getContext('2d');
+  if (!alphaContext) throw new Error('Your browser could not create a drawing surface.');
+  const output = alphaContext.createImageData(grayscale.width, grayscale.height);
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const alpha = pixels.data[i];
+    output.data[i] = 255;
+    output.data[i + 1] = 255;
+    output.data[i + 2] = 255;
+    output.data[i + 3] = alpha;
+  }
+  alphaContext.putImageData(output, 0, 0);
+  return alphaMask;
+}
+
 /**
  * Rebuild the cut-out from the ORIGINAL image and the edited mask.
  * This is what makes "Restore" work: the AI cut-out has already lost the
@@ -217,6 +238,7 @@ function adjustEdges(base: HTMLCanvasElement, delta: number): HTMLCanvasElement 
 async function rebuildFromMask(): Promise<void> {
   if (!originalImg || !baseMask || !file) return;
   const adjusted = edgeDelta !== 0 ? adjustEdges(baseMask, edgeDelta) : baseMask;
+  const alphaMask = toAlphaMask(adjusted);
   const canvas = document.createElement('canvas');
   canvas.width = originalImg.naturalWidth;
   canvas.height = originalImg.naturalHeight;
@@ -224,7 +246,7 @@ async function rebuildFromMask(): Promise<void> {
   if (!ctx) return;
   ctx.drawImage(originalImg, 0, 0);
   ctx.globalCompositeOperation = 'destination-in';
-  ctx.drawImage(adjusted, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(alphaMask, 0, 0, canvas.width, canvas.height);
   ctx.globalCompositeOperation = 'source-over';
   refinedBlob = await canvasToPng(canvas);
   if (editorOpen) paintEditorPreview(canvas);
@@ -476,9 +498,7 @@ async function onRemove(): Promise<void> {
   setProgress(2, 'Loading the background-removal engine…');
   const currentFile = file;
   try {
-    // ORMBG via direct onnxruntime-web (bypasses buggy @imgly wrapper).
-    // Proven working 2026-10-08 via direct ONNX inference tests with
-    // numerical verification (28.4% transparent pixels, alpha 0-255).
+    // Run the local BiRefNet engine through @bg0/browser.
     cutoutBlob = await removeBackgroundOrmBg(currentFile, ({ stage, progress, message }) => {
       if (stage === 'downloading') {
         setProgress(Math.round(5 + progress * 60), message);
