@@ -49,7 +49,7 @@ async function loadModel(onProgress?: (p: BgProgress) => void): Promise<ort.Infe
 }
 
 /** Preprocess: letterbox to 1024x1024 (aspect-preserving), normalize to [0,1], CHW format. */
-async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; w: number; h: number }> {
+async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; w: number; h: number; dx: number; dy: number; dw: number; dh: number }> {
   const canvas = document.createElement('canvas');
   canvas.width = MODEL_SIZE;
   canvas.height = MODEL_SIZE;
@@ -74,7 +74,7 @@ async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; 
     float32[2 * n + i] = data[i * 4 + 2] / 255; // B
   }
   const tensor = new ort.Tensor('float32', float32, [1, 3, MODEL_SIZE, MODEL_SIZE]);
-  return { tensor, w: img.naturalWidth, h: img.naturalHeight };
+  return { tensor, w: img.naturalWidth, h: img.naturalHeight, dx, dy, dw, dh };
 }
 
 /**
@@ -98,7 +98,7 @@ export async function removeBackgroundOrmBg(
     });
 
     onProgress?.({ stage: 'processing', progress: 0.2, message: 'Analyzing image…' });
-    const { tensor, w, h } = await preprocess(img);
+    const { tensor, w, h, dx, dy, dw, dh } = await preprocess(img);
 
     onProgress?.({ stage: 'processing', progress: 0.4, message: 'Removing background…' });
     const feeds = { [INPUT_NAME]: tensor };
@@ -129,6 +129,7 @@ export async function removeBackgroundOrmBg(
     mctx.putImageData(maskImage, 0, 0);
 
     // Apply mask to original image
+    // Crop the letterbox padding from the mask, then resize to original dimensions
     const outCanvas = document.createElement('canvas');
     outCanvas.width = w;
     outCanvas.height = h;
@@ -136,7 +137,8 @@ export async function removeBackgroundOrmBg(
     if (!octx) throw new Error('Could not create output canvas');
     octx.drawImage(img, 0, 0);
     octx.globalCompositeOperation = 'destination-in';
-    octx.drawImage(maskCanvas, 0, 0, w, h);
+    // Crop mask to the letterboxed region (dx, dy, dw, dh), then scale to (w, h)
+    octx.drawImage(maskCanvas, dx, dy, dw, dh, 0, 0, w, h);
     octx.globalCompositeOperation = 'source-over';
 
     onProgress?.({ stage: 'processing', progress: 0.95, message: 'Encoding PNG…' });
