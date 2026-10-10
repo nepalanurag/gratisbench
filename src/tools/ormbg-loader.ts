@@ -37,7 +37,7 @@ async function loadModel(onProgress?: (p: BgProgress) => void): Promise<ort.Infe
       const modelData = new Uint8Array(buffer);
       onProgress?.({ stage: 'downloading', progress: 1, message: 'Starting AI engine…' });
       const session = await ort.InferenceSession.create(modelData, {
-        executionProviders: ['wasm'],
+        executionProviders: ['webgpu', 'wasm'],
       });
       return session;
     })();
@@ -109,37 +109,28 @@ export async function removeBackgroundOrmBg(
 
     onProgress?.({ stage: 'processing', progress: 0.8, message: 'Creating cutout…' });
 
-    // Create mask canvas. Handle different output shapes: [1,1,320,320], [1,320,320], or [320,320]
-    const maskLen = maskData.length;
-    const maskDim = Math.sqrt(maskLen); // Should be 320
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = maskDim;
-    maskCanvas.height = maskDim;
-    const mctx = maskCanvas.getContext('2d');
-    if (!mctx) throw new Error('Could not create mask canvas');
-    const maskImage = mctx.createImageData(maskDim, maskDim);
-    for (let i = 0; i < maskLen; i++) {
-      const v = Math.max(0, Math.min(1, maskData[i]));
-      const a = Math.round(v * 255);
-      maskImage.data[i * 4] = a;
-      maskImage.data[i * 4 + 1] = a;
-      maskImage.data[i * 4 + 2] = a;
-      maskImage.data[i * 4 + 3] = 255;
-    }
-    mctx.putImageData(maskImage, 0, 0);
-
-    // Apply mask to original image
-    // Crop the letterbox padding from the mask, then resize to original dimensions
+    // Apply mask to original image using per-pixel mapping (erase-bg approach).
+    // Maps each output pixel back to the correct mask sample, accounting for letterbox.
     const outCanvas = document.createElement('canvas');
     outCanvas.width = w;
     outCanvas.height = h;
     const octx = outCanvas.getContext('2d');
     if (!octx) throw new Error('Could not create output canvas');
     octx.drawImage(img, 0, 0);
-    octx.globalCompositeOperation = 'destination-in';
-    // Crop mask to the letterboxed region (dx, dy, dw, dh), then scale to (w, h)
-    octx.drawImage(maskCanvas, dx, dy, dw, dh, 0, 0, w, h);
-    octx.globalCompositeOperation = 'source-over';
+    const outImageData = octx.getImageData(0, 0, w, h);
+    const outData = outImageData.data;
+    const maskDim = MODEL_SIZE; // 1024
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const maskX = Math.round((x * dw) / w + dx);
+        const maskY = Math.round((y * dh) / h + dy);
+        const maskIdx = maskY * maskDim + maskX;
+        const v = Math.max(0, Math.min(1, maskData[maskIdx] ?? 0));
+        const pixelIdx = (y * w + x) * 4;
+        outData[pixelIdx + 3] = Math.round(v * 255);
+      }
+    }
+    octx.putImageData(outImageData, 0, 0);
 
     onProgress?.({ stage: 'processing', progress: 0.95, message: 'Encoding PNG…' });
     const blob = await new Promise<Blob | null>((resolve) =>
