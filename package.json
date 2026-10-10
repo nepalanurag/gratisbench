@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.0.0",
   "private": true,
-  "description": "TruePDF \u2014 free online tools that run entirely in your browser",
+  "description": "TruePDF — free online tools that run entirely in your browser",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
@@ -12,6 +12,7 @@
     "prebuild": "node scripts/download-ormbg.mjs"
   },
   "dependencies": {
+    "@bg0/browser": "^0.1.1",
     "@breezystack/lamejs": "^1.2.7",
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",
