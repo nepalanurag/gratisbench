@@ -36,7 +36,7 @@ async function loadModel(onProgress?: (p: BgProgress) => void): Promise<ort.Infe
       const modelData = new Uint8Array(buffer);
       onProgress?.({ stage: 'downloading', progress: 1, message: 'Starting AI engine…' });
       const session = await ort.InferenceSession.create(modelData, {
-        executionProviders: ['webgpu', 'wasm'],
+        executionProviders: ['wasm'],
       });
       return session;
     })();
