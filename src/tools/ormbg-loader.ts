@@ -1,14 +1,13 @@
-// U2Netp background removal: direct onnxruntime-web wrapper.
-// 4.7MB model, MIT license. Smaller and simpler than ISNet, better WASM support.
-// Input: 320x320, output: 320x320 sigmoid mask.
+// BiRefNet Lite background removal: direct onnxruntime-web wrapper.
+// Browser-compatible 512x512 export (studioludens/birefnet-lite-512), MIT license.
+// Input: 512x512 RGB with ImageNet normalization. Output: logits (apply sigmoid).
+// Proven in browser by bg0 and Repper.
 import * as ort from 'onnxruntime-web';
 
-// Model is hosted on truepdf-models repo (separate Vercel project for large assets).
-// This keeps TruePDF's main repo lean and avoids GitHub API size limits.
-const MODEL_URL = 'https://truepdf-models.vercel.app/models/u2netp.onnx';
-const MODEL_SIZE = 320;
-const INPUT_NAME = 'input';
-const OUTPUT_NAME = 'output';
+// Model hosted on HuggingFace (CORS-enabled). Browser-compatible export.
+const MODEL_URL = 'https://huggingface.co/studioludens/birefnet-lite-512/resolve/main/onnx/model_fp16.onnx';
+const MODEL_SIZE = 512;
+const INPUT_NAME = 'input_image';
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
@@ -67,14 +66,14 @@ async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; 
   const data = imageData.data;
   const float32 = new Float32Array(1 * 3 * MODEL_SIZE * MODEL_SIZE);
   const n = MODEL_SIZE * MODEL_SIZE;
-  // U2Net expects BGR with ImageNet mean/std normalization (not RGB [0,1])
+  // BiRefNet expects RGB with ImageNet mean/std normalization
   for (let i = 0; i < n; i++) {
     const r = data[i * 4] / 255;
     const g = data[i * 4 + 1] / 255;
     const b = data[i * 4 + 2] / 255;
-    float32[i] = (b - 0.406) / 0.225; // B
+    float32[i] = (r - 0.485) / 0.229; // R
     float32[n + i] = (g - 0.456) / 0.224; // G
-    float32[2 * n + i] = (r - 0.485) / 0.229; // R
+    float32[2 * n + i] = (b - 0.406) / 0.225; // B
   }
   const tensor = new ort.Tensor('float32', float32, [1, 3, MODEL_SIZE, MODEL_SIZE]);
   return { tensor, w: img.naturalWidth, h: img.naturalHeight, dx, dy, dw, dh };
@@ -136,7 +135,9 @@ export async function removeBackgroundOrmBg(
         const maskX = Math.min(maskW - 1, Math.round(((x * dw) / w + dx) * sx));
         const maskY = Math.min(maskH - 1, Math.round(((y * dh) / h + dy) * sy));
         const maskIdx = maskY * maskW + maskX;
-        const v = Math.max(0, Math.min(1, maskData[maskIdx] ?? 0));
+        // BiRefNet outputs logits — apply sigmoid to get probability
+        const logit = maskData[maskIdx] ?? 0;
+        const v = 1 / (1 + Math.exp(-logit));
         const pixelIdx = (y * w + x) * 4;
         outData[pixelIdx + 3] = Math.round(v * 255);
       }
