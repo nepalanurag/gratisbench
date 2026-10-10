@@ -1,13 +1,12 @@
-// ISNet background removal: direct onnxruntime-web wrapper.
-// 85MB FP16 model (imgly/isnet-general-onnx), MIT license, general-purpose segmentation.
-// Input: 1024x1024, output: 1024x1024 sigmoid mask. Proven in browser WASM by
-// erase-bg, frogmonster12/background_remover, and cutlybg.
+// U2Netp background removal: direct onnxruntime-web wrapper.
+// 4.7MB model, MIT license. Smaller and simpler than ISNet, better WASM support.
+// Input: 320x320, output: 320x320 sigmoid mask.
 import * as ort from 'onnxruntime-web';
 
 // Model is hosted on truepdf-models repo (separate Vercel project for large assets).
 // This keeps TruePDF's main repo lean and avoids GitHub API size limits.
-const MODEL_URL = 'https://truepdf-models.vercel.app/models/isnet_fp16.onnx';
-const MODEL_SIZE = 1024;
+const MODEL_URL = 'https://truepdf-models.vercel.app/models/u2netp.onnx';
+const MODEL_SIZE = 320;
 const INPUT_NAME = 'input';
 const OUTPUT_NAME = 'output';
 
@@ -106,11 +105,16 @@ export async function removeBackgroundOrmBg(
     // ISNet has a single clean output named 'output', shape [1, 1, 1024, 1024].
     const output = results[OUTPUT_NAME] ?? results[session.outputNames[0]];
     const maskData = output.data as Float32Array;
+    // Get actual mask dimensions from the tensor shape (don't assume 1024)
+    const dims = output.dims as number[];
+    const maskH = dims[dims.length - 2];
+    const maskW = dims[dims.length - 1];
 
     onProgress?.({ stage: 'processing', progress: 0.8, message: 'Creating cutout…' });
 
     // Apply mask to original image using per-pixel mapping (erase-bg approach).
     // Maps each output pixel back to the correct mask sample, accounting for letterbox.
+    // Note: mask is in letterboxed 1024x1024 space, but actual dims may differ.
     const outCanvas = document.createElement('canvas');
     outCanvas.width = w;
     outCanvas.height = h;
@@ -119,12 +123,14 @@ export async function removeBackgroundOrmBg(
     octx.drawImage(img, 0, 0);
     const outImageData = octx.getImageData(0, 0, w, h);
     const outData = outImageData.data;
-    const maskDim = MODEL_SIZE; // 1024
+    // Scale letterbox geometry to actual mask dimensions
+    const sx = maskW / MODEL_SIZE;
+    const sy = maskH / MODEL_SIZE;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const maskX = Math.round((x * dw) / w + dx);
-        const maskY = Math.round((y * dh) / h + dy);
-        const maskIdx = maskY * maskDim + maskX;
+        const maskX = Math.min(maskW - 1, Math.round(((x * dw) / w + dx) * sx));
+        const maskY = Math.min(maskH - 1, Math.round(((y * dh) / h + dy) * sy));
+        const maskIdx = maskY * maskW + maskX;
         const v = Math.max(0, Math.min(1, maskData[maskIdx] ?? 0));
         const pixelIdx = (y * w + x) * 4;
         outData[pixelIdx + 3] = Math.round(v * 255);
