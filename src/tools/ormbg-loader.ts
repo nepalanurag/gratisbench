@@ -107,7 +107,7 @@ export async function removeBackgroundOrmBg(
     const feeds = { [session.inputNames[0]]: tensor };
     const results = await session.run(feeds);
     // ISNet has a single clean output named 'output', shape [1, 1, 1024, 1024].
-    const output = results[OUTPUT_NAME] ?? results[session.outputNames[0]];
+    const output = results[session.outputNames[0]];
     const maskData = output.data as Float32Array;
     // Get actual mask dimensions from the tensor shape (don't assume 1024)
     const dims = output.dims as number[];
