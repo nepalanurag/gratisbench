@@ -1,6 +1,5 @@
 // Background remover tool: DOM glue. Pure logic lives in
-// ../lib/bgremove-core.ts; the @bg0/browser engine is loaded from
-// ./ormbg-loader.ts only after the user picks an image.
+// ../lib/bgremove-core.ts; the ONNX engine is loaded only when removal starts.
 import {
   validateBgChoice,
   bgFillColor,
@@ -8,7 +7,6 @@ import {
   bgRemoveErrorMessage,
   type BgChoice,
 } from '../lib/bgremove-core.ts';
-import { removeBackgroundOrmBg } from './ormbg-loader.ts';
 import {
   el,
   formatBytes,
@@ -498,7 +496,7 @@ async function onRemove(): Promise<void> {
   setProgress(2, 'Loading the background-removal engine…');
   const currentFile = file;
   try {
-    // Run the local BiRefNet engine through @bg0/browser.
+    const { removeBackgroundOrmBg } = await import('./ormbg-loader.ts');
     cutoutBlob = await removeBackgroundOrmBg(currentFile, ({ stage, progress, message }) => {
       if (stage === 'downloading') {
         setProgress(Math.round(5 + progress * 60), message);

@@ -8,17 +8,13 @@ const description =
   'Free online PDF tools: merge PDFs, split PDFs by page range, convert images to PDF, compress PDF, PDF to JPG, redact PDF, sign PDF, unlock PDF, protect PDF, convert PDF to Word, OCR scanned PDFs, extract images and text, edit metadata, fill forms, flatten forms, and repair damaged PDFs. No signup, no watermark. Everything runs in your browser.';
 
 const toolsRaw = [
-  { href: '/pdf-editor', name: 'PDF Editor', desc: 'One workspace: reorder, rotate, delete, edit text, watermark, number pages, crop, protect.' },
-  { href: '/merge-pdf', name: 'Merge PDF', desc: 'Now part of the PDF Editor. Combine multiple PDFs into one document.' },
-  { href: '/split-pdf', name: 'Split PDF', desc: 'Now part of the PDF Editor. Extract pages by number into new documents.' },
+  { href: '/pdf-editor', name: 'PDF Editor', desc: 'Merge files, split or reorder pages, rotate, delete, edit text, watermark, number, crop, and protect.' },
   { href: '/images-to-pdf', name: 'Images to PDF', desc: 'Turn JPG, PNG, and WebP images into a single PDF with page-size control.' },
-  { href: '/jpg-to-pdf', name: 'JPG to PDF', desc: 'Convert JPG photos into a single PDF at full quality, in your chosen order.' },
   { href: '/pdf-compressor', name: 'Compress PDF', desc: 'Shrink the images in a PDF to make it smaller. Text stays selectable.' },
   { href: '/pdf-to-jpg', name: 'PDF to JPG', desc: 'Render PDF pages as JPG or PNG images at 72, 150, 300, or 600 DPI.' },
   { href: '/pdf-redactor', name: 'Redact PDF', desc: 'Black out sensitive areas permanently; unmarked pages stay untouched.' },
   { href: '/pdf-esignature', name: 'Sign PDF', desc: 'Draw or type your signature and place it on any page.' },
   { href: '/unlock-pdf', name: 'Unlock PDF', desc: 'Remove password protection when you know the password.' },
-  { href: '/protect-pdf', name: 'Protect PDF', desc: 'Now part of the PDF Editor. Add password encryption to a PDF.' },
   { href: '/pdf-to-word', name: 'PDF to Word', desc: 'Extract text and images into an editable Word document. Headings keep their levels; layouts are not preserved.' },
   { href: '/ocr-pdf', name: 'OCR PDF', desc: 'Make scanned PDFs searchable with an invisible text layer; pages with text are left alone.' },
   { href: '/extract-images', name: 'Extract Images', desc: 'Pull embedded pictures out of a PDF at original resolution; download singly or as a ZIP.' },
@@ -54,7 +50,7 @@ const jsonLd = {
         <a href={basePath("/pdf-editor")} style="display: inline-block; padding: 10px 22px; background: var(--accent); color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">Open the PDF Editor</a>
       </div>
       <p class="lede">
-        Seventeen utilities for everyday PDF jobs: combining files, extracting pages, turning images
+        Sixteen tools for everyday PDF jobs: combining files, extracting pages, turning images
         into documents, shrinking files, converting pages to images, redacting sensitive parts,
         signing documents, removing password protection, making scans searchable, pulling out images
         and text, editing metadata, filling and flattening forms, and repairing damaged files.
@@ -85,12 +81,12 @@ const jsonLd = {
       <p>
         Most PDF work is not editing. It is assembling: pulling pages out of one file, combining several files
         into one, or turning a set of scanned images into a proper document. Those jobs are covered without the
-        usual friction of upload queues, daily limits, or watermarks, and JPG photos also get a dedicated
-        <a href={basePath("/jpg-to-pdf")}>JPG to PDF</a> page for quick photo-to-PDF conversion.
+        usual friction of upload queues, daily limits, or watermarks. The <a href={basePath("/images-to-pdf")}>Images to PDF</a>
+        tool also handles JPG photos with page-size and order controls.
       </p>
       <p>
-        A useful pattern: use <a href={basePath("/split-pdf")}>Split PDF</a> to extract the pages you need from several
-        documents, then <a href={basePath("/merge-pdf")}>Merge PDF</a> to combine the results into one. Scanned pages from
+        A useful pattern: use <a href={basePath("/pdf-editor")}>Split PDF</a> in the PDF Editor to extract the pages you need from several
+        documents, then use its combine workflow to join the results into one. Scanned pages from
         a phone camera go through <a href={basePath("/images-to-pdf")}>Images to PDF</a> first. When a file is too big to
         email, <a href={basePath("/pdf-compressor")}>Compress PDF</a> shrinks it; when you need pages as images,
         <a href={basePath("/pdf-to-jpg")}>PDF to JPG</a> renders them. <a href={basePath("/pdf-redactor")}>Redact PDF</a>
@@ -108,11 +104,11 @@ const jsonLd = {
       <dl>
         <div class="faq">
           <dt>Are these PDF tools free?</dt>
-          <dd>Yes. All seventeen tools are free with no limits, no watermarks, and no account.</dd>
+          <dd>Yes. All sixteen tools are free with no limits, no watermarks, and no account.</dd>
         </div>
         <div class="faq">
           <dt>Do my PDFs get uploaded?</dt>
-          <dd>No. All seventeen tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded.</dd>
+          <dd>No. All sixteen tools process your files locally in the browser. Nothing is sent to a server, which is why they also work offline once loaded.</dd>
         </div>
         <div class="faq">
           <dt>Will the quality of my PDFs change?</dt>

@@ -1813,7 +1813,7 @@ console.log('== bgremove-core ==');
   ok('model label percent', bgProgressLabel('fetch:x', 50, 100).includes('50%'));
   ok('inference label', bgProgressLabel('compute:inference', 1, 4) === 'Removing the background…');
   ok('mask label', bgProgressLabel('compute:mask', 2, 4) === 'Cleaning up the edges…');
-  ok('model note mentions 40 MB', BG_MODEL_DOWNLOAD_NOTE.includes('40 MB'));
+  ok('model note gives current model size and runtime', BG_MODEL_DOWNLOAD_NOTE.includes('85 MB') && BG_MODEL_DOWNLOAD_NOTE.includes('WASM runtime'));
   ok('network error is friendly', bgRemoveErrorMessage(new Error('fetch failed')).includes('Check your connection'));
   ok('gpu error is friendly', bgRemoveErrorMessage(new Error('wasm init failed')).includes('WebAssembly'));
 }
@@ -1894,7 +1894,7 @@ console.log('== trace-core (incl. real imagetracerjs run in Node) ==');
   const pathless = `<svg width="8" height="8" xmlns="http://www.w3.org/2000/svg"><rect width="8" height="8"/></svg>`.padEnd(300, ' ');
   ok('pathless svg rejected', validateSvg(pathless).ok === false);
   ok('truncated svg rejected', validateSvg('<svg width="8" height="8"><path d="M0 0L8 8Z"/>'.padEnd(300, 'x')).ok === false);
-  ok('engine note honest about photos', TRACE_ENGINE_NOTE.includes('photos do not'));
+  ok('engine note honest about photos', TRACE_ENGINE_NOTE.toLowerCase().includes('photos do not'));
   ok('memory error is friendly', traceErrorMessage(new Error('allocation failed')).includes('smaller image'));
 }
 
@@ -2552,16 +2552,12 @@ console.log('== element-id cross-checks (glue ids exist in pages) ==');
   checkGlueIds('src/tools/logo-maker.ts', 'src/pages/logo-maker.astro');
   checkGlueIds('src/tools/og-image-generator.ts', 'src/pages/og-image-generator.astro');
   checkGlueIds('src/tools/device-mockup-generator.ts', 'src/pages/device-mockup-generator.astro');
-  checkGlueIds('src/tools/merge-pdf.ts', 'src/pages/merge-pdf.astro');
-  checkGlueIds('src/tools/split-pdf.ts', 'src/pages/split-pdf.astro');
   checkGlueIds('src/tools/images-to-pdf.ts', 'src/pages/images-to-pdf.astro');
-  checkGlueIds('src/tools/images-to-pdf.ts', 'src/pages/jpg-to-pdf.astro');
   checkGlueIds('src/tools/pdf-compressor.ts', 'src/pages/pdf-compressor.astro');
   checkGlueIds('src/tools/pdf-to-jpg.ts', 'src/pages/pdf-to-jpg.astro');
   checkGlueIds('src/tools/pdf-redactor.ts', 'src/pages/pdf-redactor.astro');
   checkGlueIds('src/tools/pdf-esignature.ts', 'src/pages/pdf-esignature.astro');
   checkGlueIds('src/tools/unlock-pdf.ts', 'src/pages/unlock-pdf.astro');
-  checkGlueIds('src/tools/protect-pdf.ts', 'src/pages/protect-pdf.astro');
   checkGlueIds('src/tools/pdf2word.ts', 'src/pages/pdf-to-word.astro');
   checkGlueIds('src/tools/image-compressor.ts', 'src/pages/image-compressor.astro');
   checkGlueIds('src/tools/image-converter.ts', 'src/pages/image-converter.astro');
@@ -2608,7 +2604,7 @@ console.log('== glue module smoke import (no top-level DOM access) ==');
     '../src/tools/video-trimmer.ts',
     '../src/tools/video-converter.ts',
     '../src/tools/screen-recorder.ts',
-    '../src/tools/bgremove-loader.ts',
+    '../src/tools/ormbg-loader.ts',
     '../src/tools/tesseract-loader.ts',
     '../src/tools/trace-loader.ts',
     '../src/tools/background-remover.ts',
@@ -2775,7 +2771,7 @@ console.log('== responsive / mobile checks (static) ==');
   ok('a11y prefs persist to localStorage', layout.includes("localStorage.setItem('fk-a11y'"));
   ok('empty ad slots stay hidden until ads are configured', /\.ad-slot\s*\{\s*display:\s*none/.test(css));
   // v4.1: the recommended mix from the five-styles video.
-  ok('homepage headline has a confident type scale', /clamp\(2\.4rem/.test(css));
+  ok('headlines use fixed responsive type sizes', !/font-size:\s*clamp\(/.test(css));
   ok('homepage has a working tool demo, not just links', /id="demo-qr-text"/.test(index) && /initHomeDemo/.test(index));
   ok('demo script reuses the tested QR core', /from '\.\.\/lib\/qr-core/.test(readFileSync(join(ROOT, 'src/tools/home-demo.ts'), 'utf8')));
   ok('demo preview stays black-on-white in both themes', /\.demo-qr-preview\s*\{[^}]*background:\s*#fff/.test(css));
@@ -2793,13 +2789,17 @@ console.log('== responsive / mobile checks (static) ==');
   ok('unlock tool is listed on the PDF tools hub', readFileSync(join(ROOT, 'src/pages/pdf-tools.astro'), 'utf8').includes('/unlock-pdf'));
   ok('unlock PDF is in the sitemap', /import\.meta\.glob\('\.\/\*\.astro'\)/.test(readFileSync(join(ROOT, 'src/pages/sitemap.xml.ts'), 'utf8')) && existsSync(join(ROOT, 'src/pages/unlock-pdf.astro')));
   ok('homepage counts 39 tools', /39 small tools/.test(index));
-  for (const [page, tool] of [['merge-pdf', 'merge-pdf'], ['images-to-pdf', 'images-to-pdf'], ['pdf-compressor', 'pdf-compressor']]) {
+  for (const [page, tool] of [['images-to-pdf', 'images-to-pdf'], ['pdf-compressor', 'pdf-compressor']]) {
     const p = readFileSync(join(ROOT, `src/pages/${page}.astro`), 'utf8');
     const t = readFileSync(join(ROOT, `src/tools/${tool}.ts`), 'utf8');
     ok(`${page} result has a preview slot`, /id="preview-wrap"/.test(p));
     ok(`${page} renders a first-page preview`, /showPdfPreview\('preview-wrap'/.test(t));
   }
-  ok('split PDF rows get a thumbnail preview', /renderPdfThumb\(data/.test(readFileSync(join(ROOT, 'src/tools/split-pdf.ts'), 'utf8')));
+  const pdfEditorPage = readFileSync(join(ROOT, 'src/pages/pdf-editor.astro'), 'utf8');
+  const pdfWorkspace = readFileSync(join(ROOT, 'src/tools/pdf-workspace.ts'), 'utf8');
+  ok('PDF editor accepts multiple source files', /id="ws-file-input"[^>]*multiple/.test(pdfEditorPage));
+  ok('PDF editor supports extracting selected pages', /id="ws-extract"/.test(pdfEditorPage) && /extractSelected/.test(pdfWorkspace));
+  ok('PDF editor supports password protection', /id="ws-protect"/.test(pdfEditorPage) && /protectPassword/.test(pdfWorkspace));
   ok('preview styles exist', /\.pdf-preview-canvas/.test(css) && /\.file-row \.file-thumb/.test(css));
   ok('comfort panel stays open when tapped from the mobile menu', /!hit\(a11yBtnM\)/.test(layout));
   // Contrast: every themed text color must clear WCAG AA (4.5:1) on its background.

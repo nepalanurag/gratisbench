@@ -51,22 +51,14 @@ async function loadModel(onProgress?: (p: BgProgress) => void): Promise<ort.Infe
   return sessionPromise;
 }
 
-/** Preprocess: letterbox to 1024x1024 (aspect-preserving), normalize to [0,1], CHW format. */
-async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; w: number; h: number; dx: number; dy: number; dw: number; dh: number }> {
+/** Preprocess to the square size expected by the model's ViT feature extractor. */
+async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; w: number; h: number }> {
   const canvas = document.createElement('canvas');
   canvas.width = MODEL_SIZE;
   canvas.height = MODEL_SIZE;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Could not create canvas');
-  // Letterbox: scale to fit, center, pad with black (ISNet training preprocessing)
-  const scale = Math.min(MODEL_SIZE / img.naturalWidth, MODEL_SIZE / img.naturalHeight);
-  const dw = Math.round(img.naturalWidth * scale);
-  const dh = Math.round(img.naturalHeight * scale);
-  const dx = Math.floor((MODEL_SIZE - dw) / 2);
-  const dy = Math.floor((MODEL_SIZE - dh) / 2);
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, MODEL_SIZE, MODEL_SIZE);
-  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.drawImage(img, 0, 0, MODEL_SIZE, MODEL_SIZE);
   const imageData = ctx.getImageData(0, 0, MODEL_SIZE, MODEL_SIZE);
   const data = imageData.data;
   const float32 = new Float32Array(1 * 3 * MODEL_SIZE * MODEL_SIZE);
@@ -81,7 +73,7 @@ async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; 
     float32[2 * n + i] = (b - 0.406) / 0.225; // B
   }
   const tensor = new ort.Tensor('float32', float32, [1, 3, MODEL_SIZE, MODEL_SIZE]);
-  return { tensor, w: img.naturalWidth, h: img.naturalHeight, dx, dy, dw, dh };
+  return { tensor, w: img.naturalWidth, h: img.naturalHeight };
 }
 
 /**
@@ -105,7 +97,7 @@ export async function removeBackgroundOrmBg(
     });
 
     onProgress?.({ stage: 'processing', progress: 0.2, message: 'Analyzing image…' });
-    const { tensor, w, h, dx, dy, dw, dh } = await preprocess(img);
+    const { tensor, w, h } = await preprocess(img);
 
     onProgress?.({ stage: 'processing', progress: 0.4, message: 'Removing background…' });
     // Use the session's actual input name (U2Netp uses 'input.1', ISNet uses 'input')
@@ -148,21 +140,13 @@ export async function removeBackgroundOrmBg(
     }
     mctx.putImageData(maskImageData, 0, 0);
     
-    // Crop padding: scale letterbox coords to mask dimensions
-    const sx = maskW / MODEL_SIZE;
-    const sy = maskH / MODEL_SIZE;
-    const cropX = Math.round(dx * sx);
-    const cropY = Math.round(dy * sy);
-    const cropW = Math.round(dw * sx);
-    const cropH = Math.round(dh * sy);
-    
-    // Resize cropped mask to original image size
+    // Resize the model's square mask back to the original image dimensions.
     const resizedMaskCanvas = document.createElement('canvas');
     resizedMaskCanvas.width = w;
     resizedMaskCanvas.height = h;
     const rctx = resizedMaskCanvas.getContext('2d');
     if (!rctx) throw new Error('Could not create resized mask canvas');
-    rctx.drawImage(maskCanvas, cropX, cropY, cropW, cropH, 0, 0, w, h);
+    rctx.drawImage(maskCanvas, 0, 0, maskW, maskH, 0, 0, w, h);
     const resizedMaskData = rctx.getImageData(0, 0, w, h).data;
     
     // Apply as alpha

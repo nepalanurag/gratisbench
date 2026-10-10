@@ -1,7 +1,6 @@
 // Background remover pure logic: option validation, output filenames, and
-// progress labels. No DOM. The @bg0/browser engine runs locally and may
-// download model files up to about 192 MB, so everything except engine calls
-// is tested here.
+// progress labels. No DOM. The local ONNX model and WASM runtime are lazy
+// loaded by the tool when removal starts.
 
 export type BgChoice = 'transparent' | 'white' | 'black';
 
@@ -13,8 +12,8 @@ export type BgStage = 'loading-model' | 'removing';
 
 /** Honest one-time-download note shown next to the file picker. */
 export const BG_MODEL_DOWNLOAD_NOTE =
-  'The AI model (up to about 192 MB) downloads the first time you use this tool. ' +
-  'A compatibility fallback may download another model; both are cached by your browser.';
+  'The first use downloads an approximately 85 MB model and the WASM runtime. ' +
+  'Your browser may cache these files for later use.';
 
 /** Validate the background choice radio value; unknown values fall back to transparent. */
 export function validateBgChoice(value: unknown): BgChoice {

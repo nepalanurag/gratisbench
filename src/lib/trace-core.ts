@@ -25,7 +25,7 @@ export interface TraceOptions {
 export const TRACE_ENGINE_NOTE =
   'Tracing runs entirely in your browser — no upload. ' +
   'Logos and icons: use Color or Mono. Photos of people: use Photo mode, which smooths ' +
-  'skin tones and simplifies the background for a cleaner vector look.';
+  'skin tones and simplifies the background for a cleaner vector look. Photos do not produce photographically faithful SVGs.';
 
 /** Validate raw option values from the DOM into a safe TraceOptions object. */
 export function validateTraceOptions(raw: { mode?: unknown; detail?: unknown }): TraceOptions {

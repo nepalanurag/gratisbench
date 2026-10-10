@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import CommandPalette from '../components/CommandPalette.astro';
 import { siteUrl, basePath, stripBase, DONATE_URL, ANALYTICS_CODE } from '../lib/site';
+import { ALL_TOOLS } from '../lib/tools';
 
 interface Props {
   title: string;
@@ -17,7 +18,17 @@ const site = siteUrl(Astro.site); // from SITE_URL env, placeholder until launch
 // GitHub Pages), and `site` includes it too, so strip it before joining.
 // Otherwise the canonical doubles the path and points at a nonexistent page.
 const path = stripBase(Astro.url.pathname);
-const pageUrl = canonical ?? site + path;
+const siteBase = site.endsWith('/') ? site : `${site}/`;
+const pageUrl = new URL(canonical ?? path.replace(/^\/+/, ''), siteBase).href;
+const ogImage = new URL('og-image.png', siteBase).href;
+const currentPath = path.replace(/\/$/, '') || '/';
+const categoryForPath: Record<string, string> = {
+  '/pdf-tools': 'PDF',
+  '/image-tools': 'Image',
+  '/media-tools': 'Media',
+  '/business-tools': 'Business',
+};
+const activeGroup = categoryForPath[currentPath] ?? ALL_TOOLS.find((tool) => tool.href === currentPath)?.group;
 ---
 <!doctype html>
 <html lang="en">
@@ -26,19 +37,20 @@ const pageUrl = canonical ?? site + path;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="keywords" content="free tools, free online tools, free PDF tools, free image tools, free audio tools, free video tools, QR generator, invoice generator, resume builder, budget planner, no signup tools" />
     <link rel="canonical" href={pageUrl} />
-    {noindex && <meta name="robots" content="noindex" />}
+    <meta name="robots" content={noindex ? 'noindex,follow' : 'index,follow,max-image-preview:large'} />
     <link rel="icon" type="image/svg+xml" href={basePath('/favicon.svg')} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={pageUrl} />
-    <meta property="og:image" content={site + '/og-image.png'} />
+    <meta property="og:site_name" content="TruePDF" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:alt" content="TruePDF free browser-based file tools" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={site + '/og-image.png'} />
+    <meta name="twitter:image" content={ogImage} />
     <meta name="theme-color" content="#ffffff" />
     <script is:inline>
       // Theme + accessibility prefs. is:inline keeps this a plain synchronous
@@ -75,9 +87,15 @@ const pageUrl = canonical ?? site + path;
           if (dark) root.setAttribute('data-theme', 'dark');
           else root.removeAttribute('data-theme');
           try { localStorage.setItem('fk-theme', dark ? 'dark' : 'light'); } catch (e4) {}
+          syncThemeColor();
           syncThemeUI();
         }
+        function syncThemeColor() {
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', root.getAttribute('data-theme') === 'dark' ? '#1c1c1c' : '#ffffff');
+        }
         applyStored();
+        syncThemeColor();
         // Delegated: works even though the header buttons parse after this script.
         document.addEventListener('click', function (e) {
           var t = e.target;
@@ -102,6 +120,7 @@ const pageUrl = canonical ?? site + path;
     )}
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="site-header">
       <div class="wrap">
         <a class="brand" href={basePath('/')} aria-label="TruePDF home">
@@ -114,10 +133,10 @@ const pageUrl = canonical ?? site + path;
           TruePDF
         </a>
         <nav class="site-nav" id="fk-nav" aria-label="Main">
-          <a href={basePath('/pdf-tools')}>PDF</a>
-          <a href={basePath('/image-tools')}>Image</a>
-          <a href={basePath('/media-tools')}>Media</a>
-          <a href={basePath('/business-tools')}>Business</a>
+          <a href={basePath('/pdf-tools')} aria-current={activeGroup === 'PDF' ? 'page' : undefined}>PDF</a>
+          <a href={basePath('/image-tools')} aria-current={activeGroup === 'Image' ? 'page' : undefined}>Image</a>
+          <a href={basePath('/media-tools')} aria-current={activeGroup === 'Media' ? 'page' : undefined}>Media</a>
+          <a href={basePath('/business-tools')} aria-current={activeGroup === 'Business' ? 'page' : undefined}>Business</a>
           <div class="nav-extra">
             <button type="button" id="fk-theme-toggle-m" aria-pressed="false">
               <span>Dark mode</span><span class="ne-state" id="fk-theme-state">off</span>
@@ -162,7 +181,7 @@ const pageUrl = canonical ?? site + path;
       </div>
     </header>
 
-    <main>
+    <main id="main-content" tabindex="-1">
       <slot />
     </main>
 

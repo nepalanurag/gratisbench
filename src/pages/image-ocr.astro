@@ -119,11 +119,12 @@ const lede = 'Turn photos and scans into editable text. Free OCR in your browser
       <div class="preview-frame">
         <div id="zone-wrap" style="position:relative;line-height:0;max-width:100%;">
           <img id="preview-img" alt="Image to read text from" style="pointer-events:none;" />
-          <div id="zone-box" hidden style="position:absolute;border:2px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,.55);background:rgba(255,255,255,.08);"></div>
+          <div id="zone-boxes" aria-label="Selected OCR regions"></div>
         </div>
       </div>
-      <p class="hint">Tip: drag a box on the image to read just that part. <button id="zone-clear" class="link-btn" type="button" hidden>Clear selection</button></p>
+      <p class="hint" id="zone-hint" aria-live="polite">Tip: drag a box on the image to read just that part.</p>
       <div class="btn-row btn-row-tight">
+        <button id="zone-clear" class="btn btn-secondary" type="button" hidden>Clear selection</button>
         <button id="rotate-btn" class="btn btn-secondary" type="button">Turn image 90°</button>
       </div>
     </div>

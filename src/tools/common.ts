@@ -168,16 +168,7 @@ export function armDelegatedConfirm(
  */
 const NEXT_STEPS: Record<string, Array<{ href: string; name: string }>> = {
   'pdf-compressor': [
-    { href: '/merge-pdf', name: 'Merge PDFs' },
-    { href: '/pdf-editor', name: 'Reorder or edit pages' },
-  ],
-  'merge-pdf': [
-    { href: '/pdf-compressor', name: 'Compress the result' },
-    { href: '/pdf-editor', name: 'Reorder or delete pages' },
-  ],
-  'split-pdf': [
-    { href: '/merge-pdf', name: 'Merge some back together' },
-    { href: '/pdf-compressor', name: 'Compress the result' },
+    { href: '/pdf-editor', name: 'Merge, split, or organize pages' },
   ],
   'pdf-to-jpg': [
     { href: '/image-compressor', name: 'Compress the images' },
@@ -185,7 +176,7 @@ const NEXT_STEPS: Record<string, Array<{ href: string; name: string }>> = {
   ],
   'images-to-pdf': [
     { href: '/pdf-compressor', name: 'Compress the PDF' },
-    { href: '/merge-pdf', name: 'Merge with another PDF' },
+    { href: '/pdf-editor', name: 'Merge with another PDF' },
   ],
   'image-compressor': [
     { href: '/image-converter', name: 'Convert the format' },
@@ -221,7 +212,7 @@ const NEXT_STEPS: Record<string, Array<{ href: string; name: string }>> = {
   ],
   'pdf-editor': [
     { href: '/pdf-compressor', name: 'Compress the result' },
-    { href: '/merge-pdf', name: 'Merge with another PDF' },
+    { href: '/pdf-esignature', name: 'Sign the result' },
   ],
 };
 
