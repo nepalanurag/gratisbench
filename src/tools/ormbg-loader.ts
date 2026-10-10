@@ -14,7 +14,9 @@ let sessionPromise: Promise<ort.InferenceSession> | null = null;
 // Configure WASM paths for onnxruntime-web. The WASM binaries are in public/ort/.
 if (typeof window !== 'undefined') {
   const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-  ort.env.wasm.wasmPaths = `${base}/ort/`;
+  ort.env.wasm.wasmPaths = {
+    wasm: `${base}/ort/ort-wasm-simd-threaded.jsep.wasm`,
+  };
   // Fix WASM multi-threading tensor corruption bug (affects Swin transformer models).
   // Forces single-threaded execution - slower but produces correct output.
   ort.env.wasm.numThreads = 1;
@@ -109,8 +111,7 @@ export async function removeBackgroundOrmBg(
     // Use the session's actual input name (U2Netp uses 'input.1', ISNet uses 'input')
     const feeds = { [session.inputNames[0]]: tensor };
     const results = await session.run(feeds);
-    // ISNet has a single clean output named 'output', shape [1, 1, 1024, 1024].
-    const output = results[OUTPUT_NAME] ?? results[session.outputNames[0]];
+    const output = results[session.outputNames[0]];
     const maskData = output.data as Float32Array;
     // Get actual mask dimensions from the tensor shape (don't assume 1024)
     const dims = output.dims as number[];
