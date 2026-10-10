@@ -48,14 +48,22 @@ async function loadModel(onProgress?: (p: BgProgress) => void): Promise<ort.Infe
   return sessionPromise;
 }
 
-/** Preprocess: resize to 1024x1024, normalize to [0,1], CHW format. */
+/** Preprocess: letterbox to 1024x1024 (aspect-preserving), normalize to [0,1], CHW format. */
 async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; w: number; h: number }> {
   const canvas = document.createElement('canvas');
   canvas.width = MODEL_SIZE;
   canvas.height = MODEL_SIZE;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Could not create canvas');
-  ctx.drawImage(img, 0, 0, MODEL_SIZE, MODEL_SIZE);
+  // Letterbox: scale to fit, center, pad with black (ISNet training preprocessing)
+  const scale = Math.min(MODEL_SIZE / img.naturalWidth, MODEL_SIZE / img.naturalHeight);
+  const dw = Math.round(img.naturalWidth * scale);
+  const dh = Math.round(img.naturalHeight * scale);
+  const dx = Math.floor((MODEL_SIZE - dw) / 2);
+  const dy = Math.floor((MODEL_SIZE - dh) / 2);
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, MODEL_SIZE, MODEL_SIZE);
+  ctx.drawImage(img, dx, dy, dw, dh);
   const imageData = ctx.getImageData(0, 0, MODEL_SIZE, MODEL_SIZE);
   const data = imageData.data;
   const float32 = new Float32Array(1 * 3 * MODEL_SIZE * MODEL_SIZE);
