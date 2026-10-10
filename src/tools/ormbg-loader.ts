@@ -67,10 +67,14 @@ async function preprocess(img: HTMLImageElement): Promise<{ tensor: ort.Tensor; 
   const data = imageData.data;
   const float32 = new Float32Array(1 * 3 * MODEL_SIZE * MODEL_SIZE);
   const n = MODEL_SIZE * MODEL_SIZE;
+  // U2Net expects BGR with ImageNet mean/std normalization (not RGB [0,1])
   for (let i = 0; i < n; i++) {
-    float32[i] = data[i * 4] / 255; // R
-    float32[n + i] = data[i * 4 + 1] / 255; // G
-    float32[2 * n + i] = data[i * 4 + 2] / 255; // B
+    const r = data[i * 4] / 255;
+    const g = data[i * 4 + 1] / 255;
+    const b = data[i * 4 + 2] / 255;
+    float32[i] = (b - 0.406) / 0.225; // B
+    float32[n + i] = (g - 0.456) / 0.224; // G
+    float32[2 * n + i] = (r - 0.485) / 0.229; // R
   }
   const tensor = new ort.Tensor('float32', float32, [1, 3, MODEL_SIZE, MODEL_SIZE]);
   return { tensor, w: img.naturalWidth, h: img.naturalHeight, dx, dy, dw, dh };
