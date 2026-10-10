@@ -144,7 +144,11 @@ export async function extractTextFromPdf(file: File): Promise<string> {
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const content = await page.getTextContent();
-    const lines = pdfItemsToLines(content.items);
+    const annotations = await page.getAnnotations();
+    const lines = appendPdfProjectLinks(
+      pdfItemsToLines(content.items),
+      annotations
+    );
     const text = lines.map((l) => l.replace(/\s+/g, ' ').trim()).filter((l) => l.length > 0).join('\n');
     if (text) pages.push(text);
   }
@@ -210,7 +214,7 @@ export function pdfItemsToLines(items: unknown[]): string[] {
     pageRight = Math.max(pageRight, item.x + Math.max(item.width, 0));
   }
   const pageWidth = pageRight - pageLeft;
-  const gutters: { x: number; row: number }[] = [];
+  const columnStarts: { x: number; row: number }[] = [];
   grouped.forEach((row, rowIndex) => {
     row.sort((a, b) => a.x - b.x || a.order - b.order);
     for (let i = 1; i < row.length; i++) {
@@ -219,14 +223,14 @@ export function pdfItemsToLines(items: unknown[]): string[] {
       const gap = right.x - (left.x + left.width);
       const fontSize = Math.max(left.fontSize, right.fontSize);
       if (gap >= Math.max(20, fontSize * 1.4)) {
-        gutters.push({ x: (left.x + left.width + right.x) / 2, row: rowIndex });
+        columnStarts.push({ x: right.x, row: rowIndex });
       }
     }
   });
 
   let splitX: number | null = null;
   if (pageWidth > 0) {
-    const candidates = gutters
+    const candidates = columnStarts
       .filter((g) => g.x > pageLeft + pageWidth * 0.3 && g.x < pageRight - pageWidth * 0.3)
       .sort((a, b) => a.x - b.x);
     const clusters: { xs: number[]; rowIds: Set<number> }[] = [];
@@ -239,8 +243,9 @@ export function pdfItemsToLines(items: unknown[]): string[] {
       cluster.xs.push(gutter.x);
       cluster.rowIds.add(gutter.row);
     }
+    const minColumnRows = Math.max(3, Math.ceil(grouped.length * 0.2));
     const repeated = clusters
-      .filter((cluster) => cluster.rowIds.size >= 2)
+      .filter((cluster) => cluster.rowIds.size >= minColumnRows)
       .sort((a, b) => b.rowIds.size - a.rowIds.size)[0];
     if (repeated) {
       const xs = [...repeated.xs].sort((a, b) => a - b);
@@ -375,18 +380,71 @@ const SECTION_DEFS: { re: RegExp; section: SectionKey }[] = [
   { re: /^courses?\s+(and|&)\s+training$/, section: 'courses' },
   { re: /^professional\s+development$/, section: 'courses' },
 ];
+const COMPACT_SECTION_DEFS = SECTION_DEFS.map(({ re, section }) => ({
+  re: new RegExp(re.source.replace(/\\s[+*?]?/g, ''), re.flags),
+  section,
+}));
 
 function detectSection(line: string): SectionKey | null {
   let clean = line.replace(/[:\s]+$/, '').trim();
-  // OCR and some PDFs space headers out: "P R O J E C T S" -> "PROJECTS".
-  if (/^([A-Z]\s+){2,}[A-Z]$/.test(clean)) clean = clean.replace(/\s+/g, '');
   // Strip decorative rules some templates put around headers: "-- SKILLS --".
   clean = clean.replace(/^[─━═\-–—_*#\s]+|[─━═\-–—_*#\s]+$/g, '').trim();
   if (clean.length === 0 || clean.length > 45) return null;
+  const lower = clean.toLowerCase();
+  const compact = lower.replace(/\s+/g, '');
   for (const def of SECTION_DEFS) {
-    if (def.re.test(clean.toLowerCase())) return def.section;
+    if (def.re.test(lower)) return def.section;
+  }
+  // Some PDF generators insert tracking spaces inside headings, sometimes
+  // mixed with normal letter pairs ("E D U C AT I O N"). Match the known
+  // heading vocabulary with whitespace removed, without rewriting body text.
+  for (const def of COMPACT_SECTION_DEFS) {
+    if (def.re.test(compact)) return def.section;
   }
   return null;
+}
+
+interface PdfLinkData {
+  subtype?: unknown;
+  url?: unknown;
+  overlaidText?: unknown;
+}
+
+/** Add clickable project URLs beside their visible labels before parsing. */
+export function appendPdfProjectLinks(lines: string[], annotations: unknown[]): string[] {
+  const projectLines: boolean[] = [];
+  let inProjects = false;
+  for (const line of lines) {
+    const section = detectSection(line);
+    if (section) inProjects = section === 'projects';
+    projectLines.push(inProjects && section === null);
+  }
+
+  const out = [...lines];
+  const nextMatchByLabel = new Map<string, number>();
+  for (const annotation of annotations) {
+    if (!annotation || typeof annotation !== 'object') continue;
+    const link = annotation as PdfLinkData;
+    if (
+      link.subtype !== 'Link' ||
+      typeof link.url !== 'string' ||
+      !/^https?:\/\//i.test(link.url) ||
+      typeof link.overlaidText !== 'string' ||
+      !link.overlaidText.trim()
+    ) continue;
+
+    const label = link.overlaidText.trim();
+    const searchFrom = nextMatchByLabel.get(label.toLowerCase()) ?? 0;
+    const index = out.findIndex((line, i) =>
+      i >= searchFrom &&
+      projectLines[i] &&
+      line.toLowerCase().includes(label.toLowerCase())
+    );
+    if (index < 0) continue;
+    if (!out[index].includes(link.url)) out[index] = `${out[index]} ${link.url}`;
+    nextMatchByLabel.set(label.toLowerCase(), index + 1);
+  }
+  return out;
 }
 
 const MONTH = 'Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
@@ -400,7 +458,7 @@ const DATE_RANGE_RE = new RegExp(`(${DATE})\\s*[\\u2013\\u2014-]\\s*(${DATE}|pre
  * hyphenated words and minus signs are not eaten. Returns null when the line
  * is not a bullet.
  */
-const UNICODE_BULLET_RE = /^[•·▪◦▸‣⁃]\s*/;
+const UNICODE_BULLET_RE = /^[•●·▪◦▸‣⁃]\s*/;
 const ASCII_BULLET_RE = /^(?:[*+>]|\d+[.)]|[-–—])\s+/;
 function stripBullet(line: string): string | null {
   const u = line.match(UNICODE_BULLET_RE);
@@ -427,7 +485,7 @@ const PHONE_RE = /(\+?\d[\d\s().-]{6,}\d)/;
 const LINKEDIN_RE = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/[^\s,;)]*/i;
 const URL_RE = /https?:\/\/[^\s,;)]+/i;
 const URL_RE_G = new RegExp(URL_RE.source, 'gi');
-const DOMAIN_RE = /(?<![@\w])([\w-]+\.(?:com|io|dev|design|net|org|co|app|me|info)\b[^\s,;)]*)/i;
+const DOMAIN_RE = /(?<![@\w])([\w-]+(?:\.[\w-]+)*\.(?:com|io|dev|design|net|org|co|app|me|info)\b[^\s,;)]*)/i;
 const LOCATION_RE = /([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*,\s*[A-Z]{2})\b/;
 const LOCATION_RE2 = /([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*,\s*[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,2})$/;
 const NAME_RE = /^([A-Z][a-z'’.-]+(?:\s+[A-Z][a-z'’.-]+){1,3})$/;
@@ -526,7 +584,9 @@ function parseContact(lines: string[], out: ParsedResume): void {
   const locStrip = out.location
     ? new RegExp(out.location.split(/,\s*/).map(escapeRegExp).join('\\s*[,/]\\s*'), 'i')
     : null;
-  for (let i = 0; i < lines.length; i++) {
+  const firstSection = lines.findIndex((line) => detectSection(line) !== null);
+  const headlineLimit = firstSection >= 0 ? firstSection : Math.min(lines.length, 5);
+  for (let i = 0; i < headlineLimit; i++) {
     if (used.has(i)) continue;
     let line = lines[i].replace(/\s*\/\s*/g, ', ');
     if (locStrip) line = line.replace(locStrip, ' ');
@@ -643,6 +703,8 @@ function splitEntries(lines: string[]): EntryBlock[] {
     while (s - 1 >= floor && guard++ < 8 && headers.length < (hasInlineHeader ? 1 : 2)) {
       const line = lines[s - 1];
       if (detectSection(line) || DATE_RANGE_RE.test(line)) break;
+      const previousContent = (stripBullet(line) ?? line).trim();
+      if (/^(?:GPA\b|ranked\b|top\s+\d+|distinguished award\b|general officer\b)/i.test(previousContent)) break;
       if (isBulletLine(line)) {
         if (headers.length === 0 && !hasInlineHeader) {
           skippedBullets.unshift(stripBullet(line)!.trim());
@@ -734,6 +796,12 @@ function splitCompanyLocation(s: string): [string, string] {
   if (parts.length >= 3 && /^[A-Z]{2}$/.test(parts[parts.length - 1])) {
     return [parts.slice(0, -2).join(', '), parts.slice(-2).join(', ')];
   }
+  if (
+    parts.length >= 3 &&
+    /^(India|Nepal|USA|U\.S\.A\.|United States|UK|United Kingdom|Canada|Australia|Singapore|Germany|France)$/i.test(parts[parts.length - 1])
+  ) {
+    return [parts.slice(0, -2).join(', '), parts.slice(-2).join(', ')];
+  }
   if (parts.length === 2) return [parts[0], parts[1]];
   return [s.trim(), ''];
 }
@@ -780,6 +848,16 @@ function bodyToBullets(bodyLines: string[]): string[] {
     if (t) bullets.push(t);
   }
   return bullets;
+}
+
+const ORGANIZATION_RE =
+  /\b(university|college|institute|school|company|corporation|corp\.?|inc\.?|llc|ltd\.?|laboratory|lab|department|agency|hospital|foundation|association|society|organization|centre|center)\b/i;
+
+function takeOrganizationLine(lines: string[]): { name: string; location: string } | null {
+  const first = lines[0]?.trim();
+  if (!first || first.length > 120 || !ORGANIZATION_RE.test(first) || stripBullet(first) !== null) return null;
+  const [name, location] = splitCompanyLocation(first);
+  return name ? { name, location } : null;
 }
 
 /**
@@ -867,7 +945,31 @@ function parseExperience(lines: string[]): ParsedWorkEntry[] {
       company = co;
       if (!location) location = loc;
     }
-    return { title, company, location, start, end, current, bullets: bodyToBullets(block.bodyLines) };
+    const body = [...block.bodyLines];
+    const nextRole = body[0]?.trim();
+    if (
+      !company &&
+      title &&
+      ORGANIZATION_RE.test(title) &&
+      nextRole &&
+      nextRole.length <= 80 &&
+      stripBullet(nextRole) === null &&
+      !DATE_RANGE_RE.test(nextRole) &&
+      !/[.!?]$/.test(nextRole)
+    ) {
+      company = title;
+      title = nextRole;
+      body.shift();
+    }
+    if (!company) {
+      const organization = takeOrganizationLine(body);
+      if (organization) {
+        company = organization.name;
+        if (!location) location = organization.location;
+        body.shift();
+      }
+    }
+    return { title, company, location, start, end, current, bullets: bodyToBullets(body) };
   }).filter((e) => e.title || e.company || e.bullets.length > 0);
 }
 
@@ -888,11 +990,28 @@ function parseEducation(lines: string[], schoolHint = '', sectionDate = ''): Par
     let school = schoolHint;
     let endYear = dateEnd;
     let location = dateLoc || block.trailingLocation;
+    let extraHeaderDetails: string[] = [];
     if (block.headerLines.length >= 2) {
-      degree = block.headerLines[0].trim();
-      const [sc, loc] = splitCompanyLocation(block.headerLines[1]);
-      if (!school) school = sc;
-      if (!location) location = loc;
+      const degreeIndex = block.headerLines.findIndex((line) => DEGREE_RE.test(line));
+      if (degreeIndex >= 0) {
+        degree = block.headerLines[degreeIndex].trim();
+        const schoolIndex = block.headerLines.findIndex((line, index) =>
+          index !== degreeIndex &&
+          !/^(?:GPA\b|ranked\b|top\s+\d+|distinguished\b|general officer\b|president\b)/i.test(line.trim())
+        );
+        if (schoolIndex >= 0) {
+          const [sc, loc] = splitCompanyLocation(block.headerLines[schoolIndex]);
+          if (!school) school = sc;
+          if (!location) location = loc;
+        }
+        extraHeaderDetails = block.headerLines.filter((_, index) => index !== degreeIndex && index !== schoolIndex);
+      } else {
+        degree = block.headerLines[0].trim();
+        const [sc, loc] = splitCompanyLocation(block.headerLines[1]);
+        if (!school) school = sc;
+        if (!location) location = loc;
+        extraHeaderDetails = block.headerLines.slice(2);
+      }
     } else if (block.headerLines.length === 1) {
       const line = block.headerLines[0];
       // "Bachelors' in Computer Science & Engineering Bengaluru, India":
@@ -933,6 +1052,8 @@ function parseEducation(lines: string[], schoolHint = '', sectionDate = ''): Par
             } else if (!school) {
               school = tail;
             }
+          } else if (DEGREE_RE.test(line)) {
+            degree = line.trim();
           } else if (!school) {
             school = line.trim();
           } else {
@@ -941,11 +1062,41 @@ function parseEducation(lines: string[], schoolHint = '', sectionDate = ''): Par
         }
       }
     }
+    const body = [...extraHeaderDetails, ...block.bodyLines];
+    if (!degree) {
+      const degreeIndex = body.findIndex((line) => {
+        const text = stripBullet(line) ?? line;
+        return DEGREE_RE.test(text) && !ORGANIZATION_RE.test(text);
+      });
+      if (degreeIndex >= 0) {
+        const text = (stripBullet(body[degreeIndex]) ?? body[degreeIndex]).trim();
+        const cityCountry = text.match(
+          /^(.*?)\s+((?:San Francisco|New York|Los Angeles|New Delhi|Mexico City|Kuala Lumpur|Hong Kong|Washington D\.?C\.?|St\. Louis|Salt Lake City|Rio de Janeiro|Buenos Aires|Cape Town|[A-Z][a-zA-Z.'-]*),\s*(?:[A-Z]{2}|[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?))$/
+        );
+        degree = cityCountry ? cityCountry[1].trim() : text;
+        if (!location && cityCountry) location = cityCountry[2].trim();
+        body.splice(degreeIndex, 1);
+      }
+    }
+    if (!school) {
+      const organizationIndex = body.findIndex((line) =>
+        line.length <= 120 &&
+        ORGANIZATION_RE.test(line) &&
+        stripBullet(line) === null &&
+        !/[.!?]$/.test(line)
+      );
+      if (organizationIndex >= 0) {
+        const [name, orgLocation] = splitCompanyLocation(body[organizationIndex]);
+        school = name;
+        if (!location) location = orgLocation;
+        body.splice(organizationIndex, 1);
+      }
+    }
     // Detail: dedupe repeated lines and keep only the first GPA mention so
     // conflicting duplicates can't both show up.
     const seen = new Set<string>();
     let gpaSeen = false;
-    const detail = block.bodyLines
+    const detail = body
       .map((l) => {
         const b = stripBullet(l);
         return (b !== null ? b : l).trim();
@@ -970,18 +1121,38 @@ function parseSkills(lines: string[]): ParsedSkillGroup[] {
   // "C/C++" splits into C and C++; single capital letters are kept so neither
   // half (nor single-letter skills like R) is dropped. "Python:PyTorch"
   // sub-categories split on the colon too (URLs are left alone).
-  const splitItems = (s: string): string[] =>
-    s
-      .split(/[,;•·|/]/)
+  const splitItems = (s: string): string[] => {
+    const parts: string[] = [];
+    let item = '';
+    let parentheses = 0;
+    for (const char of s.replace(/\bC\/C\+\+/g, 'C, C++')) {
+      if (char === '(') parentheses++;
+      else if (char === ')') parentheses = Math.max(0, parentheses - 1);
+      if (parentheses === 0 && /[,;•·|]/.test(char)) {
+        parts.push(item);
+        item = '';
+      } else {
+        item += char;
+      }
+    }
+    parts.push(item);
+    return parts
       .flatMap((x) => (/https?:\/\//i.test(x) ? [x] : x.split(':')))
       .map((x) => x.trim().replace(/[.]+$/, ''))
       .filter((x, i, arr) => (x.length > 1 || /^[A-Za-z]$/.test(x)) && arr.indexOf(x) === i);
+  };
   for (const line of lines) {
     const colon = line.indexOf(':');
     if (colon > 0 && colon <= 40) {
       current = { label: stripLineBullet(line.slice(0, colon).trim()), items: splitItems(line.slice(colon + 1)) };
       groups.push(current);
     } else {
+      const category = line.match(/^(Programming Languages|Methods|Languages|Tools|Frameworks|Platforms|Technologies|Databases)\s+(.+)$/i);
+      if (category) {
+        current = { label: category[1], items: splitItems(category[2]) };
+        groups.push(current);
+        continue;
+      }
       const items = splitItems(stripLineBullet(line));
       if (items.length === 0) continue;
       if (!current) {
@@ -1010,11 +1181,24 @@ function parseProjects(lines: string[]): ParsedProjectEntry[] {
       current.detail = current.detail ? `${current.detail} · ${text}` : text;
       continue;
     }
-    if (!isBullet && (!current || current.detail || current.bullets.length > 0)) {
-      const url = line.match(URL_RE);
+    const urls = [...line.matchAll(URL_RE_G)].map((match) => match[0]);
+    const bareDomain = urls.length === 0 ? line.match(DOMAIN_RE)?.[0] : undefined;
+    const url = urls[0] ?? bareDomain ?? null;
+    const linkedProjectStarts = !isBullet && url !== null;
+    const unlinkedProjectStarts =
+      !isBullet && current !== null && !current.link && (current.detail.length > 0 || current.bullets.length > 0);
+    if (!isBullet && (!current || linkedProjectStarts || unlinkedProjectStarts)) {
+      const name = url
+        ? line
+            .replace(URL_RE_G, '')
+            .replace(DOMAIN_RE, '')
+            .replace(/\s*(?:live demo|view demo|github|portfolio)\s*$/i, '')
+            .replace(/[·|()\s]+$/, '')
+            .trim()
+        : line.trim();
       current = {
-        name: url ? line.replace(url[0], '').replace(/[·|()\s]+$/, '').trim() || line.trim() : line.trim(),
-        link: url ? url[0].replace(/\/$/, '') : '',
+        name: name || line.trim(),
+        link: url ? url.replace(/\/$/, '') : '',
         detail: '',
         bullets: [],
       };
@@ -1033,7 +1217,8 @@ const AWARD_LINE_RE = /\b(award|prize|honou?rs?|distinction|fellowship|scholarsh
  * ("Distinguished Graduate Award") is pulled. A bulleted "Graduated with
  * honors" reads as an education detail, so it stays. */
 const BULLET_AWARD_RE = /\b(award|prize|fellowship|scholarship|dean'?s list)\b/i;
-const DEGREE_RE = /\b(B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D\.?|bachelor'?s?|master'?s?|doctorate|MBA)\b/i;
+const DEGREE_RE =
+  /\b(B\.?S\.?|B\.?A\.?|B\.?E\.?|M\.?S\.?|M\.?A\.?|M\.?E\.?|Ph\.?D\.?|bachelors?['’]?|masters?['’]?|doctorate|MBA)\b/i;
 
 /**
  * Pull award-like lines out of a section's lines (they belong in Awards).

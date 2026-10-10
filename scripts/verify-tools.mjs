@@ -101,6 +101,7 @@ import {
   parseResumeText,
   parsedToResumeData,
   pdfItemsToLines,
+  appendPdfProjectLinks,
 } from '../src/lib/resume-import.ts';
 import { reviewResumeWriting } from '../src/lib/resume-writing-review.ts';
 import { getParseMode } from '../src/lib/resume-ai-parse.ts';
@@ -1055,17 +1056,17 @@ console.log('== resume-core ==');
   })());
 
   // templates
-  ok('three templates defined', TEMPLATES.length === 3);
-  ok('template ids are classic/modern/compact',
-    JSON.stringify(TEMPLATES.map((t) => t.id)) === '["classic","modern","compact"]');
+  ok('four templates defined, including ATS Clean', TEMPLATES.length === 4 && TEMPLATES[0].id === 'ats');
+  ok('template ids are ats/classic/modern/compact',
+    JSON.stringify(TEMPLATES.map((t) => t.id)) === '["ats","classic","modern","compact"]');
   ok('every template has an ATS note', TEMPLATES.every((t) => t.atsNote.length > 10));
-  ok('isTemplateId accepts known ids', isTemplateId('classic') && isTemplateId('modern') && isTemplateId('compact'));
+  ok('isTemplateId accepts known ids', isTemplateId('ats') && isTemplateId('classic') && isTemplateId('modern') && isTemplateId('compact'));
   ok('isTemplateId rejects junk', !isTemplateId('fancy') && !isTemplateId('') && !isTemplateId(null));
   ok('every template describes a single-column layout',
     TEMPLATES.every((t) => /single.column/i.test(t.description) && /single.column/i.test(t.atsNote)));
 
   // rendering
-  for (const t of ['classic', 'modern', 'compact']) {
+  for (const t of ['ats', 'classic', 'modern', 'compact']) {
     const html = renderResume(example, t);
     ok(`${t} renders the name`, html.includes('Sam Rivera'));
     ok(`${t} renders work experience`, html.includes('Northwind Mobile') && html.includes('Work Experience'));
@@ -1080,6 +1081,9 @@ console.log('== resume-core ==');
   ok('modern uses the same single-column structure', !modern.includes('rs-side') && !modern.includes('rs-mod'));
   ok('modern preserves all sections in reading order',
     modern.includes('Studio Interaction Design Award') && modern.includes('Design Mentor'));
+  const ats = renderResume(example, 'ats');
+  ok('ATS Clean renders a standard left-aligned header and conventional sections',
+    ats.includes('rs-head-left') && ats.includes('Work Experience') && ats.includes('Education'));
 
   // section visibility toggles
   const hidden = exampleResume();
@@ -1298,6 +1302,42 @@ console.log('== resume-import ==');
       columnParsed.projects.length === 1,
     `${JSON.stringify(columnLines)} ${JSON.stringify(columnParsed)}`
   );
+  const alignedMetadata = pdfItemsToLines([
+    { str: 'Education', transform: [10, 0, 0, 10, 72, 720], width: 70 },
+    { str: 'M.S. Data Science', transform: [10, 0, 0, 10, 72, 700], width: 130 },
+    { str: '2020 – 2022', transform: [10, 0, 0, 10, 468, 700], width: 75 },
+    { str: 'Northern University', transform: [10, 0, 0, 10, 72, 680], width: 145 },
+    { str: 'Boston, MA', transform: [10, 0, 0, 10, 468, 680], width: 62 },
+    { str: 'Experience', transform: [10, 0, 0, 10, 72, 660], width: 85 },
+    { str: 'Research Assistant', transform: [10, 0, 0, 10, 72, 640], width: 130 },
+    { str: 'Published three analyses.', transform: [10, 0, 0, 10, 72, 620], width: 180 },
+  ]);
+  ok(
+    'sparse right-aligned dates and locations stay with their resume entries',
+    alignedMetadata.some((line) => line.includes('M.S. Data Science') && line.includes('2020 – 2022')) &&
+    alignedMetadata.some((line) => line.includes('Northern University') && line.includes('Boston, MA')),
+    JSON.stringify(alignedMetadata)
+  );
+  const linkedProjectLines = appendPdfProjectLinks(
+    ['PROJECTS', 'Portfolio Project Live Demo', 'Second Project Live Demo', 'CERTIFICATIONS', 'DataCamp'],
+    [
+      { subtype: 'Link', url: 'https://github.com/example/portfolio', overlaidText: 'Portfolio Project' },
+      { subtype: 'Link', url: 'https://portfolio.example.app', overlaidText: 'Live Demo' },
+      { subtype: 'Link', url: 'https://github.com/example/second', overlaidText: 'Second Project' },
+      { subtype: 'Link', url: 'https://second.example.app', overlaidText: 'Live Demo' },
+      { subtype: 'Link', url: 'https://certificate.example', overlaidText: 'DataCamp' },
+    ]
+  );
+  const linkedProjects = parseResumeText(linkedProjectLines.join('\n')).projects;
+  ok(
+    'PDF project annotations restore links without leaving link labels in titles',
+    linkedProjects[0]?.name === 'Portfolio Project' &&
+    linkedProjects[0]?.link === 'https://github.com/example/portfolio' &&
+    linkedProjects[1]?.name === 'Second Project' &&
+    linkedProjects[1]?.link === 'https://github.com/example/second' &&
+    !linkedProjectLines[4].includes('certificate.example'),
+    JSON.stringify({ linkedProjectLines, linkedProjects })
+  );
   const aliasParsed = parseResumeText(
     ['Jordan Lee', 'Career History', 'Engineer @ Acme', '2020 - 2022', 'Core Skills', 'SQL, Python'].join('\n')
   );
@@ -1306,7 +1346,122 @@ console.log('== resume-import ==');
     aliasParsed.experience[0]?.company === 'Acme' && aliasParsed.skills.length > 0,
     JSON.stringify(aliasParsed)
   );
+  const noHeadlineFromEducation = parseResumeText([
+    'Jordan Lee',
+    'jordan@example.com',
+    'EDUCATION',
+    'Northern Research University',
+    '2020 – 2022',
+  ].join('\n'));
+  ok(
+    'headline detection does not reuse an education or employer name',
+    noHeadlineFromEducation.title === '',
+    JSON.stringify(noHeadlineFromEducation)
+  );
+  const trackedHeaders = parseResumeText([
+    'Jordan Lee',
+    'W O R K E X P E R I E N C E',
+    'Engineer',
+    'Acme',
+    '2020 - 2022',
+    'E D U C AT I O N',
+    'B.S. Computer Science',
+    'State University',
+    '2016 - 2020',
+    'S K I L L S',
+    'Python, SQL',
+  ].join('\n'));
+  ok('tracking-spaced PDF headings preserve experience, education, and skills',
+    trackedHeaders.experience.length === 1 &&
+    trackedHeaders.education.length === 1 &&
+    trackedHeaders.skills.length === 1,
+    JSON.stringify(trackedHeaders));
+  const institutionLayout = parseResumeText([
+    'Jordan Lee',
+    'WORK EXPERIENCE',
+    'Research Assistant',
+    'Feb 2022 – May 2024',
+    'Northern Research University, Boston, MA',
+    'Published three analyses for clinical teams.',
+    'EDUCATION',
+    'M.S. Applied Statistics 2020 – 2022',
+    'Northern Research University, Boston, MA',
+    'GPA 3.9/4.0; Distinguished Graduate Award; General Officer, Data Science Society.',
+    'B.E. Computer Science 2018 – 2020',
+    'Eastern Institute of Technology, Kathmandu, Nepal',
+    'SKILLS',
+    'Methods Bayesian modeling, A/B testing',
+    'Languages Python, SQL',
+    'PROJECTS',
+    'Forecast Dashboard github.com/jordan/forecast',
+    'Python',
+    'Cut reporting time by 40% across 12 teams.',
+    'Clinical Study Dashboard github.com/jordan/clinical',
+    'R',
+    'Improved cohort review speed by 30%.',
+  ].join('\n'));
+  ok('date-led work and education attach institutions after the date',
+    institutionLayout.experience[0]?.company === 'Northern Research University' &&
+    institutionLayout.education[0]?.degree === 'M.S. Applied Statistics' &&
+  institutionLayout.education[0]?.school === 'Northern Research University' &&
+  institutionLayout.education[0]?.detail.includes('GPA 3.9/4.0') &&
+  institutionLayout.education[1]?.degree === 'B.E. Computer Science' &&
+  institutionLayout.education[1]?.school === 'Eastern Institute of Technology' &&
+  institutionLayout.education[1]?.location === 'Kathmandu, Nepal' &&
+  !institutionLayout.education[1]?.detail.includes('GPA 3.9/4.0'),
+    JSON.stringify(institutionLayout));
+  const schoolFirstLayout = parseResumeText([
+    'Jordan Lee',
+    'EDUCATION',
+    'State University 08/2024 – 06/2026',
+    "Masters' in Statistical Data Science San Francisco, CA",
+    '● GPA: 4.0/4.0',
+    'Eastern Institute of Technology 08/2019 – 06/2023',
+    "Bachelors' in Computer Science Bengaluru, India",
+    'WORK EXPERIENCE',
+    'San Francisco State University Feb. 2025 – Present',
+    'Graduate Assistant',
+    '● Presented research at a conference.',
+  ].join('\n'));
+  ok(
+    'school-first date rows recover degrees, locations, and role titles',
+    schoolFirstLayout.education[0]?.school === 'State University' &&
+    schoolFirstLayout.education[0]?.degree === "Masters' in Statistical Data Science" &&
+    schoolFirstLayout.education[0]?.location === 'San Francisco, CA' &&
+    schoolFirstLayout.education[0]?.detail.includes('GPA: 4.0/4.0') &&
+    schoolFirstLayout.education[1]?.school === 'Eastern Institute of Technology' &&
+    schoolFirstLayout.education[1]?.degree === "Bachelors' in Computer Science" &&
+    schoolFirstLayout.education[1]?.location === 'Bengaluru, India' &&
+    schoolFirstLayout.experience[0]?.title === 'Graduate Assistant' &&
+    schoolFirstLayout.experience[0]?.company === 'San Francisco State University',
+    JSON.stringify(schoolFirstLayout)
+  );
+  ok('PDF skills categories and linked projects survive wrapped detail lines',
+    institutionLayout.skills.map((g) => g.label).join('|') === 'Methods|Languages' &&
+    institutionLayout.projects.length === 2 &&
+    institutionLayout.projects[0].link === 'github.com/jordan/forecast' &&
+    institutionLayout.projects[0].detail.includes('Cut reporting time'),
+    JSON.stringify(institutionLayout));
+  const skillGrouping = parseResumeText([
+    'Jordan Lee',
+    'SKILLS',
+    'Methods Bayesian A/B testing, causal inference',
+    'Languages Python (PyTorch, TensorFlow, scikit-learn)',
+    'Tools C/C++, Git/GitHub',
+  ].join('\n')).skills;
+  ok('skills keep slash phrases and parenthetical frameworks intact',
+    skillGrouping[0]?.items.includes('Bayesian A/B testing') === true &&
+    skillGrouping[1]?.items.includes('Python (PyTorch, TensorFlow, scikit-learn)') === true &&
+    skillGrouping[2]?.items.includes('C') === true &&
+    skillGrouping[2]?.items.includes('C++') === true,
+    JSON.stringify(skillGrouping));
   ok('default resume import does not opt into the large local model', getParseMode() === 'heuristic');
+  const localAi = readFileSync(join(ROOT, 'src/lib/resume-local-ai.ts'), 'utf8');
+  ok('on-device resume model loads the published root fp32 ONNX artifact',
+    localAi.includes("dtype: 'fp32'") &&
+    localAi.includes("subfolder: ''") &&
+    localAi.includes("model_file_name: 'model'") &&
+    !localAi.includes("dtype: 'q8'"));
 }
 
 console.log('== resume-import messy resumes ==');
@@ -2845,6 +3000,13 @@ console.log('== coverage honesty note (not pass/fail) ==');
 console.log('== responsive / mobile checks (static) ==');
 {
   const css = readFileSync(join(ROOT, 'src/styles/global.css'), 'utf8');
+  const resumeHeadingRule = css.match(/\.rs-sec-t\s*\{([^}]*)\}/)?.[1] ?? '';
+  ok('resume section headings do not add letter spacing or uppercase transformations',
+    /letter-spacing:\s*0/.test(resumeHeadingRule) && /text-transform:\s*none/.test(resumeHeadingRule));
+  ok('ATS Clean uses a plain sans-serif, block-flow resume layout',
+    /\.resume-ats\s*\{[^}]*font-family:\s*Arial/.test(css) &&
+    /\.resume-ats \.rs-item-head\s*\{\s*display:\s*block/.test(css) &&
+    /\.resume-ats \.rs-skill\s*\{\s*display:\s*block/.test(css));
   const layout = readFileSync(join(ROOT, 'src/layouts/BaseLayout.astro'), 'utf8');
   // Form controls must be >= 16px so iOS Safari does not auto-zoom on focus.
   const formRule = css.match(/input\[type="text"\][\s\S]*?font-size:\s*([\d.]+)rem/);

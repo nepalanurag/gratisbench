@@ -11,7 +11,7 @@ export const TEMPLATE_STORAGE_KEY = 'freekit.resume-builder.template';
 /** Separate key that keeps a copy of any stored blob the loader had to discard. */
 export const RESUME_BACKUP_KEY = 'freekit.resume-builder.v1.backup';
 
-export type TemplateId = 'classic' | 'modern' | 'compact';
+export type TemplateId = 'ats' | 'classic' | 'modern' | 'compact';
 
 /** Every renderable block of the resume. Contact is the header; the rest are sections. */
 export type SectionKey =
@@ -401,6 +401,13 @@ export interface ResumeTemplate {
 
 export const TEMPLATES: ResumeTemplate[] = [
   {
+    id: 'ats',
+    name: 'ATS Clean',
+    tagline: 'Simple, readable, and parser-friendly',
+    description: 'A single-column sans-serif layout with standard headings, plain text hierarchy, and no decorative graphics.',
+    atsNote: 'Recommended for applicant tracking systems: a single column, familiar section names, and straightforward reading order.',
+  },
+  {
     id: 'classic',
     name: 'Classic',
     tagline: 'Traditional and familiar',
@@ -424,7 +431,7 @@ export const TEMPLATES: ResumeTemplate[] = [
 ];
 
 export function isTemplateId(v: unknown): v is TemplateId {
-  return v === 'classic' || v === 'modern' || v === 'compact';
+  return v === 'ats' || v === 'classic' || v === 'modern' || v === 'compact';
 }
 
 export function isSectionKey(v: unknown): v is SectionKey {

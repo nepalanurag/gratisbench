@@ -45,11 +45,6 @@ export async function smartParseResume(
   onProgress?: SmartParseProgress
 ): Promise<ParsedResume | null> {
   if (getParseMode() !== 'local') return null;
-  try {
-    const parsed = await localAiParseResume(text, onProgress);
-    return parsed && hasParsedContent(parsed) ? parsed : null;
-  } catch {
-    // The import UI reports the fallback and uses the standard local parser.
-    return null;
-  }
+  const parsed = await localAiParseResume(text, onProgress);
+  return parsed && hasParsedContent(parsed) ? parsed : null;
 }

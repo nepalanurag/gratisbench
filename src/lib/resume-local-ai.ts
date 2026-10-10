@@ -1,9 +1,9 @@
 // On-device resume parsing with a BERT named-entity model via Transformers.js.
 //
-// The model (an ONNX build of yashpwr/resume-ner-bert-v2, Apache 2.0 — see
-// ~/workspace/gratisbench-overhaul/RESUME_AI_MODEL.md) labels tokens as names,
-// emails, job titles, companies, skills, and so on. It is downloaded once
-// (~430 MB for the full-precision ONNX build; cached by the browser after)
+// The model (an ONNX build of yashpwr/resume-ner-bert-v2, Apache 2.0) labels
+// tokens as names, emails, job titles, companies, skills, and so on. The
+// repository publishes a 431 MB full-precision ONNX file at its root; it is
+// downloaded only after the user opts in and cached by the browser after.
 // and runs fully on-device with WebAssembly, so the resume text never leaves
 // the browser.
 //
@@ -21,10 +21,9 @@ import { parseResumeText, splitResumeSections } from './resume-import.ts';
 export type LocalAiProgress = (fraction: number, label: string) => void;
 
 /**
- * ONNX build of the resume NER model from the research doc. The upstream repo
- * ships only PyTorch weights, so this points at a community ONNX conversion;
- * swap it when an official (ideally INT8-quantized) export lands.
- * loadModel() tries a quantized build first and falls back to full precision.
+ * ONNX build of the resume NER model. Its full-precision artifact is published
+ * as `model.onnx` at the repository root rather than under `onnx/`; specify
+ * both explicitly so Transformers.js does not request a missing quantized file.
  */
 const MODEL_ID = 'scottgal/resume-ner-bert-v2-onnx';
 
@@ -99,18 +98,12 @@ async function loadModel(onProgress?: LocalAiProgress): Promise<LoadedModel> {
           seen.delete(key);
         }
       };
-      let classifier: (text: string) => Promise<unknown>;
-      try {
-        // Prefer a quantized build when one is published (much smaller download).
-        classifier = (await loadPipe('token-classification', MODEL_ID, {
-          dtype: 'q8',
-          progress_callback,
-        })) as (text: string) => Promise<unknown>;
-      } catch {
-        classifier = (await loadPipe('token-classification', MODEL_ID, {
-          progress_callback,
-        })) as (text: string) => Promise<unknown>;
-      }
+      const classifier = (await loadPipe('token-classification', MODEL_ID, {
+        dtype: 'fp32',
+        subfolder: '',
+        model_file_name: 'model',
+        progress_callback,
+      })) as (text: string) => Promise<unknown>;
       const tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID);
       return {
         classify: async (text: string): Promise<NerToken[]> => {

@@ -55,7 +55,7 @@ const lede =
     },
     {
       q: 'Which template is best for applicant tracking systems (ATS)?',
-      a: 'All three templates use a single column, standard section headings, and no graphics or text boxes. These choices are generally easier for parsers to read, but no template can guarantee perfect ATS parsing because systems differ. Choose the visual style you prefer and review the exported PDF before applying.',
+      a: 'All four templates use a single column and standard section headings. ATS Clean also uses plain sans-serif type and block-flow entries for predictable reading order. These choices are generally easier for parsers to read, but no template can guarantee perfect ATS parsing because systems differ. Review the exported PDF before applying.',
     },
     {
       q: 'What is the pay-to-download trap?',
@@ -100,7 +100,7 @@ const lede =
           <input type="radio" name="rb-parse-mode" id="rb-mode-local" value="local" />
           <label for="rb-mode-local">Download and use the on-device model</label>
         </div>
-        <p class="hint">This downloads about 430 MB the first time you choose it. It then runs offline and keeps your resume on this device.</p>
+        <p class="hint">This downloads the 431 MB full-precision model the first time you choose it. It then runs offline; your resume stays on this device.</p>
         <div class="field checkline">
           <input type="radio" name="rb-parse-mode" id="rb-mode-heuristic" value="heuristic" />
           <label for="rb-mode-heuristic">Standard reader (no AI model)</label>
@@ -122,27 +122,39 @@ const lede =
     <div class="resume-toolbar no-print">
       <div class="rb-templates" role="radiogroup" aria-label="Choose a template">
         <label class="rb-template">
-          <input type="radio" name="rb-template" value="classic" checked />
+          <input type="radio" name="rb-template" value="ats" checked />
+          <span class="rb-template-thumb rb-template-thumb-ats" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <span>
+            <strong>ATS Clean <span class="rb-recommended">Recommended</span></strong>
+            <small>Plain, readable type and predictable reading order.</small>
+            <span class="rb-ats">Single column · standard section names</span>
+          </span>
+        </label>
+        <label class="rb-template">
+          <input type="radio" name="rb-template" value="classic" />
+          <span class="rb-template-thumb rb-template-thumb-classic" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
           <span>
             <strong>Classic</strong>
-            <small>Traditional single-column serif layout. The familiar resume shape.</small>
-            <span class="rb-ats">Single column with standard headings</span>
+            <small>Warm serif type with a centered name.</small>
+            <span class="rb-ats">Single column · standard headings</span>
           </span>
         </label>
         <label class="rb-template">
           <input type="radio" name="rb-template" value="modern" />
+          <span class="rb-template-thumb rb-template-thumb-modern" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
           <span>
             <strong>Modern</strong>
-            <small>Single-column sans-serif layout with clear hierarchy and standard section headings.</small>
-            <span class="rb-ats">Single column; parsing varies by system</span>
+            <small>Clear sans-serif type with a teal accent.</small>
+            <span class="rb-ats">Single column · standard headings</span>
           </span>
         </label>
         <label class="rb-template">
           <input type="radio" name="rb-template" value="compact" />
+          <span class="rb-template-thumb rb-template-thumb-compact" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
           <span>
             <strong>Compact</strong>
-            <small>Readable single-column layout with tighter spacing; may flow onto extra pages.</small>
-            <span class="rb-ats">Single column with standard headings</span>
+            <small>Efficient spacing for information-dense resumes.</small>
+            <span class="rb-ats">Single column · standard headings</span>
           </span>
         </label>
       </div>

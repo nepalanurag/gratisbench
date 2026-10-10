@@ -239,9 +239,9 @@ export function initResumeBuilder(): void {
   function loadTemplate(): TemplateId {
     try {
       const v = localStorage.getItem(TEMPLATE_STORAGE_KEY);
-      return isTemplateId(v) ? v : 'classic';
+      return isTemplateId(v) ? v : 'ats';
     } catch {
-      return 'classic';
+      return 'ats';
     }
   }
 

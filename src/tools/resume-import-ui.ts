@@ -34,6 +34,7 @@ export function initResumeImport(): void {
   const drop = el('rb-import-drop');
   let parsedDraft: ParsedResume | null = null;
   let working = false;
+  let parseNotice = '';
 
   const ROOT_FIELDS: [keyof ParsedResume, string][] = [
     ['fullName', 'Name'],
@@ -137,15 +138,24 @@ export function initResumeImport(): void {
   /** Smart parsing when the user picked it, else the heuristic parser. */
   async function parseWithAiOrHeuristic(text: string): Promise<ParsedResume> {
     const mode = getParseMode();
+    parseNotice = '';
     if (mode !== 'heuristic') {
       showStatus(mode === 'local' ? 'Reading your resume on this device…' : 'Reading your resume with AI…', true);
-      const smart = await smartParseResume(text, (fraction, label) => {
-        showStatus(`${label} — ${Math.round(fraction * 100)}%`, true);
-      });
-      if (smart && hasParsedContent(smart)) {
-        return smart;
+      try {
+        const smart = await smartParseResume(text, (fraction, label) => {
+          showStatus(`${label} — ${Math.round(fraction * 100)}%`, true);
+        });
+        if (smart && hasParsedContent(smart)) {
+          parseNotice = 'The on-device model was used.';
+          return smart;
+        }
+        parseNotice = 'The on-device model found no reliable fields; the standard reader was used.';
+        showStatus(parseNotice);
+      } catch (err) {
+        const detail = err instanceof Error ? ` (${err.message})` : '';
+        parseNotice = `Could not load or run the on-device model${detail}; the standard reader was used.`;
+        showStatus(parseNotice);
       }
-      showStatus('Smarter reading did not work. Using standard reading instead…');
     }
     return parseResumeText(text);
   }
@@ -224,7 +234,8 @@ export function initResumeImport(): void {
       }
       review.hidden = false;
       review.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      showStatus(`Read ${file.name}. Check the details below, then use them or discard and start blank.`);
+      const notice = parseNotice ? ` ${parseNotice}` : '';
+      showStatus(`Read ${file.name}. Check the details below, then use them or discard and start blank.${notice}`);
     } catch (err) {
       fail(err instanceof Error ? err.message : 'Could not read that file.');
     } finally {
