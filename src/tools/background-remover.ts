@@ -173,7 +173,7 @@ async function extractMask(cutout: Blob, imgW: number, imgH: number): Promise<HT
       out.data[i] = a;
       out.data[i + 1] = a;
       out.data[i + 2] = a;
-      out.data[i + 3] = 255;
+      out.data[i + 3] = a;
     }
     mctx.putImageData(out, 0, 0);
     return mask;
